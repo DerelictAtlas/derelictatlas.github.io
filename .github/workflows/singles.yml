@@ -1,0 +1,36 @@
+# Publishes visitor-scanned single systems: open issues labelled "single-scan" -> recompute every address (found and
+# "none") with the site's own W29 scanner (scan/, Node, one process per CPU) -> full rows (post-1M: only systems that
+# break into a top-100 list) -> singles/, index/singles.csv, views/singles-extras.csv, singles/none.csv,
+# singles/held.csv -> ONE commit -> comment + close the finished issues. Details: tools/singles/README.md.
+# Security: no step reads issue text or any event payload value; tools/singles/singles.py fetches the issues itself
+# through the API and only matches strict address patterns.
+name: singles
+
+on:
+  schedule:
+    - cron: "7 * * * *"          # hourly, minute 7
+  workflow_dispatch:
+
+permissions:
+  contents: write                # commit + push singles/, index/singles.csv, views/singles-extras.csv
+  issues: write                  # comment on + close the processed single-scan issues
+  pages: write                   # request a Pages build after the push (POST /repos/{owner}/{repo}/pages/builds)
+
+concurrency:                     # never two runs at once; a run started meanwhile waits (it never cancels this one)
+  group: singles
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90          # scanning stops starting new systems after SINGLES_SCAN_MINUTES (action.sh)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Publish single-scan issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SINGLES_SCAN_MINUTES: "55"
+        run: bash tools/singles/action.sh
