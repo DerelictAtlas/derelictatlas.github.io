@@ -1,0 +1,5 @@
+# nms-derelict-atlas singles format 1: galaxy 0
+# generator singles-action 1 (w29g scan wasm, tables 179082 bytes, map 83742 bytes, tables fingerprint b93f4648ae1ce158); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-01T18:26:33Z
+# inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
+glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
+00B8CA425BE6,MEDI_TURRETS,11,14,11,4,3,3,18,32,Salvaged Fleet Mining Unit,A,0,,2,0,1,12.21,,R_S_BARR:0/2|R_BARR:1/5|B_BARR:0/0|R_HANG:0/1|R_MEDI:3/2|B_BARR:0/0|R_MEDI:3/0|B_BARR:1/0|R_MEDI:4/1|B_BARR:1/0|R_END:1/0,a46816f3c984bd82
