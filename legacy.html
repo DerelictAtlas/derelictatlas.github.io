@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Derelict Atlas</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="site-integration.css">
+  <script src="config.js"></script>
+  <script src="site-index.js"></script>
+  <script src="gate.js"></script>
+  <script src="names.js"></script>
+  <script src="credits.js"></script>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/">Derelict Atlas <span class="muted">NMS 7.05</span></a>
+    <form id="gen-form" class="gen" autocomplete="off">
+      <input id="gen-input" placeholder="Glyph code (12 hex) or address (16 hex)" spellcheck="false" maxlength="24">
+      <select id="gen-galaxy" title="Galaxy (for glyph codes)">
+        <option value="0">Euclid</option>
+      </select>
+      <button type="submit">Generate</button>
+      <span id="gen-status" class="muted"></span>
+    </form>
+    <label class="glyph-mode" title="Show portal addresses as the game's glyph icons or as hex digits">Glyphs
+      <select id="glyph-mode"><option value="icons">Icons</option><option value="hex">Hex</option></select></label>
+  </header>
+  <main id="app"></main>
+  <div id="tip" class="tip" hidden></div>
+  <script src="model.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

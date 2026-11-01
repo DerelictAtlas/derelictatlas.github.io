@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=auto,interactive-widget=resizes-content">
+  <meta name="theme-color" content="#07131e"><meta name="description" content="Explore the No Man’s Sky derelict atlas, compare loot totals and predicted modules, and follow ladders across every deck.">
+  <title>The Derelict Atlas · No Man’s Sky</title>
+  <link rel="icon" href="brand/icon-64.png" type="image/png"><link rel="apple-touch-icon" href="brand/icon-180.png"><link rel="stylesheet" href="modern.css"><link rel="stylesheet" href="desktop.css">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="website"><meta property="og:site_name" content="NMS Derelict Atlas">
+  <meta property="og:title" content="NMS Derelict Atlas"><meta property="og:description" content="Derelict freighter layouts for No Man's Sky: every deck, loot totals, predicted Salvaged Frigate Modules, item value, nanites and the SpookBox. Unofficial fan project.">
+  <meta property="og:url" content="https://derelictatlas.github.io/"><meta property="og:image" content="https://derelictatlas.github.io/preview.png">
+  <meta property="og:image:width" content="800"><meta property="og:image:height" content="420">
+  <meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://derelictatlas.github.io/preview.png">
+  <link rel="stylesheet" href="site-integration.css">
+  <script src="config.js"></script>
+  <script src="site-index.js"></script>
+  <script src="gate.js"></script>
+  <script src="names.js"></script>
+  <script src="credits.js"></script>
+  <script src="site-integration.js"></script>
+  <script src="site-stats.js"></script>
+  <script src="site-toplists.js"></script>
+  <script src="site-scan.js"></script>
+  <script src="site-welcome.js"></script><script src="site-loot.js"></script><script src="site-quickloot.js"></script>
+  <script src="site-info.js"></script>
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
+</head>
+<body data-tab="systems">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="app-header">
+    <a class="brand" href="#/" aria-label="Derelict Atlas home"><img class="brand-module" src="brand/logo-128.webp" width="44" height="44" alt=""><span><small>NO MAN’S SKY</small>DERELICT ATLAS</span></a>
+    <div class="header-tools"><span class="header-count" title="Systems in the current atlas"><b id="system-count">—</b><small><i id="atlas-spinner" class="atlas-spinner" aria-hidden="true"></i><span id="atlas-status" role="status">Loading atlas…</span></small></span><span class="coffee-slot"><a id="support-link" class="icon-button header-coffee" title="Buy me a coffee" aria-label="Buy me a coffee (opens in a new tab)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z M16 9h2a3 3 0 0 1 0 6h-2 M8 3v2 M12 2v3 M2 22h18"/></svg></a><button id="support-unconfigured" class="icon-button header-coffee" type="button" disabled title="Coffee support link not connected yet" aria-label="Buy me a coffee — support link not connected yet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z M16 9h2a3 3 0 0 1 0 6h-2 M8 3v2 M12 2v3 M2 22h18"/></svg></button></span><button id="info-button" class="icon-button" title="Viewer information" aria-label="Viewer information"></button></div>
+  </header>
+  <main id="main" class="workspace" tabindex="-1">
+    <section id="viewer" class="viewer-panel" aria-label="Derelict viewer">
+      <div id="viewer-empty" class="empty-view"><div class="eyebrow">YOUR NEXT EXPEDITION</div><h1>Every deck.<br>Every connection.</h1><p>Choose a system to explore its derelict.<br>Published maps have a <span class="inline-badge">Map available</span> label.</p><button id="choose-system" class="primary">Explore systems <span>↗</span></button><span class="orbital" aria-hidden="true"></span></div>
+      <div id="viewer-content" hidden></div>
+    </section>
+    <section id="systems" class="systems-panel" aria-labelledby="systems-title">
+      <div class="section-heading"><div><div class="eyebrow">THE DERELICT ATLAS</div><h1 id="systems-title">Systems</h1></div></div>
+      <div class="search-control"><button id="search" class="search-box search-trigger" type="button" aria-haspopup="dialog" aria-controls="address-dialog"><span id="search-icon" aria-hidden="true"></span><span id="search-label">Search names, glyphs or address</span></button><button id="clear-search" class="icon-button" type="button" title="Clear search" aria-label="Clear search" hidden>×</button></div>
+      <div class="filter-toolbar"><button id="filters-button">Filters <span id="filter-count" class="counter" hidden></span><span class="filter-symbol">☷</span></button><label class="sr-only" for="sort">Sort systems</label><span id="sort-control" class="sort-control" data-total="false"><select id="sort"><option value="modules">Most modules ↓</option><option value="overall" title="Modules first, then the total, then loot value, then nanites, then fewer rooms, then fewer decks">Best overall #1 #2 #3 ↓</option><option value="total">Highest total (all containers) ↓</option><option value="rooms">Fewest rooms ↑</option></select><span class="sort-total-display" aria-hidden="true"><span>Highest total ↓</span><small id="sort-total-detail">(all containers)</small></span></span></div>
+      <div class="quick-toggles" aria-label="System shortcuts"><button id="toggle-reward" type="button" aria-pressed="false" aria-controls="results view-summary" title="Show or hide the predicted end reward beside Salvaged Frigate Modules"><span class="toggle-dot" aria-hidden="true"></span><span id="reward-toggle-label">Show End Reward</span></button></div>
+      <div id="filter-chips" class="chips"></div>
+      <div id="results" class="results" tabindex="0" aria-label="Matching systems; scroll to browse"><div class="loading"><span></span>Loading atlas…</div></div>
+    </section>
+  </main>
+  <nav class="bottom-nav" aria-label="Main navigation"><button id="nav-viewer" data-tab="viewer"><span class="nav-icon" id="viewer-icon"></span>Viewer</button><button id="nav-systems" data-tab="systems" class="active"><span class="nav-icon" id="systems-icon"></span>Systems</button></nav>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="info-dialog" class="sheet"><div class="dialog-heading"><h2>Viewer information</h2><button data-close class="icon-button" aria-label="Close information">×</button></div>
+    <div class="atlas-info"><p id="page-info" role="status">Loading atlas…</p><p id="source-status">Published atlas</p><p id="refresh-info">Updates on each visit and manual refresh.</p><button id="refresh-atlas" type="button" disabled>Refresh atlas</button></div>
+    <section id="atlas-stats" hidden><h3>Atlas statistics</h3><div id="atlas-stats-body"></div></section>
+    <section id="atlas-explainer" aria-labelledby="atlas-explainer-title">
+      <h3 id="atlas-explainer-title">How the atlas works</h3>
+      <p><strong>Scan on demand.</strong> The Derelict Atlas is a growing catalogue of scanned systems. A system that is not in it yet can be scanned on demand.</p>
+      <p>Enter your system’s glyphs or hex address. If the system is already in the atlas, its derelict opens straight away. If not, request a scan: the scanner works out the layout, loot and rewards, and the result appears here when it is done.</p>
+      <p>Some entries have summary counts without a full map. Module counts, loot and end rewards are predictions.</p>
+    </section>
+    <p>Systems start with the most predicted Salvaged Frigate Modules first. Scroll to load 100 more systems at a time. Use Filters to show only systems with maps.</p>
+    <p>Use Finished Run in the viewer after a run. Completed systems stay accessible with a greyed appearance; Filters → Hide done systems hides them. Run history is saved in this browser, so other browsers or devices have their own history. Press Finished Run again to undo.</p>
+    <p>Totals count every lootable container: salvage crates, crew footlockers, briefcases and tall lockers. Hover a total for the breakdown. “?” marks an uncertain prediction, “—” means unknown, and “+” is a lower-bound total (some counts are not known yet).</p>
+    <p>Both 3D and all-floor 2D are available in Viewer. Drag or pinch to inspect, expand either view, and tap a ladder marker to follow its connection.</p>
+    <div class="info-actions"><button id="diagnostics">Developer mode</button></div>
+    <p class="info-version">Derelict Atlas <span id="info-version">v1.0.40</span></p>
+  </dialog>
+  <dialog id="filter-dialog" class="sheet"><form id="filters-form"><div class="dialog-heading"><div><div class="eyebrow">REFINE YOUR EXPEDITION</div><h2>Filters</h2></div><button type="button" data-close class="icon-button" aria-label="Close filters">×</button></div><div id="filter-fields" class="field-grid"></div><div class="sheet-actions"><button type="button" id="reset-filters" class="quiet">Reset filters</button><button class="primary" type="submit">Show systems →</button></div></form></dialog>
+  <dialog id="address-dialog" class="sheet search-sheet" aria-labelledby="search-title"><form id="address-form"><div class="dialog-heading"><h2 id="search-title">Search systems</h2><button type="button" data-close class="icon-button" aria-label="Close search">×</button></div><input id="address-format" type="hidden" value="auto"><label for="address-input" id="address-label">Name, glyphs, address or preset</label><div class="search-entry"><input id="address-input" placeholder="Name, glyphs or hex address" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="80"><button type="button" id="clear-address">Clear</button></div><div class="search-progress"><span id="address-count">0 / 12</span><span id="address-hint">Choose glyphs below or type hex.</span></div><p id="search-matches" class="search-matches" role="status"></p><div id="glyph-preview" class="glyph-preview" aria-label="Entered portal glyphs"></div><div id="glyph-keypad" class="glyph-keypad"></div><p id="address-error" class="error" role="alert"></p><div class="sheet-actions search-actions"><button class="primary" type="submit">Show matches</button><button type="button" id="open-search-viewer" disabled>Open viewer ↗</button></div></form></dialog>
+  <dialog id="details-dialog" class="sheet wide"><div class="dialog-heading"><h2 id="details-title">Details</h2><button data-close class="icon-button" aria-label="Close details">×</button></div><div id="details-body"></div></dialog>
+  <dialog id="expand-dialog" class="expanded"><div class="dialog-heading"><h2 id="expand-title">All decks</h2><button data-close>Close ×</button></div><div id="expanded-summary"></div><div id="expanded-host"></div><div id="expanded-tools"></div></dialog>
+  <aside id="dev-panel" class="dev-panel" aria-label="Developer controls" hidden></aside>
+  <script src="model.js"></script><script type="module" src="modern.js"></script>
+</body>
+</html>

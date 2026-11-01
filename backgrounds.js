@@ -1,0 +1,15 @@
+// Page-only themes: never recolor room families, rewards, glyphs or exported photos.
+export const BACKGROUNDS=[
+  {id:'void',name:'01 · Deep void',fill:'radial-gradient(ellipse at 50% 120%,#1c273a66,transparent 65%),#03060c',texture:'none',size:'auto',opacity:'0'},
+  {id:'steel',name:'02 · Freighter steel',fill:'linear-gradient(135deg,#171d23,#080c10 65%,#232b30)',texture:'repeating-linear-gradient(0deg,transparent 0 79px,#9eaeb412 79px 80px),repeating-linear-gradient(90deg,transparent 0 159px,#9eaeb412 159px 160px)',size:'auto',opacity:'.65'},
+  {id:'amber',name:'03 · Amber nebula',fill:'radial-gradient(ellipse at 10% 20%,#94633270,transparent 55%),radial-gradient(ellipse at 95% 100%,#5b2b1f88,transparent 65%),#100c0a',texture:'radial-gradient(1px 1px at 35% 20%,#f7dca8 80%,transparent)',size:'191px 233px',opacity:'.4'},
+  {id:'cobalt',name:'04 · Cobalt drift',fill:'radial-gradient(ellipse at 85% 0%,#264ba888,transparent 65%),linear-gradient(145deg,#040916,#101c35)',texture:'repeating-linear-gradient(150deg,transparent 0 140px,#638bea0b 150px 180px,transparent 220px 340px)',size:'auto',opacity:'.8'},
+  {id:'aurora',name:'05 · Aurora veil',fill:'radial-gradient(ellipse at 20% -20%,#40735988,transparent 60%),radial-gradient(ellipse at 100% 50%,#165b5866,transparent 60%),#050e0d',texture:'repeating-linear-gradient(110deg,transparent 0 100px,#77d2a208 120px 145px,transparent 190px 290px)',size:'auto',opacity:'.8'},
+  {id:'rust',name:'06 · Rust and ash',fill:'radial-gradient(ellipse at 0 100%,#7c3e2477,transparent 65%),linear-gradient(120deg,#211b18,#0c0b0b 70%)',texture:'repeating-linear-gradient(45deg,#bd947205 0 1px,transparent 1px 6px)',size:'auto',opacity:'.7'},
+  {id:'lunar',name:'07 · Lunar mist',fill:'radial-gradient(ellipse at 100% 0%,#65737b77,transparent 65%),linear-gradient(120deg,#20282d,#0c1116)',texture:'radial-gradient(ellipse at 0 50%,#bccbd417,transparent 60%)',size:'auto',opacity:'.65'},
+  {id:'grid',name:'08 · Survey grid',fill:'radial-gradient(ellipse at 50% 50%,#102c30,#040b10 85%)',texture:'linear-gradient(#76b6bb12 1px,transparent 1px),linear-gradient(90deg,#76b6bb12 1px,transparent 1px)',size:'48px 48px',opacity:'.7'},
+  {id:'dust',name:'09 · Stellar dust',fill:'radial-gradient(ellipse at 50% 100%,#53466566,transparent 60%),#09080f',texture:'radial-gradient(1px 1px at 8% 22%,#e9edf5 80%,transparent),radial-gradient(1px 1px at 68% 46%,#d0bb8c 80%,transparent),radial-gradient(1px 1px at 44% 13%,#afa3ce 80%,transparent)',size:'173px 211px,293px 307px,353px 197px',opacity:'.6'},
+  {id:'crimson',name:'10 · Atlas signal',fill:'radial-gradient(ellipse at 100% 0%,#762a3288,transparent 60%),radial-gradient(ellipse at 0 100%,#3a152766,transparent 65%),#0f070b',texture:'repeating-linear-gradient(135deg,transparent 0 120px,#e57d7810 120px 121px,transparent 121px 240px)',size:'auto',opacity:'.55'}
+];
+export function backgroundOption(id){return BACKGROUNDS.find(option=>option.id===id)||BACKGROUNDS[0];}
+export function nextBackground(id){return BACKGROUNDS[(BACKGROUNDS.findIndex(option=>option.id===id)+1)%BACKGROUNDS.length];}

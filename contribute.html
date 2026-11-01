@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Contribute · Derelict Atlas</title>
+<meta name="description" content="Scan No Man's Sky derelict freighters in your browser and help the Derelict Atlas reach 1,000,000 systems.">
+<link rel="icon" href="brand/icon-64.png" type="image/png"><link rel="apple-touch-icon" href="brand/icon-180.png">
+<link rel="stylesheet" href="modern.css">
+<link rel="stylesheet" href="site-integration.css">
+<link rel="stylesheet" href="contribute.css">
+<script src="config.js"></script>
+<script src="gate.js"></script>
+<script src="site-toplists.js"></script>
+<script src="contribute.js" defer></script>
+</head>
+<body class="contribute-page">
+  <header class="app-header">
+    <a class="brand" href="./#/" aria-label="Derelict Atlas home"><img class="brand-module" src="brand/logo-128.webp" width="44" height="44" alt=""><span><small>NO MAN’S SKY</small>DERELICT ATLAS</span></a>
+    <div class="header-tools"><a class="cb-back" href="./#/">← Back to the atlas</a></div>
+  </header>
+  <main class="cb-main" id="main">
+    <section class="cb-hero">
+      <div class="cb-hero-text">
+        <div class="eyebrow">THE DERELICT ATLAS</div>
+        <h1>Contribute!</h1>
+        <p>Help map every derelict freighter. Your phone, tablet or PC scans systems right here in the browser, with the same engine that builds the atlas. Nothing to install, no account.</p>
+        <a class="cb-hero-go" href="#cb-scanner">▶ Start scanning</a>
+      </div>
+      <div class="cb-hero-art" aria-hidden="true">
+        <span class="cb-orbit cb-orbit-1"></span><span class="cb-orbit cb-orbit-2"></span><span class="cb-orbit cb-orbit-3"></span>
+        <img src="brand/logo-256.webp" alt="">
+      </div>
+    </section>
+
+    <section class="cb-card cb-progress" aria-labelledby="cb-progress-title">
+      <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h2 id="cb-progress-title">Road to 1,000,000 systems</h2></div>
+      <div class="cb-big"><strong id="cb-total">—</strong><span>of <b>1,000,000</b> systems in the atlas</span></div>
+      <div class="cb-track">
+        <div class="cb-bar" role="progressbar" aria-labelledby="cb-progress-title" aria-valuemin="0" aria-valuemax="100" id="cb-bar"><span id="cb-bar-fill"></span></div>
+        <div class="cb-ticks" aria-hidden="true"><span style="left:25%">250k</span><span style="left:50%">500k</span><span style="left:75%">750k</span><span style="left:100%">1M</span></div>
+      </div>
+      <p class="cb-muted" id="cb-togo">Loading atlas statistics…</p>
+    </section>
+
+    <section class="cb-card cb-scanner" id="cb-scanner" aria-labelledby="cb-state">
+      <div class="cb-status-row">
+        <div class="cb-radar" id="cb-radar" aria-hidden="true"><i></i><i></i><b></b></div>
+        <div><div class="cb-state" id="cb-state" role="status">Loading the scanner…</div><div class="cb-detail" id="cb-detail"></div></div>
+      </div>
+      <button id="cb-scan" class="cb-scan-btn" type="button" disabled>▶ SCAN</button>
+      <div class="cb-row"><button id="cb-pause" type="button" disabled>⏸ Pause</button><button id="cb-stop" type="button" disabled>⏹ Stop</button></div>
+      <button id="cb-region" class="cb-region" type="button" aria-pressed="false" disabled title="Finish the region being scanned, then stop">⏭ Stop after region</button>
+      <div class="cb-sub">Speed</div>
+      <div class="cb-seg" id="cb-speed" role="group" aria-label="Speed"><button type="button" data-s="gentle">Gentle</button><button type="button" data-s="balanced">Balanced</button><button type="button" data-s="max">Maximum</button></div>
+      <p class="cb-small" id="cb-speed-note"></p>
+      <div class="cb-cpu"><div class="cb-cpu-label"><span>CPU used by the scanner</span><b id="cb-cpu">idle</b></div><div class="cb-cpu-track"><i id="cb-cpu-bar"></i></div>
+        <p class="cb-small">An estimate: the share of your device’s processor the scanners keep busy (browsers do not report CPU use directly).</p></div>
+      <div class="cb-elsewhere" id="cb-elsewhere" hidden><p>This browser is already scanning in another tab. One tab at a time keeps your device cool and the counts right.</p><button id="cb-takeover" type="button">Scan here instead</button></div>
+      <p class="cb-consent" id="cb-consent"></p>
+    </section>
+
+    <section class="cb-card" aria-labelledby="cb-live-title">
+      <div class="cb-card-head"><span class="cb-live-dot" id="cb-live-dot" aria-hidden="true"></span><h2 id="cb-live-title">Live · this session</h2><span class="cb-head-extra" id="cb-rate"></span></div>
+      <div class="cb-counters">
+        <div><b id="cb-lsys">0</b><span>systems</span></div>
+        <div><b id="cb-lfound">0</b><span>derelicts</span></div>
+        <div class="gold"><b id="cb-lmods">0</b><span>frigate modules</span></div>
+      </div>
+      <ul class="cb-feed" id="cb-feed" aria-label="Systems scanned this session"><li class="cb-feed-empty">Press ▶ SCAN and the systems you scan appear here.</li></ul>
+    </section>
+
+    <section class="cb-card" aria-labelledby="cb-best-title">
+      <div class="cb-card-head"><svg class="cb-icon gold" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0Z M7 6H4a3 3 0 0 0 3 4 M17 6h3a3 3 0 0 1-3 4 M12 13v4 M8 21h8 M9 17h6v4H9Z"/></svg><h2 id="cb-best-title">Best finds on this device</h2></div>
+      <div class="cb-seg cb-seg-small" id="cb-sort" role="group" aria-label="Sort best finds"><button type="button" data-v="modules">Modules</button><button type="button" data-v="total">Containers</button><button type="button" data-v="value">Value</button></div>
+      <div id="cb-finds" class="cb-finds"></div>
+    </section>
+
+    <section class="cb-card" aria-labelledby="cb-device-title">
+      <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg><h2 id="cb-device-title">This device, all time</h2></div>
+      <div class="cb-stats">
+        <div><strong id="cb-scanned">0</strong><span>Systems scanned</span></div>
+        <div><strong id="cb-found">0</strong><span>Derelicts found</span></div>
+        <div><strong id="cb-sent">0</strong><span>Added to the atlas</span></div>
+        <div class="gold"><strong id="cb-best">—</strong><span>Most modules found</span></div>
+        <div class="gold"><strong id="cb-top">0</strong><span>Top 100 finds</span></div>
+        <div><strong id="cb-time">—</strong><span>Time scanning</span></div>
+      </div>
+      <p class="cb-small">Kept in this browser only. Keep this page open while it scans; on a phone keep the screen on. Pausing or closing the page loses nothing that was already scanned.</p>
+      <details id="cb-log" class="site-scan-log" hidden><summary>Error log</summary><pre></pre><button id="cb-copylog" type="button">Copy log</button></details>
+    </section>
+
+    <section class="cb-card" aria-labelledby="cb-atlas-title">
+      <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><h2 id="cb-atlas-title">Atlas statistics</h2></div>
+      <div class="cb-stats cb-atlas-stats">
+        <div><strong id="cb-regions">—</strong><span>Regions</span></div>
+        <div><strong id="cb-full">—</strong><span>Systems with all numbers</span></div>
+        <div><strong id="cb-maps">—</strong><span>Systems with a map</span></div>
+        <div><strong id="cb-waiting">—</strong><span>Systems waiting to be scanned</span></div>
+      </div>
+      <h3>Systems by Salvaged Frigate Modules</h3>
+      <div id="cb-hist" class="cb-hist" role="table" aria-label="Systems by Salvaged Frigate Modules"></div>
+      <p class="cb-small">The rare ones are highlighted: 5 or more modules.</p>
+    </section>
+
+    <div class="cb-info">
+      <section class="cb-card" aria-labelledby="cb-million-title">
+        <div class="cb-card-head"><svg class="cb-icon gold" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 16.6 6.1 20l1.4-6.6-5-4.5 6.6-.7Z"/></svg><h2 id="cb-million-title">When the atlas reaches a million</h2></div>
+        <p>Until the atlas holds 1,000,000 systems, every scanned system is saved with all its numbers: rooms, containers, Salvaged Frigate Modules, end reward and loot.</p>
+        <p>After that, only systems that break into a top-100 list in any category are saved: most modules, most crates, most value, most nanites, best end reward and the other lists. Everything else is still scanned but not kept, so the atlas stays small and fast while the best derelicts keep coming in.</p>
+      </section>
+      <section class="cb-card" aria-labelledby="cb-sent-title" id="cb-what">
+        <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5Z M8.5 12l2.5 2.5 4.5-5"/></svg><h2 id="cb-sent-title">What is sent</h2></div>
+        <p>Scanning on this page adds the systems you scan to the atlas, with every number: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only the 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list. Any system can still be opened in the viewer, which draws its map on your device.</p>
+        <p>To keep the atlas honest, your device sends just the addresses (galaxy and glyphs); the atlas scans each one again itself before publishing it. Nothing about you is sent.</p>
+        <p id="cb-relay-note" class="cb-muted"></p>
+      </section>
+    </div>
+    <p class="cb-facsimile">Unofficial fan project, not affiliated with Hello Games. No game files: every picture here is our own facsimile.</p>
+  </main>
+  <canvas id="cb-confetti" hidden></canvas><div id="cb-toast" role="status" aria-live="polite"></div>
+</body>
+</html>

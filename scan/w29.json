@@ -1,0 +1,6 @@
+{
+ "version": "w29g scan wasm; tables 179082 bytes; map 83742 bytes; tables fingerprint b93f4648ae1ce158",
+ "wasm_sha256": "a1b211cff412ff6d30575ce7a00de571b0e8f6659bfebcf5e9cf0aa67e736bb7",
+ "js_sha256": "72c5f85603b11a873cb406a8dd99af95472ff79b308fb82fd02a37e915252374",
+ "wasm_bytes": 506522
+}

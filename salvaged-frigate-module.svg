@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<title>Salvaged Frigate Module — reconstructed circuit module</title>
+<defs>
+ <linearGradient id="case" x1="25" y1="9" x2="66" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#e0e4d9"/><stop offset=".38" stop-color="#8c968c"/><stop offset=".7" stop-color="#444d4c"/><stop offset="1" stop-color="#b9c0ac"/></linearGradient>
+ <linearGradient id="board" x1="60" y1="57" x2="106" y2="119" gradientUnits="userSpaceOnUse"><stop stop-color="#a2aa89"/><stop offset=".5" stop-color="#444d47"/><stop offset="1" stop-color="#242f32"/></linearGradient>
+ <radialGradient id="lamp"><stop stop-color="#fffde2"/><stop offset=".3" stop-color="#ffe389"/><stop offset="1" stop-color="#ce9935"/></radialGradient>
+</defs>
+<!-- Match the original diagonal metal housing and round wiring platform in the site's amber/steel palette. -->
+<path d="M17 4H111L124 17V111L111 124H17L4 111V17Z" fill="#c49b2814" stroke="#dfbc5740"/>
+<g transform="rotate(-31 44 42)">
+ <path d="M24 10H63L69 17V66L61 72H25L18 64V18Z" fill="#18272c" stroke="#b9c7be" stroke-width="2"/>
+ <path d="M25 9H59L65 16V60L59 66H24L19 61V17Z" fill="url(#case)" stroke="#d2d4b8" stroke-width="1.4"/>
+ <path d="M23 16H60V21H23Z M23 50H60V58H23Z" fill="#303c3d"/>
+ <path d="M28 8V48M37 7V48M47 7V48M56 10V48" stroke="#cfb76c" stroke-width="3.3"/>
+ <path d="M26 12H32M35 16H41M45 12H51M54 19H60M26 25H32M35 29H41M45 24H51M54 32H60M26 37H32M35 41H41M45 36H51M54 43H60" stroke="#f1e8b4" stroke-width="2"/>
+ <path d="M29 10V47M48 8V47" stroke="#675c36" stroke-width="1"/>
+ <rect x="36" y="51" width="11" height="7" rx="2" fill="url(#lamp)"/>
+ <path d="M22 62H60M22 65H58" stroke="#a1acaa"/>
+</g>
+<path d="M40 75L56 61 73 58 91 66 106 86 106 105 94 119 76 123 54 114 39 94Z" fill="url(#board)" stroke="#d8ca8a" stroke-width="1.5"/>
+<path d="M47 77L62 66 78 67 92 78 98 94 91 110 75 115 58 107 47 94Z" fill="#29393b" stroke="#8c9b86" stroke-width="2"/>
+<path d="M57 74L70 69 82 76 86 88 79 98 66 99 55 89Z" fill="#6c7358" stroke="#b8b38b"/>
+<path d="M65 76L75 75 80 82 78 90 70 94 63 88 61 81Z" fill="#2a393b" stroke="#bcb16c"/>
+<path d="M47 83L55 79M44 92L53 89M48 102L57 98M59 112L63 103M73 118L73 107M86 116L82 105M97 105L88 100M103 92L91 91M95 77L87 82M85 65L81 74M62 63L66 72" stroke="#c9b666" stroke-width="3"/>
+<path d="M49 69L55 64 62 67 56 73Z M96 83L101 89 96 95 91 89Z M53 101L58 107 54 111 49 105Z M85 108L92 105 96 111 89 115Z" fill="#dbbf61" stroke="#edda9b"/>
+<path d="M70 62L75 64 72 68 67 66Z M42 86L45 83 48 88 44 91Z M66 115L70 116 70 120 66 119Z" fill="#d6d8ba"/>
+<path d="M23 72L29 68M28 77L34 74M33 82L38 78" stroke="#e8c45f" stroke-width="2"/>
+</svg>
