@@ -1,6 +1,7 @@
 """Singles publisher: visitor-scanned single systems -> singles/ + index/singles.csv + views/singles-extras.csv
-(+ singles/none.csv: recomputed no-derelict systems, singles/held.csv: addresses outside every known system range
-and, while NONE_VERIFIED is off, systems whose recompute gave scan status 4).
+(+ singles/none.csv: recomputed no-derelict systems, singles/held.csv: while NONE_VERIFIED is off, systems whose
+recompute gave scan status 4). Addresses of systems that do not exist in-game (index >= the region's W29d system count,
+or the portal rule rejects them) are rejected as 'nonexistent' with the reason, never held (user 2026-11-01).
 
 Runs in the GitHub Action .github/workflows/singles.yml (through tools/singles/action.sh) and locally for tests.
 Python 3 standard library only; Node runs the site's own W29 WebAssembly scanner (tools/singles/scan_many.cjs).
@@ -111,18 +112,20 @@ MANIFEST = SINGLES / "manifest.json"
 INDEX_SINGLES = Path("index") / "singles.csv"
 EXTRAS_SINGLES = Path("views") / "singles-extras.csv"
 NONE_FILE = SINGLES / "none.csv"            # recomputed no-derelict systems (scan status 4)
-HELD_FILE = SINGLES / "held.csv"            # held addresses + reason (HELD_REASONS), retried every run
+HELD_FILE = SINGLES / "held.csv"            # held addresses + reason (HELD_STATUS4), retried every run
 HELD_MAX = 50_000                           # held.csv size cap (oldest first_seen dropped)
 # Scan status 4 ("no abandoned freighter") of the browser engine is UNVERIFIED (RE job W31 checks it against the game;
 # the PC publishes rows for some of these systems). While False, a status-4 recompute is neither written to none.csv
 # nor rejected: the address is held with reason "status4" and retried once this is True. True = none.csv as designed.
 NONE_VERIFIED = False
-HELD_RANGE = "range"                        # held reason: outside every known system range (R.system_known)
+HELD_RANGE = "range"                        # OLD held reason (until W29DW-3, 2026-11-01): outside every known range.
+                                            # Such rows are still read, re-checked every run and dropped when the
+                                            # system does not exist in-game (it never will: the W29d count is exact)
 HELD_STATUS4 = "status4"                    # held reason: recompute gave status 4 while NONE_VERIFIED is False
-HELD_REASONS = (HELD_RANGE, HELD_STATUS4)
-HELD_DETAIL = {HELD_RANGE: "not in a known system range yet (kept in singles/held.csv, retried every run)",
-               HELD_STATUS4: "scan status 4 (no derelict) is not verified yet (kept in singles/held.csv, retried once "
+HELD_REASONS = (HELD_RANGE, HELD_STATUS4)   # reasons a held.csv row may have when read (new rows: only status4)
+HELD_DETAIL = {HELD_STATUS4: "scan status 4 (no derelict) is not verified yet (kept in singles/held.csv, retried once "
                              "verified)"}
+NONEXISTENT = "does not exist in-game"     # outcome 'nonexistent': detail = f"{NONEXISTENT} ({why})"
 WORK_FILE = Path("stats") / "work.txt"      # region + system index work list (written by the PC; SITE format)
 NONE_FORMAT = 1
 HELD_FORMAT = 2                             # 2: + reason column (format 1 rows = reason range are still read)
@@ -219,7 +222,7 @@ class RegionCounts:
         self.cache = {}
         self.purple_cache = {}          # (galaxy, REGION8, index) -> w29d_valid_system code (purple unlocked)
         self.computed = 0               # counts computed after the self-test (summary 'region_counts')
-        self.purple_computed = 0        # portal checks after the self-test (summary 'purple_checks')
+        self.purple_computed = 0        # portal checks after the self-test (summary 'portal_checks')
 
     def check_files(self):
         for name, want in W29D_FILES.items():
@@ -324,6 +327,17 @@ class RegionCounts:
         self.purple_cache[key] = c
         self.purple_computed += 1
         return c
+
+    def nonexistent_reason(self, galaxy, region, idx):
+        """Why system idx of (galaxy, REGION8) does not exist in-game (R.system_known said no): the portal rule's
+        reason in the purple window and for an empty region (core / bad coordinate), else the region's count."""
+        n = self.count(galaxy, region)
+        code = self.valid_code(galaxy, region, idx) if R.PURPLE[0] <= idx <= R.PURPLE[1] or n == 0 else None
+        if code == 2:
+            return f"system index {idx:03X}, galactic core region (no systems)"
+        if code == 1:
+            return f"system index {idx:03X}, region coordinates outside the galaxy"
+        return f"system index {idx:03X}, region has {n} systems"
 
     def purple_valid(self, galaxy, region, idx):
         """True when the game's portal rule accepts system idx (purple window) with purple unlocked."""
@@ -702,10 +716,10 @@ def read_held(repo):
 
 def held_text(held):
     return (f"# nms-derelict-atlas singles held format {HELD_FORMAT}: {len(held)} addresses not published yet, retried "
-            "every run; reason range = outside every known system range (index not below the region's system count, "
-            "no region file range, not in stats/work.txt), "
-            "published once valid; reason status4 = the recompute found no derelict (scan status 4), which is not "
-            "verified yet, retried once it is; first_seen = UTC time of the first batch issue that had it; at most "
+            "every run; reason status4 = the recompute found no derelict (scan status 4), which is not verified yet, "
+            "retried once it is; reason range = a row of an older run, re-checked every run and dropped when the "
+            "system does not exist in-game (addresses outside the region's systems are rejected, not held); "
+            "first_seen = UTC time of the first batch issue that had it; at most "
             f"{HELD_MAX} (oldest dropped)\naddress,first_seen,reason\n"
             + "".join(f"{a},{held[a][0]},{held[a][1]}\n" for a in sorted(held)))
 
@@ -937,7 +951,7 @@ def _process(args, repo, version, region_counts):
             del store.rows[(gal, g)]
 
     def classify(a):
-        """('already' | 'invalid' | 'held' | 'scan', detail)."""
+        """('already' | 'invalid' | 'nonexistent' | 'held' | 'scan', detail)."""
         gal, region, idx = int(a[6:8], 16), a[8:], int(a[3:6], 16)
         glyphs = f"0{a[3:6]}{region}"
         info = atlas.region(gal, region)
@@ -955,8 +969,8 @@ def _process(args, repo, version, region_counts):
             return "already", "no derelict (singles/none.csv)"
         if a in held and held[a][1] == HELD_STATUS4 and not NONE_VERIFIED:
             return "held", HELD_DETAIL[HELD_STATUS4]          # not scanned again until status 4 is verified
-        if not atlas.known(a):
-            return "held", HELD_DETAIL[HELD_RANGE]
+        if not atlas.known(a):          # W29DW-3 (user: "drop them"): never valid later -> rejected with the reason
+            return "nonexistent", f"{NONEXISTENT} ({region_counts.nonexistent_reason(gal, region, idx)})"
         return "scan", ("deferred" if info and idx in info["deferred"] else None)
 
     # ---- take issues up to the run caps (MAX_PER_RUN = addresses to scan), classify every address ----
@@ -978,7 +992,7 @@ def _process(args, repo, version, region_counts):
             first_issue[a] = it["number"]
             if a in p["none"]:
                 claim_none.add(a)
-            if cls[a][0] in ("already", "invalid"):
+            if cls[a][0] in ("already", "invalid", "nonexistent"):
                 held.pop(a, None)
             if cls[a][0] == "scan":
                 to_scan.append(a)
@@ -986,14 +1000,15 @@ def _process(args, repo, version, region_counts):
         taken.append({"it": it, "addrs": addrs, "none": p["none"], "bad": p["bad"], "over": over,
                       "scanners": p["scanners"], "format": p["format"]})
     run_utc = iso(args.utc) or max((iso(t["it"].get("created_at")) or NO_TIME for t in taken), default=NO_TIME)
-    # ---- held addresses: retried every run (after the issues, inside the run cap) ----
-    held_dropped = []
+    # ---- held addresses: retried every run (after the issues, inside the run cap); old 'range' rows of systems that
+    #      do not exist in-game are dropped (W29DW-3) ----
+    held_dropped, held_nonexistent = [], []
     for a in sorted(held, key=lambda x: (held[x][0], x)):
         if a in first_issue:
             continue
         c = classify(a)
-        if c[0] in ("already", "invalid"):
-            held_dropped.append(a)
+        if c[0] in ("already", "invalid", "nonexistent"):
+            (held_nonexistent if c[0] == "nonexistent" else held_dropped).append(a)
             del held[a]
         elif c[0] == "scan" and n_scan < MAX_PER_RUN:
             n_scan += 1
@@ -1003,9 +1018,8 @@ def _process(args, repo, version, region_counts):
     issue_time = {t["it"]["number"]: iso(t["it"].get("created_at")) or run_utc for t in taken}
     for t in taken:                                     # new held addresses (earliest batch time wins)
         for a in t["addrs"]:
-            if first_issue[a] == t["it"]["number"] and cls[a][0] == "held":
-                reason = HELD_STATUS4 if cls[a][1] == HELD_DETAIL[HELD_STATUS4] else HELD_RANGE
-                held[a] = (min((held.get(a) or ("9999",))[0], issue_time[t["it"]["number"]]), reason)
+            if first_issue[a] == t["it"]["number"] and cls[a][0] == "held":      # only status4 is held now
+                held[a] = (min((held.get(a) or ("9999",))[0], issue_time[t["it"]["number"]]), HELD_STATUS4)
     # ---- scan ----
     deadline = args.deadline
     results = scan_all(repo / SCAN_DIR, to_scan, version, args.workers, args.cache, deadline=deadline) \
@@ -1083,8 +1097,8 @@ def _process(args, repo, version, region_counts):
     write_small(repo, NONE_FILE, none_text(nones), not nones, changed)
     write_small(repo, HELD_FILE, held_text(held), not held, changed)
     # ---- summary ----
-    counts = {k: 0 for k in ("accepted", "already", "no_derelict", "invalid", "error", "over_cap", "duplicate",
-                             "held", "pending")}
+    counts = {k: 0 for k in ("accepted", "already", "no_derelict", "invalid", "nonexistent", "error", "over_cap",
+                             "duplicate", "held", "pending")}
     out_issues, scanners = [], {}
     for t in taken:
         num, lst = t["it"]["number"], []
@@ -1116,10 +1130,11 @@ def _process(args, repo, version, region_counts):
                "none_verified": NONE_VERIFIED,
                "held_reasons": {r: sum(1 for v in held.values() if v[1] == r) for r in HELD_REASONS},
                "held_retried": sum(1 for a in to_scan if origin[a] == "held"), "held_dropped": held_dropped,
+               "held_nonexistent_dropped": held_nonexistent,
                "held_over_cap": held_over, "pending": pending, "files": paths,
                "work_list": {"regions": len(atlas.work()[0]), "ignored_lines": atlas.work()[1]},
                "region_counts": region_counts.computed,
-               "purple_checks": region_counts.purple_computed,
+               "portal_checks": region_counts.purple_computed,
                "superseded": superseded, "superseded_mismatch": mismatch, "waiting_issues": wait,
                "changed": sorted(set(changed)), "commit_message": msg, "issues": out_issues}
     Path(args.summary).write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -1218,7 +1233,8 @@ def write_extras(repo, atlas, store, index_keys, extras_store, changed):
 # ======================================================================= comments
 NAMES = {"accepted": "published", "already": "already in the atlas",
          "no_derelict": "no derelict in this system (recorded in singles/none.csv)", "invalid": "not a valid system",
-         "held": "held", "error": "could not be scanned", "duplicate": "also in another issue"}
+         "nonexistent": NONEXISTENT, "held": "held", "error": "could not be scanned",
+         "duplicate": "also in another issue"}
 COMMENT_LIST = 100              # addresses listed per comment line (a 3,000-address batch stays far below 65,536 chars)
 
 
@@ -1227,9 +1243,13 @@ def comment_text(run_id, issue):
     for a in issue["addresses"]:
         groups.setdefault(a["outcome"], []).append(a)
     lines = [f"Automatic singles check (run {run_id}):"]
-    for k in ("accepted", "already", "no_derelict", "held", "invalid", "error", "duplicate"):
+    for k in ("accepted", "already", "no_derelict", "held", "nonexistent", "invalid", "error", "duplicate"):
         sub = {}
         for a in groups.get(k, []):         # one line per outcome and file / reason (short comments for big batches)
+            if k == "nonexistent":          # one line, each address with its own reason
+                why = str(a.get("detail") or "")[len(NONEXISTENT) + 2:-1]
+                sub.setdefault(None, []).append(f"`{a['address']}` ({why})")
+                continue
             sub.setdefault(a.get("file") if k == "accepted" else a.get("detail"), []).append(f"`{a['address']}`")
         for extra, items in sorted(sub.items(), key=lambda kv: str(kv[0])):
             more = f" (+{len(items) - COMMENT_LIST} more)" if len(items) > COMMENT_LIST else ""

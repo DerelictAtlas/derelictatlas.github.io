@@ -10,13 +10,13 @@ The workflow `.github/workflows/singles.yml` runs every hour at minute 7 and can
    "Known system ranges").
 2. Reads the open issues labelled `single-scan` through the GitHub API (at most 200, oldest first).
 3. Takes the system addresses out of those issues (found and `none` alike). Addresses already in the atlas are
-   skipped; addresses outside every known system range are held (see "Known system ranges").
+   skipped; addresses of systems that do not exist in-game are rejected with the reason (see "Known system ranges").
 4. Recomputes every remaining address with the site's own W29 WebAssembly scanner under Node, one Node process per
    CPU of the runner. Nothing a visitor sends is used except the address: a `none` claim is recomputed like any other.
 5. Writes the results: systems with a derelict as full rows into `singles/` (after the 1,000,000 cap only systems that
-   break into a top-100 list; the rest pruned), `index/singles.csv` and `views/singles-extras.csv`; held addresses
-   (unknown range, and for now every system without a derelict) into `singles/held.csv`; once scan status 4 is
-   verified, systems without a derelict into `singles/none.csv`.
+   break into a top-100 list; the rest pruned), `index/singles.csv` and `views/singles-extras.csv`; for now every
+   system without a derelict into `singles/held.csv` (reason `status4`); once scan status 4 is verified, systems
+   without a derelict into `singles/none.csv`.
 6. Makes one commit and pushes it to `main`.
 7. Only after the push has succeeded, it asks for a Pages build, then comments on each finished issue and closes it.
 
@@ -84,7 +84,7 @@ its own token.
 An ADDRESS16 has the form `000 SSS GG YY ZZZ XXX`: system index SSS, galaxy GG, then the region YYZZZXXX. Lines that do
 not start with `000` are not addresses; system index `000` is "not a valid system".
 
-### Known system ranges (held addresses)
+### Known system ranges (nonexistent addresses)
 
 A made-up system index must not be published, so an address is scanned only when its system index is a system of its
 region as the PC atlas sees it (`atlas_rules.system_known`, one function):
@@ -113,9 +113,10 @@ Purple systems: the purple window 3E8-428 is the same in every region (RE, the g
 coordinates in range, not a core region, index != 0, then `index < count` OR purple unlocked and `3E8 <= index <= 428`).
 A visitor who scanned a purple system has purple unlocked, so an index in the window is accepted when
 `validSystem(galaxy, x, y, z, index, true)` is valid, in any region, whether or not a region file lists purple. That
-matches the PC's `verify.py`, which accepts 3E8-428 anywhere. Purple in a core region or at a bad coordinate is held;
-3E7 (at or above the count) and 429 are held. The portal answer is asked only for a window index, cached per
-(galaxy, region, index); the summary field `purple_checks` says how many were asked.
+matches the PC's `verify.py`, which accepts 3E8-428 anywhere. Purple in a core region or at a bad coordinate, 3E7
+(at or above the count) and 429 do not exist. The portal answer is asked only for a window index (and for the reason
+of an address in an empty region), cached per (galaxy, region, index); the summary field `portal_checks` says how many
+were asked.
 
 How it runs: `singles.py` starts ONE `node tools/singles/region_count.cjs tools/singles/w29d` per run (also for
 `check-w29`), after checking the sha256 of both `w29d/` files (`W29D_FILES`) and before it reads any issue; a self-test
@@ -129,13 +130,19 @@ the self-test, a count or a portal check fails, no answer within 60 s) stops the
 committed, no issue
 is touched. There is no fallback rule.
 
-Every other address is **held** with reason `range`: written to `singles/held.csv` with the time of the first batch
-issue that had it, and retried at every run (after the issue addresses, inside the run cap). An index at or above the
-count never becomes valid by itself; it is published only if the PC lists it (`stats/work.txt`, a region file), and
-dropped from the list when it is published some other way. The list keeps at most 50,000 addresses (`HELD_MAX`, both
-reasons together); beyond that the oldest are dropped. The issue itself is closed normally ("held").
+Every other address **does not exist in-game** (user 2026-11-01: "drop them"; the W29d count is exact, so it can never
+become valid). It is rejected with outcome `nonexistent` and its reason, not held and not retried:
+`does not exist in-game (system index CBE, region has 537 systems)`, or for the purple window and empty regions the
+portal rule's reason: `(system index 3E8, galactic core region (no systems))`, `(system index 3E8, region coordinates
+outside the galaxy)`. The summary counts it under `nonexistent` (separate from `invalid` = not an address / index
+000); the issue comment has one line `- does not exist in-game: N: `ADDRESS` (reason), ...` (at most 100 listed) and
+the issue is closed normally.
 
-Held reasons (the third column of `held.csv`): `range` (outside every known system range, above) and `status4` (below).
+`singles/held.csv` holds only reason `status4` (below), at most 50,000 rows (`HELD_MAX`; beyond that the oldest are
+dropped). Rows with the old reason `range` (written before 2026-11-01, and format 1 rows without a reason) are still
+read and re-checked at every run: a system that does not exist in-game is dropped (summary `held_nonexistent_dropped`;
+on the live repo this removes `000CBE009616F9D6` and `000CBE009616F9DF`); one that exists is scanned like any held
+address (and keeps its row until it is reached inside the run cap).
 
 `stats/work.txt` (written by the PC with the index; SITE `-09` format): `#` comment lines, empty lines, and one region
 per line `GG REGION8 <items...>`: GG = galaxy as 2 hex digits, REGION8 = 8 hex digits, items = 3-hex system indexes or
@@ -192,7 +199,7 @@ A system listed in `# deferred_systems` is not published yet, so it is scanned.
 | `singles/g<GG>/<YY>.csv`, `singles/g<GG>/<YY>/<Z>.csv` | used after a split: when a file passes 1,000,000 bytes, it splits by region layer YY, and then by the first hex digit Z of ZZZ. A split is never undone |
 | `singles/manifest.json` | `{"format":1,"rows":N,"split":[...],"files":[{"path","rows","bytes","sha256"}]}` (compact JSON, paths sorted; bucket files only) |
 | `singles/none.csv` | systems recomputed with no derelict (format below), only once `NONE_VERIFIED` is on; absent when empty |
-| `singles/held.csv` | held addresses with a reason (`range` / `status4`), retried every run (format below); absent when empty |
+| `singles/held.csv` | held addresses with reason `status4`, retried every run (format below; old `range` rows are re-checked and dropped); absent when empty |
 | `index/singles.csv` | plain-text index rows of every full single row that is not in the main index yet, in the same columns and encoding as the main index, with `map` = 0. Its first two lines are copied unchanged from the main index (the `#` line and the column header). It is NOT listed in `index/manifest.json`. The file is absent when there are no rows |
 | `views/singles-extras.csv` | loot extras (items value, nanites, SpookBox, W28 money Units) of the systems in `index/singles.csv`, uncompressed, in extras **format 2** (the columns of `build_atlas_index.py` `EXTRAS_COLUMNS`: format 1 + `items_units`, `items_units_min`, `items_units_max` after `spookbox_value`), also while the live `views/extras.csv.gz` is still format 1 (a newer live format is followed). Cells are filled by name; the units cells are empty for scans made with W29b/c. The file is absent when there are none |
 
@@ -215,11 +222,10 @@ address
 ```
 
 `singles/held.csv` format 2 (sorted by address; `first_seen` = UTC `created_at` of the first batch issue that had it;
-`reason` = `range` or `status4`; format 1 rows without a reason are read as `range`):
+`reason` = `status4`; rows of older runs may still say `range`, and format 1 rows without a reason are read as `range`):
 ```
-# nms-derelict-atlas singles held format 2: <N> addresses not published yet, retried every run; reason range = outside every known system range (index not below the region's system count, no region file range, not in stats/work.txt), published once valid; reason status4 = the recompute found no derelict (scan status 4), which is not verified yet, retried once it is; first_seen = UTC time of the first batch issue that had it; at most 50000 (oldest dropped)
+# nms-derelict-atlas singles held format 2: <N> addresses not published yet, retried every run; reason status4 = the recompute found no derelict (scan status 4), which is not verified yet, retried once it is; reason range = a row of an older run, re-checked every run and dropped when the system does not exist in-game (addresses outside the region's systems are rejected, not held); first_seen = UTC time of the first batch issue that had it; at most 50000 (oldest dropped)
 address,first_seen,reason
-0000010002603CE6,2026-10-31T12:42:00Z,range
 0000040002603CE8,2026-10-31T12:43:00Z,status4
 ```
 
