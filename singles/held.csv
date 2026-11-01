@@ -1,4 +1,0 @@
-# nms-derelict-atlas singles held format 2: 2 addresses not published yet, retried every run; reason range = outside every known system range (index not below the region's system count, no region file range, not in stats/work.txt), published once valid; reason status4 = the recompute found no derelict (scan status 4), which is not verified yet, retried once it is; first_seen = UTC time of the first batch issue that had it; at most 50000 (oldest dropped)
-address,first_seen,reason
-000CBE009616F9D6,2026-11-01T18:26:33Z,range
-000CBE009616F9DF,2026-11-01T18:26:33Z,range
