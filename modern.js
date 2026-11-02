@@ -122,7 +122,7 @@ function renderRows(){
   const loadedCount=Math.min(shown.length,listLimit),host=$('results');
   if(shown.length)systemList.render(shown,loadedCount,listRevision);
   else if(firstMode){systemList.clear();host.innerHTML='<div class="no-results site-first-wait">Not in the top '+rows.length+' systems.<br>The full list is still loading…</div>';}
-  else if(!host.querySelector('.no-results:not(.site-first-wait)')){systemList.clear();host.innerHTML='<div class="no-results">No matching systems.<br>Try fewer filters or a different glyph address.<br><button id="empty-reset" class="primary">Reset filters</button></div>';{let a=null;try{a=addressOf(filters.q,filters.galaxy||0);}catch(_){}if(a&&!rows.some(r=>r.address===a)&&!globalThis.dvScannedHere?.(a))globalThis.dvNoResultsAddress?.(host.querySelector('.no-results'),a,()=>{globalThis.dvSearchedAddress=a;navigate(a);});}}
+  else{if(!host.querySelector('.no-results:not(.site-first-wait)')){systemList.clear();host.innerHTML='<div class="no-results">No matching systems.<br>Try fewer filters or a different glyph address.<br><button id="empty-reset" class="primary">Reset filters</button></div>';}{let a=null;try{a=addressOf(filters.q,filters.galaxy||0);}catch(_){}if(a&&!rows.some(r=>r.address===a)&&!globalThis.dvScannedHere?.(a))globalThis.dvNoResultsAddress?.(host.querySelector('.no-results'),a,()=>{globalThis.dvSearchedAddress=a;navigate(a);});else host.querySelector('.no-results .site-scan-offer')?.remove();}}
   if(focusedAddress&&!focused.isConnected)host.querySelector('[data-address="'+focusedAddress+'"]')?.focus({preventScroll:true});
   const status=firstMode?`${shown.length.toLocaleString()} of the top ${rows.length.toLocaleString()} · loading the full list…`:loadedCount<shown.length?`${loadedCount.toLocaleString()} of ${shown.length.toLocaleString()} systems loaded · scroll for more`:shown.length.toLocaleString()+' matching systems';
   if($('page-info').textContent!==status)$('page-info').textContent=status;
@@ -169,7 +169,7 @@ async function renderSystems(reset=false){
   $('more-filter-chips')?.addEventListener('click',()=>{buildFilterFields();openDialog('filter-dialog');});
   $('filter-chips').querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{filters[b.dataset.clear]=typeof defaults[b.dataset.clear]==='boolean'?false:'';renderSystems(true);});
   $('source-status').textContent=`${dataState.source} · ${rows.length.toLocaleString()} systems`;
-  if(!firstMode||stats?.total_systems!=null)$('system-count').textContent=Number(stats?.total_systems??rows.length).toLocaleString();
+  if(!firstMode||stats?.total_systems!=null)$('system-count').textContent=Number(stats?.total_systems!=null?Number(stats.total_systems)+(globalThis.dvSinglesN||0):rows.length).toLocaleString();
   save('filters',filters);
   return true;
 }
@@ -463,6 +463,7 @@ async function loadFeatureUI(refresh=false){
   $('atlas-stats-body').innerHTML=atlasStatsHtml(stats);$('atlas-stats').hidden=!$('atlas-stats-body').innerHTML;
   computedRows=null;await renderSystems();if(current){const r=rows.find(r=>r.address===current.row.address);if(r)current.row=keepDeviceLoot(r);updateSummary();}
   if($('filter-dialog').open)buildFilterFields();
+  globalThis.dvHome?.setRows(rows,extrasAvailable);
 }
 async function updateAtlas(){
   const selected=current?.row.address,signature=selected?layoutSignature(selected):null;
@@ -471,7 +472,7 @@ async function updateAtlas(){
   updateRefreshInfo();
   if(next===rows){await loadFeatureUI(true);return;}
   const host=$('results'),anchor=shown[Math.floor(host.scrollTop/ROW_HEIGHT)]?.address,offset=host.scrollTop%ROW_HEIGHT;
-  rows=next;
+  rows=next;globalThis.dvHome?.setRows(rows);
   // Keep the current range, filters and scroll anchor; never navigate on a background check.
   const applied=await renderSystems();
   const index=applied&&anchor?shown.findIndex(r=>r.address===anchor):-1;
@@ -520,7 +521,7 @@ $('info-button').onclick=()=>{
   $('info-version').textContent='v'+VERSION;
   openDialog('info-dialog');
 };
-async function route(){const match=location.hash.match(/^#\/d\/([a-fA-F0-9]{16})$/);if(match){setTab('viewer');await openViewer(match[1].toUpperCase());}else setTab('systems');}
+async function route(){const match=location.hash.match(/^#\/d\/([a-fA-F0-9]{16})$/);if(match){setTab('viewer');await openViewer(match[1].toUpperCase());}else{if(globalThis.dvHome){loadId++;if($('expand-dialog').open)$('expand-dialog').close();view3d?.dispose();view3d=null;map?.dispose();map=null;const had=!!current;current=null;$('viewer-content').hidden=true;$('viewer-content').innerHTML='';$('viewer-empty').hidden=false;globalThis.dvHome.show();if(had)renderRows();}setTab(globalThis.dvHome?.takeTab?.()||'systems');}}
 window.addEventListener('hashchange',route);
 let lastMobile=matchMedia('(max-width:700px)').matches;window.addEventListener('resize',()=>{const mobile=matchMedia('(max-width:700px)').matches;if(mobile!==lastMobile){lastMobile=mobile;renderSystems(true);if(!$('expand-dialog').open)map?.setExpanded(!mobile);}});
 new ResizeObserver(scheduleList).observe($('results'));
@@ -528,6 +529,7 @@ window.addEventListener('error',e=>record('Error: '+e.message));window.addEventL
 // SITE integration (fast first page): open the linked system, else the saved one, else the first mapped one
 async function openFirst(){
   const match=location.hash.match(/^#\/d\/([a-fA-F0-9]{16})$/);if(match){await route();return true;}
+  if(globalThis.dvHome){globalThis.dvHome.show();setTab('systems');return true;}  // SITE integration (user 2026-11-01): home screen
   const saved=read('selected',null);if(firstMode&&saved&&!rows.some(r=>r.address===saved))return false;
   const first=rows.find(r=>r.address===saved&&r.map)||(await filterSortAtlas(rows,{...defaults,hasMap:true}))[0];if(first)await openViewer(first.address);setTab('systems');return true;
 }
@@ -535,7 +537,7 @@ async function start(){
   try{
     // SITE integration (user 2026-11-01): the first page (index/first.csv) shows at once; the full index loads behind it
     let arrived=false,opened=false,firstShown=Promise.resolve(),swapped=Promise.resolve();
-    const swap=async all=>{await firstShown;rows=all;firstMode=false;record(`Atlas loaded: ${rows.length} systems`);computedRows=null;showAtlasProgress();await renderSystems();
+    const swap=async all=>{await firstShown;rows=all;firstMode=false;globalThis.dvHome?.setRows(rows);record(`Atlas loaded: ${rows.length} systems`);computedRows=null;showAtlasProgress();await renderSystems();
       if(opened&&current){const r=rows.find(r=>r.address===current.row.address);if(r){current.row=keepDeviceLoot(r);updateSummary();}}
       if(!opened)opened=await openFirst();};
     const full=initData({onStatus:showAtlasProgress,onRows:all=>{arrived=true;swapped=swap(all);}});

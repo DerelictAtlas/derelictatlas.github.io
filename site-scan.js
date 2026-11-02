@@ -65,6 +65,72 @@
     jsonSet(CACHE_KEY, all);
   }
   const wasSent = (address) => jsonGet(SENT_KEY, []).includes(address);
+  // ---- address check (user 2026-11-01, via scanner -cc: "make a fix so the website tell this to the user, that they
+  // looked up an invalid system or a system that doesnt exist in game with some error numbers or words"). RE's proven
+  // W29d module (region system count + valid system, 496/496 game cases) runs before any scan, "Scan this system"
+  // offer, list card or send. Loaded at the first check, then cached. If it cannot load: today's behaviour (E5, never
+  // fail closed). The planet digit is not checked (any 0-F is fine in game).
+  const W29D_V = "fb03172ebf393002";   // sha256 prefixes of scan/w29d_rc.js + scan/w29d_rc.wasm (integrate.py checks)
+  let rcPromise = null;
+  function rcLoad() {
+    if (!rcPromise) rcPromise = new Promise((ok, bad) => {
+      if (globalThis.W29dRC) return ok(globalThis.W29dRC);
+      const s = document.createElement("script");
+      s.src = BASE + "w29d_rc.js?v=" + W29D_V;
+      s.onload = () => (globalThis.W29dRC ? ok(globalThis.W29dRC) : bad(new Error("W29dRC missing")));
+      s.onerror = () => bad(new Error("scan/w29d_rc.js did not load"));
+      document.head.appendChild(s);
+    }).then((W) => fetch(BASE + "w29d_rc.wasm?v=" + W29D_V).then((r) => {
+      if (!r.ok) throw new Error("scan/w29d_rc.wasm " + r.status);
+      return r.arrayBuffer();
+    }).then((b) => W.load(b)))
+      .catch((e) => { logFailure({ what: "address check", error: String((e && e.message) || e) }); return null; });
+    return rcPromise;
+  }
+  const verdicts = new Map();
+  // ADDRESS16 = 0 0 P SSS GG YY ZZZ XXX -> {code: 0 valid, 1 bad_coord, 2 core, 3 index_zero, 4 index_range, 5 fault}
+  function verdictOf(address) {
+    const a = String(address || "").toUpperCase();
+    if (!/^[0-9A-F]{16}$/.test(a)) return Promise.resolve({ code: 0 });
+    if (!verdicts.has(a)) verdicts.set(a, rcLoad().then((rc) => {
+      if (!rc) return { code: 5 };
+      const sys = parseInt(a.slice(3, 6), 16), g = parseInt(a.slice(6, 8), 16), lo = parseInt(a.slice(8), 16) >>> 0;
+      const code = rc.validSystemUA(g | (sys << 8), lo, true);
+      return { code, sys: a.slice(3, 6), n: code === 4 ? rc.regionCountUA(g, lo) : 0 };
+    }).catch(() => ({ code: 5 })));
+    return verdicts.get(a);
+  }
+  const isBad = (v) => !!v && v.code >= 1 && v.code <= 4;
+  const hex3 = (n) => Math.max(0, n).toString(16).toUpperCase().padStart(3, "0");
+  function invalidText(v) {
+    if (v.code === 1) return ["E1", "outside the galaxy", "Invalid address: these coordinates are outside the galaxy (portal glyphs can't reach them)."];
+    if (v.code === 2) return ["E2", "galaxy core", "No systems here: this region is in the galaxy core."];
+    if (v.code === 3) return ["E3", "system 000", "System 000 doesn't exist in-game."];
+    return ["E4", "system number too high", `System ${v.sys} doesn't exist: this region's systems are 001–${hex3(v.n - 1)}, plus purple systems 3E8–428.`];
+  }
+  function invalidHtml(address, v) {
+    const [code, word, text] = invalidText(v);
+    return `<div class="site-scan-invalid" role="alert"><p class="site-scan-invalid-code"><b>Error ${code}</b> · ${esc(word)}</p>`
+      + `<p>${esc(text)}</p><p class="site-scan-note">Nothing was scanned or sent. Check the glyphs for a typo (${esc(address)}).</p></div>`;
+  }
+  // a system saved on this device before the check existed: checked once; an invalid one is kept out of the list and
+  // never sent (its saved numbers are not shown again)
+  function markChecked(address, v) {
+    if (!v || v.code === 5) return;
+    const all = jsonGet(CACHE_KEY, {});
+    if (!all[address]) return;
+    if (all[address].valid === !isBad(v)) return;
+    all[address].valid = !isBad(v);
+    if (isBad(v)) all[address].invalid = { code: v.code, sys: v.sys, n: v.n }; else delete all[address].invalid;
+    jsonSet(CACHE_KEY, all);
+    if (isBad(v)) changed();
+  }
+  function sweep() {
+    const all = jsonGet(CACHE_KEY, {});
+    for (const a of Object.keys(all)) if (all[a] && all[a].status === 0 && all[a].valid === undefined) verdictOf(a).then((v) => markChecked(a, v));
+  }
+  const savedInvalid = (address) => { const c = cached(address); return !!(c && c.valid === false); };
+
   // "Remember my choice" (user 2026-11-01): add every system scanned in this browser, at once
   const ALWAYS_KEY = "dv.scan.always", always = () => jsonGet(ALWAYS_KEY, false) === true;
 
@@ -73,11 +139,11 @@
   // otherwise "Local only". modern.js turns the cached rows into list cards (withDeviceRows).
   function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.queued || (c.top || []).length) ? "Not uploaded yet" : "Local only"; }
   const changed = () => { try { if (globalThis.dvDeviceChanged) globalThis.dvDeviceChanged(); } catch (_) {} };
-  globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([, c]) => c && c.status === 0 && c.row)
+  globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([, c]) => c && c.status === 0 && c.row && c.valid !== false)
     .map(([address, c]) => ({ address, row: c.row, extras: lootShown(address, c) ? c.extras : null, tag: tagOf(address, c) }));
   // loot on request (user 2026-10-31): a top-100 system shows it by default, any other after "Scan loot" (site-loot.js)
   function lootShown(address, c) { return (c.top || []).length > 0 || !!(globalThis.dvLootSaved && globalThis.dvLootSaved(address)); }
-  globalThis.dvScannedHere = (address) => { const c = cached(address); return !!(c && c.status === 0); };
+  globalThis.dvScannedHere = (address) => { const c = cached(address); return !!(c && c.status === 0 && c.valid !== false); };
   function setQueued(address, on) {
     const all = jsonGet(CACHE_KEY, {});
     if (!all[address]) return;
@@ -97,7 +163,7 @@
     clearTimeout(pending.get(address));
     pending.delete(address);
     const url = relay(), st = states.get(address);
-    if (!url || !(st && st.send) || wasSent(address) || st.sending) return;
+    if (!url || !(st && st.send) || wasSent(address) || st.sending || savedInvalid(address)) return;
     st.sending = true; st.sendError = "";
     fetch(url, { method: "POST", body: JSON.stringify({ address }), keepalive: true, mode: "cors", headers: { "Content-Type": "text/plain" } })
       .then((r) => {
@@ -110,14 +176,15 @@
     render();
   }
   function schedule(address) {
-    if (!relay() || wasSent(address) || pending.has(address)) return;
-    send(address);
+    if (!relay() || wasSent(address) || pending.has(address) || savedInvalid(address)) return;
+    verdictOf(address).then((v) => { if (!isBad(v)) send(address); else markChecked(address, v); });
   }
   // leaving the page while a retry waits: last chance by sendBeacon (its answer cannot be read)
   function flushAll() {
     const url = relay();
     for (const a of [...pending.keys()]) {
       clearTimeout(pending.get(a)); pending.delete(a);
+      if (savedInvalid(a)) continue;
       try { if (url && navigator.sendBeacon(url, new Blob([JSON.stringify({ address: a })], { type: "text/plain" }))) markSent(a); } catch (_) {}
     }
   }
@@ -131,7 +198,9 @@
   }
   function start(address, attempt) {
     stopWorker();
-    const now = Date.now(), st = { phase: "scanning", mode: open && open.nomap ? "map" : "scan", attempt: attempt || 1, startedAt: now, limitAt: now + LIMIT_MS, asking: false };
+    const prev = states.get(address);
+    const now = Date.now(), st = { phase: "scanning", mode: open && (open.nomap || open.redraw) ? "map" : "scan", attempt: attempt || 1, startedAt: now, limitAt: now + LIMIT_MS, asking: false };
+    if (prev) for (const k of ["send", "sending", "sendError", "callout"]) if (prev[k] !== undefined) st[k] = prev[k];
     states.set(address, st);
     st.step = "download"; st.loaded = 0; st.total = 0; st.stepAt = now;
     ticker = setInterval(() => {
@@ -192,7 +261,7 @@
     if (st.mode === "map") {
       if (data.status !== 0 || !data.derelict) { stopWorker(); st.phase = "error"; st.error = data.status === 4 ? "unexpected" : "no map came back"; if (data.status === 4) logFailure({ address, mode: st.mode, step: "scan", error: "status 4 (no abandoned freighter): unexpected, every real system has one (RE W31)" }); render(); return; }
       maps.set(address, data.derelict);
-      drawing(address, st, data, () => showMap(address));
+      drawing(address, st, data, () => (open && open.address === address && open.redraw ? show(address) : showMap(address)));
       return;
     }
     // status 4 never happens for a real system (RE W31): an unexpected result, logged, not "no freighter"
@@ -201,7 +270,7 @@
     if (data.derelict) maps.set(address, data.derelict);
     const top = globalThis.dvTopLists ? await globalThis.dvTopLists.load().then((l) => globalThis.dvTopLists.breaks(data.row, data.extras, l)).catch(() => []) : [];
     if (states.get(address) !== st) return;
-    remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, at: Date.now() });
+    remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, at: Date.now(), valid: true });
     changed();
     if (top.length) { st.send = true; st.callout = true; schedule(address); setTimeout(() => { st.callout = false; render(); }, 9000); }
     else if (always() && relay()) { st.send = true; setQueued(address, true); schedule(address); }
@@ -308,7 +377,13 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
       return;
     }
     let html;
-    if (st && (st.mode === "map" || st.phase === "drawing")) html = panelHtml(address, st);
+    if (open.invalid) {
+      html = invalidHtml(address, open.invalid);
+      const h2 = notice.querySelector("h2");
+      if (h2 && h2.textContent !== "Invalid address") h2.textContent = "Invalid address";
+      notice.querySelectorAll(":scope > p").forEach((q) => { q.hidden = true; });
+    }
+    else if (st && (st.mode === "map" || st.phase === "drawing")) html = panelHtml(address, st);
     else if (c && c.status === 0 && (!st || st.phase === "done")) html = consentHtml(address);
     else if (open.unscanned || open.slim || open.nomap || st) html = panelHtml(address, st);
     else return;
@@ -364,30 +439,57 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
     const searched = globalThis.dvSearchedAddress === address || auto === address;   // auto: "Open" on the Contribute page
     globalThis.dvSearchedAddress = null;
     open = { address, unscanned: !!info.unscanned, slim: !!info.slim, nomap: !!info.nomap, noloot: !!info.noloot };
-    // no loot numbers in the atlas: only on request ("Scan loot", site-loot.js); a loot scan made here earlier shows at once
-    const lootHere = open.noloot && globalThis.dvLootSaved ? globalThis.dvLootSaved(address) : null;
-    if (lootHere && globalThis.dvFillExtras) setTimeout(() => { if (open && open.address === address) globalThis.dvFillExtras(address, lootHere); }, 0);
-    if (open.nomap && maps.has(address)) { setTimeout(() => showMap(address), 0); return; }
-    // no published map: draw it on this device straight away (opening the system is the consent)
-    if (open.nomap && !["scanning", "drawing", "done"].includes(states.get(address)?.phase)) { setTimeout(() => { if (open && open.address === address) start(address); }, 0); return; }
-    const c = cached(address);
-    if (c && c.status === 0) {
-      // a top-100 system found earlier and not sent yet: it is always added
-      if (topNames(c).length && !wasSent(address)) { const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s); schedule(address); }
-      setTimeout(() => show(address), 0); return;
-    }
-    const st = states.get(address);
-    if (info.unscanned && searched && !(c && c.status === 0) && (!st || st.phase !== "scanning")) setTimeout(() => start(address), 0);
-    else setTimeout(render, 0);
+    const go = () => {
+      // no loot numbers in the atlas: only on request ("Scan loot", site-loot.js); a loot scan made here earlier shows at once
+      const lootHere = open.noloot && globalThis.dvLootSaved ? globalThis.dvLootSaved(address) : null;
+      if (lootHere && globalThis.dvFillExtras) setTimeout(() => { if (open && open.address === address) globalThis.dvFillExtras(address, lootHere); }, 0);
+      if (open.nomap && maps.has(address)) { setTimeout(() => showMap(address), 0); return; }
+      // no published map: draw it on this device straight away (opening the system is the consent)
+      if (open.nomap && !["scanning", "drawing", "done"].includes(states.get(address)?.phase)) { setTimeout(() => { if (open && open.address === address) start(address); }, 0); return; }
+      const c = cached(address);
+      if (c && c.status === 0) {
+        // a top-100 system found earlier and not sent yet: it is always added
+        if (topNames(c).length && !wasSent(address)) { const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s); schedule(address); }
+        setTimeout(() => show(address), 0);
+        // the map is never saved (only the numbers): draw it again on this device, like an atlas system without a map
+        // (user 2026-11-01: "the scanner should keep it's 3d-2d for a system that should be local")
+        if (!maps.has(address) && !["scanning", "drawing"].includes(states.get(address)?.phase)) {
+          open.redraw = true;
+          setTimeout(() => { if (open && open.address === address) start(address); }, 0);
+        }
+        return;
+      }
+      const st = states.get(address);
+      if (info.unscanned && searched && !(c && c.status === 0) && (!st || st.phase !== "scanning")) setTimeout(() => start(address), 0);
+      else setTimeout(render, 0);
+    };
+    // not in the atlas (unknown, or only saved on this device): the address is checked before anything else
+    if (!info.unscanned && !cached(address)) return go();
+    verdictOf(address).then((v) => {
+      if (!open || open.address !== address) return;
+      if (isBad(v)) { open.invalid = v; markChecked(address, v); render(); return; }
+      if (v.code === 0) markChecked(address, v);
+      go();
+    });
   };
   // the Systems list found nothing for a complete address that is not in the atlas: offer to scan it
   globalThis.dvNoResultsAddress = (box, address, openIt) => {
-    if (!box || box.querySelector(".site-scan-offer")) return;
+    if (!box) return;
+    // one offer per searched address: a new search replaces the box of the one before (it kept the old address)
+    const before = box.querySelector(".site-scan-offer");
+    if (before && before.dataset.offerAddress === address) return;
+    if (before) before.remove();
     const p = document.createElement("div");
     p.className = "site-scan-offer";
-    p.innerHTML = `<p>${esc(address)} is not in the atlas yet.</p><button type="button" class="primary">Scan this system</button>`;
-    p.querySelector("button").addEventListener("click", openIt);
+    p.dataset.offerAddress = address;
+    p.innerHTML = `<p>${esc(address)} is not in the atlas yet.</p><button type="button" class="primary" disabled>Checking the address…</button>`;
+    const b = p.querySelector("button");
+    b.addEventListener("click", openIt);
     box.prepend(p);
+    verdictOf(address).then((v) => {
+      if (isBad(v)) { p.classList.add("site-scan-offer-invalid"); p.innerHTML = invalidHtml(address, v); return; }
+      b.disabled = false; b.textContent = "Scan this system";
+    });
   };
   // (the explanation is part of the page now and stays open until "What is sent?" is pressed again)
   function watch() {
@@ -395,4 +497,6 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
     if (content) new MutationObserver(render).observe(content, { childList: true });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch); else watch();
+  setTimeout(sweep, 3000);   // saved systems from before the address check
+  document.addEventListener("click", (e) => { if (e.target && e.target.closest && e.target.closest("#search")) rcLoad(); }, true);
 })();

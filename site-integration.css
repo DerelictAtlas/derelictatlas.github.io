@@ -396,3 +396,130 @@ dialog.sheet.si-info[open] { display: flex; }
 .site-scan-row .site-scan-more { min-height: 0; height: auto; padding: 2px 4px; border: 0; background: none; color: var(--accent, #55d9dc); font-size: 12px; cursor: pointer; }
 .site-scan-row .site-scan-more[aria-expanded="true"] span { display: inline-block; transform: rotate(180deg); }
 .site-scan-inline .site-scan-info { position: static; width: auto; max-width: 640px; margin: 8px 0 0; box-shadow: none; }
+
+/* Home screen / main menu (site-home.js, user 2026-11-01), v2 = the user's mockup "Color-coded Derelict Atlas ranking
+   dashboard": HOME | WHAT ARE YOU HUNTING?, the trivia strip, a coloured band per category with 3 cards (pictures =
+   the user's own, home/*.webp) and WORST OF THE WORST. On a PC it fills the viewer panel and never scrolls (user
+   requirement): the bands share the height, and each card is a size container, so its picture and text scale with it. */
+.site-home { --sh-gold: #f4cd54; --sh-ink: #e8f0f4; --sh-dim: #a3b7c6;
+  position: relative; display: flex; flex-direction: column; gap: clamp(5px, 1vh, 10px); min-height: 0;
+  border: 1px solid var(--line); background: #07131ecc; padding: clamp(8px, 1.4vh, 16px) clamp(10px, 1vw, 16px); overflow: auto; overscroll-behavior: contain; }
+.site-home[hidden] { display: none; }
+.site-home .sh-head { flex: none; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px; }
+.site-home .sh-house { width: clamp(18px, 2.6vh, 24px); height: auto; color: var(--sh-gold); flex: none; }
+.site-home .sh-head > b { font: 600 clamp(15px, 2.1vh, 19px)/1 'Barlow Condensed', Barlow, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--sh-gold); }
+.site-home .sh-sep { width: 1px; align-self: stretch; min-height: 22px; background: #3b5568; margin: 0 6px; }
+.site-home .sh-head h1 { margin: 0; font: 500 clamp(16px, 2.5vh, 23px)/1.1 Barlow, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--sh-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.site-home .sh-act { margin-left: auto; }
+.site-home .sh-act button { margin: 0; }
+@media (min-width: 701px) { .site-home .sh-act { display: none; } }
+/* trivia */
+.site-home .sh-trivia { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; gap: 8px;
+  padding: 5px 8px; border: 1px solid #2c4a5e; border-left: 4px solid var(--accent); border-radius: 6px; background: linear-gradient(90deg, #55d9dc14, transparent 40%), #08141e; }
+.site-home .sh-trivia-tag { align-self: center; font: 600 clamp(12px, 1.7vh, 15px)/1.05 'Barlow Condensed', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); max-width: 6.5em; }
+.site-home .sh-fact { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; min-width: 0;
+  padding: 3px 8px; border: 1px solid #23394a; border-radius: 4px; background: #0b1824; color: var(--sh-ink); text-decoration: none; }
+.site-home .sh-fact:hover, .site-home .sh-fact:focus-visible { border-color: var(--accent); outline: none; }
+.site-home .sh-fact small { grid-column: 1; font: 600 11px/1.1 'Barlow Condensed', sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.site-home .sh-fact .sh-hex { grid-column: 1; grid-row: 2; font: 500 clamp(12px, 1.7vh, 15px)/1.15 Barlow, sans-serif; letter-spacing: .08em; }
+.site-home .sh-fact .sh-glyphs { grid-column: 2; grid-row: 1; }
+.site-home .sh-fact .sh-glyphs img { width: clamp(11px, 1.6vh, 15px); height: clamp(11px, 1.6vh, 15px); }
+.site-home .sh-fact-text { grid-column: 2; grid-row: 2; font-size: clamp(10px, 1.4vh, 12px); line-height: 1.2; color: var(--sh-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the bands */
+.site-home .sh-rows { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)) minmax(0, .8fr); gap: clamp(5px, 1vh, 10px); }
+.sh-row { --c: #3fe0a8; display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 3.3fr); gap: 8px; min-height: 0; padding: clamp(3px, .6vh, 6px);
+  border: 1.5px solid color-mix(in srgb, var(--c) 70%, transparent); border-left-width: 4px; border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 13%, transparent), transparent 45%), #08141e; box-shadow: 0 0 14px -6px var(--c); }
+.sh-row.sh-c-modules { --c: #3fe0a8; }
+.sh-row.sh-c-nanites { --c: #3cb8f5; }
+.sh-row.sh-c-value { --c: #f4c542; }
+.sh-row.sh-c-spookbox { --c: #b866f5; }
+.sh-row.sh-c-worst { --c: #ff4a4a; }
+.sh-lead { display: flex; align-items: center; gap: clamp(8px, .8vw, 14px); min-width: 0; padding: 0 4px 0 6px; }
+.sh-lead .sh-hexico, .sh-lead .sh-skull { flex: none; width: clamp(34px, 6.2vh, 64px); height: auto; color: var(--c); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 60%, transparent)); }
+.sh-lead h2 { margin: 0; font: 600 clamp(15px, 2.4vh, 23px)/1.02 'Barlow Condensed', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--c); }
+.sh-lead p { margin: 3px 0 0; font-size: clamp(10.5px, 1.5vh, 14px); line-height: 1.25; color: var(--sh-dim); }
+.sh-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 8px; min-height: 0; }
+.sh-c-worst .sh-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* a card: a size container (cqh / cqw = its own height / width) */
+.sh-card { container-type: size; position: relative; display: block; min-width: 0; min-height: 0; height: 100%; border: 1px solid #2a4458; border-radius: 4px;
+  background: #0b1824; color: var(--sh-ink); text-decoration: none; overflow: hidden; }
+a.sh-card:hover, a.sh-card:focus-visible { border-color: var(--c); background: #0f2030; outline: none; }
+.sh-card .sh-img { position: absolute; left: 4px; top: 4px; height: calc(100cqh - 8px); width: min(calc(100cqh - 8px), 30cqw); object-fit: cover; border-radius: 3px; }
+.sh-card .sh-body { position: absolute; top: 0; bottom: 0; left: calc(min(calc(100cqh - 8px), 30cqw) + 10px); right: 7px; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; min-width: 0; }
+.sh-card .sh-hex { margin-right: 28px; font: 500 clamp(10px, min(15cqh, 6.4cqw), 17px)/1.1 Barlow, sans-serif; letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-glyphs { display: flex; gap: 1px; min-width: 0; overflow: hidden; }
+.sh-glyphs img { flex: none; filter: drop-shadow(0 0 .5px #fff) drop-shadow(0 0 3px #b5eaff40); }
+.sh-card .sh-glyphs { margin-right: 28px; }
+.sh-card .sh-foot { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 1px; min-width: 0; }
+/* all 12 glyphs always fit: the size comes from the width left beside the picture */
+.sh-card .sh-glyphs { --sh-g: clamp(6px, min(14cqh, calc((100cqw - min(100cqh - 8px, 30cqw) - 17px - 28px) / 12 - 1px)), 17px); }
+.sh-card .sh-glyphs img { width: var(--sh-g); height: var(--sh-g); }
+@container (max-width: 250px) { .sh-card .sh-mapico { display: none; } .sh-card .sh-glyphs { margin-right: 0; } .sh-card .sh-hex { margin-right: 16px; } .sh-card .sh-glyphs { --sh-g: clamp(6px, min(14cqh, calc((100cqw - min(100cqh - 8px, 30cqw) - 17px) / 12 - 1px)), 17px); } }
+.sh-card .sh-big { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; color: var(--c); }
+.sh-card .sh-big b { font: 600 clamp(17px, min(31cqh, 14cqw), 40px)/1.1 'Barlow Condensed', sans-serif; }
+.sh-card .sh-big small { font: 500 clamp(11px, min(16cqh, 7.5cqw), 19px)/1 'Barlow Condensed', sans-serif; overflow: hidden; text-overflow: ellipsis; }
+.sh-card .sh-chev { position: absolute; top: 2px; right: 7px; font: 400 clamp(14px, 18cqh, 20px)/1 Barlow, sans-serif; color: #cfe0ea; }
+.sh-card .sh-mapico { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: clamp(13px, 16cqh, 19px); color: #cfe0ea; opacity: .85; }
+.sh-card .sh-mapico svg { display: block; width: 100%; height: auto; }
+.sh-card .sh-rooms { margin-left: auto; font-size: clamp(9px, min(11cqh, 5cqw), 12px); line-height: 1.1; color: var(--sh-dim); white-space: nowrap; }
+.sh-card .sh-rank { position: absolute; z-index: 2; top: 4px; left: 4px; display: grid; place-items: center; width: clamp(16px, 23cqh, 30px); height: clamp(16px, 23cqh, 30px);
+  border-radius: 3px; font: 700 clamp(12px, 18cqh, 22px)/1 'Barlow Condensed', sans-serif; color: #fff; background: #2a6fc0; box-shadow: 0 1px 4px #0009; }
+.sh-card.sh-r1 .sh-rank { background: var(--sh-gold); color: #10161c; }
+.sh-card.sh-r3 .sh-rank { background: #a35f30; }
+.sh-card .sh-top { position: absolute; z-index: 2; top: 4px; left: calc(clamp(16px, 23cqh, 30px) + 10px); padding: 0 8px; border-radius: 2px; height: clamp(14px, 18cqh, 24px);
+  display: grid; place-items: center; font: 600 clamp(10px, 13cqh, 16px)/1 'Barlow Condensed', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: #10161c; background: var(--sh-gold); }
+.sh-card.sh-r1 { border: 2px solid var(--sh-gold); box-shadow: 0 0 12px -2px #f4cd5488, inset 0 0 18px -10px #f4cd54; }
+.sh-card.sh-r1 .sh-body { top: calc(clamp(14px, 18cqh, 24px) + 6px); gap: 2cqh; }
+/* worst */
+.sh-card.sh-bad { border-color: #5a2630; background: linear-gradient(90deg, #ff4a4a10, transparent 60%), #0e1218; }
+.sh-card.sh-bad .sh-img { width: min(calc((100cqh - 8px) * 1.25), 30cqw); }
+.sh-card.sh-bad .sh-body { left: calc(min(calc((100cqh - 8px) * 1.25), 30cqw) + 12px); right: 30px; }
+.sh-card.sh-bad .sh-glyphs { margin-right: 0; }
+.sh-card.sh-bad .sh-glyphs { --sh-g: clamp(6px, min(14cqh, calc((100cqw - min((100cqh - 8px) * 1.25, 30cqw) - 42px) / 12 - 1px)), 17px); }
+.sh-card.sh-bad .sh-hex { margin-right: 78px; }
+.sh-card.sh-bad .sh-big b { font-size: clamp(16px, min(30cqh, 9cqw), 34px); }
+.sh-card.sh-bad .sh-big i { font-style: normal; color: var(--sh-ink); opacity: .7; margin: 0 2px; }
+.sh-card .sh-low { position: absolute; top: 5px; right: -4px; padding: 1px 7px; border: 1px solid #ff4a4a; border-radius: 3px; background: #ff4a4a1c;
+  font: 600 clamp(10px, 13cqh, 14px)/1.1 'Barlow Condensed', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: #ff6b6b; }
+.sh-card.sh-bad .sh-chev { top: 50%; transform: translateY(-60%); font-size: clamp(18px, 26cqh, 28px); color: #ff6b6b; }
+.sh-card.sh-bad .sh-mapico { top: auto; bottom: 5px; transform: none; }
+/* narrow worst cards: LOW YIELD goes above the address instead of beside it */
+@container (max-width: 290px) { .sh-card.sh-bad .sh-low { position: static; align-self: flex-start; } .sh-card.sh-bad .sh-hex { margin-right: 0; } }
+.sh-wait { opacity: .55; }
+.sh-wait .sh-big b, .sh-wait .sh-big small { color: var(--muted); }
+@media (min-width: 701px) { .site-home { height: 100%; } }
+@media (max-width: 700px) {  /* phone: the home scrolls with the page; each band stacks its title above its cards */
+  .site-home { padding: 12px 10px 18px; gap: 10px; overflow: visible; }
+  .site-home .sh-head { flex-wrap: wrap; row-gap: 6px; }
+  .site-home .sh-head h1 { font-size: 15px; letter-spacing: .1em; }
+  .site-home .sh-trivia { grid-template-columns: minmax(0, 1fr); }
+  .site-home .sh-trivia-tag { max-width: none; }
+  .site-home .sh-fact-text { white-space: normal; }
+  .site-home .sh-rows { display: flex; flex-direction: column; gap: 10px; }
+  .sh-row, .sh-row.sh-c-worst { grid-template-columns: minmax(0, 1fr); padding: 6px; }
+  .sh-lead { padding: 4px 4px 2px; }
+  .sh-lead .sh-hexico, .sh-lead .sh-skull { width: 40px; }
+  .sh-lead h2 { font-size: 19px; }
+  .sh-lead p { font-size: 12.5px; }
+  .sh-cards, .sh-c-worst .sh-cards { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: 96px; gap: 6px; }
+  .sh-card.sh-bad .sh-low { position: static; align-self: flex-start; }
+  .sh-card.sh-bad .sh-hex { margin-right: 0; }
+}
+
+/* phone (user 2026-11-01 "Bit cluttered on mobile version on the 3d map"): each map's title gets its own line and
+   the buttons a row of their own below it, so nothing overlaps (Deck spacing, reset, Tilt, Walk, full screen). */
+@media (max-width: 640px) {
+  .visual-heading { flex-wrap: wrap; row-gap: 2px; padding: 7px 8px 5px; }
+  .visual-heading > h3 { flex: 0 0 100%; width: 100%; }
+  .visual-heading .site-spacing { flex: 0 1 auto; margin: 0; }
+  .visual-heading > div:last-child { margin-left: auto; }
+}
+
+/* invalid address (user 2026-11-01): the W29d check's error with its code, in the scan panel and the list offer */
+.site-scan-invalid { border: 1px solid #f04a6a88; border-left: 3px solid #f04a6a; border-radius: 8px; background: #f04a6a14; padding: 10px 12px; text-align: left; }
+.site-scan-invalid p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.site-scan-invalid p:last-child { margin-bottom: 0; }
+.site-scan-invalid .site-scan-invalid-code { color: #ff8da3; font-size: 13px; letter-spacing: .02em; }
+.site-scan-invalid .site-scan-invalid-code b { color: #ff8da3; }
+.site-scan-offer.site-scan-offer-invalid { padding: 0; border: 0; background: none; }

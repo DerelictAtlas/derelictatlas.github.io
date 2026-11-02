@@ -156,20 +156,9 @@
       const node = [...loading.childNodes].reverse().find((n) => n.nodeType === 3);
       if (node && node.textContent !== text) node.textContent = text;
     }
-    let busy = document.getElementById("site-busy");
-    if (!busy) {
-      const bar = document.querySelector("#systems .filter-toolbar");
-      if (!bar) return;
-      busy = document.createElement("p");
-      busy.id = "site-busy";
-      busy.className = "site-busy";
-      busy.setAttribute("role", "status");
-      busy.hidden = true;
-      bar.insertAdjacentElement("afterend", busy);
-    }
-    const sorting = results.getAttribute("aria-busy") === "true";
-    busy.hidden = !sorting;
-    if (sorting) busy.innerHTML = `<i class="atlas-spinner" aria-hidden="true"></i>${esc(text && text !== "systems" ? text : "Sorting systems…")}`;
+    // one loading circle (user 2026-11-01: "keep the top one since the other one keeps popping up and moving the
+    // systems up and down"): the header's circle + status text show sorting too, so no extra line above the list.
+    document.getElementById("site-busy")?.remove();
   }
   // Best overall (user 2026-10-31): cards show their rank (#1, #2, #3 ...) while that sort is chosen. The windowed list
   // gives every card its position (data-list-index); filters apply first, so the rank is within the shown systems.
@@ -231,9 +220,10 @@
     tools.before(goal);
     const count = tools.querySelector(".header-count"), heading = document.querySelector("#systems .section-heading");
     if (count && heading) { count.classList.add("site-list-count"); heading.appendChild(count); }
-    fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((s) => {
+    Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      window.dvSinglesCount ? window.dvSinglesCount() : 0]).then(([s, singles]) => {
       if (!s || !Number(s.total_systems)) return;
-      const cap = Number(s.rules && s.rules.atlas_cap) || 1000000, n = Number(s.total_systems), pct = Math.min(100, n / cap * 100);
+      const cap = Number(s.rules && s.rules.atlas_cap) || 1000000, n = Number(s.total_systems) + (singles || 0), pct = Math.min(100, n / cap * 100);
       goal.querySelector("i").style.width = pct.toFixed(2) + "%";
       goal.querySelector("b").textContent = n.toLocaleString("en-US");
       goal.querySelector(".long").textContent = ` / ${cap.toLocaleString("en-US")} systems`;

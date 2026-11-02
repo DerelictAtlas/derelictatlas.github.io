@@ -21,7 +21,16 @@
     : fetch(base + "index/first.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : null)).catch(() => null);
   window.dvFirstText = () => first;
 
-  function merge(texts) {
+  // the atlas count includes the visitor-scanned singles (scanner -cc 2026-11-01: stats/systems.json does not count them,
+  // the Action writes them hourly): the data rows of index/singles.csv, fetched once
+  let singlesCountP = null;
+  window.dvSinglesCount = () => singlesCountP || (singlesCountP = fetch(base + "index/singles.csv", { cache: "no-cache" })
+    .then((r) => (r.ok ? r.text() : "")).then((t) => Math.max(0, t.split(/\r?\n/).filter(isRow).length - 1)).catch(() => 0));
+
+  // key of an index row: "GLYPHS,GALAXY" (the first two columns)
+  const rowKey = (line) => { const i = line.indexOf(","), j = i < 0 ? -1 : line.indexOf(",", i + 1); return j < 0 ? line : line.slice(0, j); };
+  // seen: the keys of the visitor-scanned singles; a shard row with one of them is noted (so the single is not added twice)
+  function merge(texts, seen) {
     let head = null, out = [], rows = 0;
     texts.forEach((text, i) => {
       const lines = text.split(/\r?\n/);
@@ -35,9 +44,24 @@
         }
         out.push(line);
         rows++;
+        if (seen && seen.size && seen.has(rowKey(line))) seen.set(rowKey(line), true);
       }
     });
-    return { text: out.join("\n") + "\n", rows };
+    return { text: out.join("\n") + "\n", rows, head };
+  }
+
+  // visitor-scanned systems (scanner -cc singles Action, user 2026-11-01): index/singles.csv has the shards' header;
+  // its rows join the list like any atlas system. Missing, failed or another header = left out (never breaks the list).
+  function singlesOf(text) {
+    if (typeof text !== "string" || !text) return null;
+    const lines = text.split(/\r?\n/).filter(isRow);
+    return lines.length > 1 ? { head: lines[0], rows: lines.slice(1) } : null;
+  }
+  function withSingles(merged, singles, seen) {
+    if (!singles || singles.head !== merged.head) return merged.text;
+    const add = singles.rows.filter((line) => !seen.get(rowKey(line)));
+    window.dvSinglesN = add.length;   // added to the stats count in the Systems heading (modern.js, SINGLES_COUNT_EDITS)
+    return add.length ? merged.text + add.join("\n") + "\n" : merged.text;
   }
 
   async function manifest(base) {
@@ -63,10 +87,15 @@
     if (!m) { await pause(1500); m = await manifest(base); }
     if (!m) return old();
     let merged;
+    const singlesText = Promise.resolve().then(() => loadText(base + "index/singles.csv")).catch(() => null);
+    let singles = null;
+    const seen = new Map();
     try {
-      const texts = await Promise.all(m.shards.map((s) => shard(base, s, loadText)));
+      const [texts, st] = await Promise.all([Promise.all(m.shards.map((s) => shard(base, s, loadText))), singlesText]);
       if (texts.some((t) => typeof t !== "string")) throw new Error("index shard missing");
-      merged = merge(texts);
+      singles = singlesOf(st);
+      if (singles) for (const line of singles.rows) seen.set(rowKey(line), false);
+      merged = merge(texts, seen);
     } catch (e) {
       console.warn("atlas index shards unusable, using index/systems.csv.gz:", e.message);
       return old();
@@ -75,7 +104,7 @@
       console.warn(`atlas index shards have ${merged.rows} rows, manifest says ${m.rows}: trying index/systems.csv.gz`);
       try { const t = await old(); if (typeof t === "string" && t) return t; } catch (_) { /* .gz already gone */ }
     }
-    return merged.text;
+    return withSingles(merged, singles, seen);
   };
 
   window.dvViewsText = async function (base, loadText) {

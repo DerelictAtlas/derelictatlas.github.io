@@ -100,7 +100,10 @@ async function mapBitsFor(address, fallback) {
 
 let extrasCache = null;
 function atlasExtras() {
-  if (!extrasCache) extrasCache = fetchGzipText(ATLAS_RAW + "views/extras.csv.gz").then((t) => (t ? parseExtrasCsv(t) : null))
+  // + the visitor-scanned singles' extras (views/singles-extras.csv, scanner -cc singles Action; the main extras win)
+  if (!extrasCache) extrasCache = Promise.all([fetchGzipText(ATLAS_RAW + "views/extras.csv.gz").then((t) => (t ? parseExtrasCsv(t) : null)),
+    fetchGzipText(ATLAS_RAW + "views/singles-extras.csv").then((t) => (t ? parseExtrasCsv(t) : null)).catch(() => null)])
+    .then(([main, singles]) => { if (!singles) return main; const out = main || new Map(); for (const [a, e] of singles) if (!out.has(a)) out.set(a, e); return out; })
     .catch((e) => {  return null; });
   return extrasCache;
 }

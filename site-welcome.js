@@ -30,7 +30,7 @@
       body: `<div class="site-welcome-tiles">
 <button type="button" class="site-welcome-tile" data-go="info"><span class="tile-icon">ⓘ</span><b>Information</b><small>How to read the viewer, what the numbers mean, credits.</small></button>
 <button type="button" class="site-welcome-tile gold" data-go="contribute"><span class="tile-icon">◎</span><b>Contribute!</b><small>Scan systems for the atlas with any device. Help it reach a million.</small></button>
-<button type="button" class="site-welcome-tile" data-go="coffee"><span class="tile-icon">☕</span><b>Buy me a coffee</b><small>Keep the atlas and its scanners running.</small></button>
+<button type="button" class="site-welcome-tile" data-go="coffee"><span class="tile-icon">☕</span><b>Fuel the Atlas</b><small>Derelict Atlas is free, with no ads. A coffee helps keep it running.</small></button>
 </div>`, spot: true }),
   ];
 

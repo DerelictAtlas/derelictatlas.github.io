@@ -1,6 +1,6 @@
 // Set only to a public support-page URL supplied by the recipient/owner.
 // An empty URL keeps the entire support card hidden; never guess a handle.
-export const SUPPORT_URL='';
+export const SUPPORT_URL='https://www.paypal.com/ncp/payment/AZNXMVVRD9ZJC';
 export function supportDestination(value){
   if(typeof value!=='string'||!value.trim())return null;
   try{const url=new URL(value.trim());return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}

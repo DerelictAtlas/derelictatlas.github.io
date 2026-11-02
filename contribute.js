@@ -93,7 +93,7 @@
   // ---- atlas statistics ----
   function showStats(s) {
     if (!s) { $("cb-togo").textContent = "Atlas statistics are not available right now."; return; }
-    const total = Number(s.total_systems) || 0, cap = Number(s.rules && s.rules.atlas_cap) || CAP, pct = Math.min(100, total / cap * 100);
+    const total = (Number(s.total_systems) || 0) + (Number(s.singles) || 0), cap = Number(s.rules && s.rules.atlas_cap) || CAP, pct = Math.min(100, total / cap * 100);
     $("cb-total").textContent = fmt(total);
     $("cb-bar-fill").style.width = pct.toFixed(2) + "%";
     $("cb-bar").setAttribute("aria-valuenow", pct.toFixed(1));
@@ -469,7 +469,10 @@
     await (window.dvGateReady || Promise.resolve());
     setup();
     render();
-    fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((s) => { lists = s && s.map_lists || null; showStats(s); });
+    // + the visitor-scanned singles (index/singles.csv data rows), as on the main page
+    const singles = fetch("index/singles.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).then((t) => Math.max(0, t.split(/\r?\n/).filter((l) => l && !l.startsWith("#")).length - 1)).catch(() => 0);
+    Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null), singles])
+      .then(([s, n]) => { lists = s && s.map_lists || null; if (s) s.singles = n; showStats(s); });
     const [text] = await Promise.all([
       fetch("stats/work.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
       manifest().catch((e) => { logFailure({ step: "manifest", error: "downloading the scanner info (scan/w29.json): " + e.message }); note = "Downloading the scanner failed (" + e.message + "). Reload the page to try again."; }),
