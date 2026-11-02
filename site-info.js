@@ -37,7 +37,7 @@
 <div class="si-tiles">
 <button type="button" class="si-tile" data-si="welcome"><span class="si-tile-icon">✦</span><b>Welcome tour</b><small>What the atlas is and how it scans, in five steps.</small></button>
 <a class="si-tile gold" href="contribute.html"><span class="si-tile-icon">◎</span><b>Contribute!</b><small>Scan systems for the atlas with this device.</small></a>
-<button type="button" class="si-tile" data-si="coffee"><span class="si-tile-icon">☕</span><b>Fuel the Atlas</b><small data-si-coffee>Derelict Atlas is free, with no ads. A coffee helps keep it running.</small></button>
+<button type="button" class="si-tile" data-si="coffee"><span class="si-tile-icon">☕</span><b>Buy me a coffee</b><small data-si-coffee>Enjoy the Atlas? A coffee keeps it free, ad-free and the scanners running.</small></button>
 </div>`;
     if (name === "use") return `<div class="si-cards">${card(I.find, "Find", "Systems start with the most Salvaged Frigate Modules. Sort by Best overall, loot value or nanites; Filters narrow the list (maps only, end reward, hide done).")}
 ${card(I.read, "Read the numbers", "Totals count every container: crates, footlockers, briefcases and tall lockers. <b>?</b> uncertain prediction, <b>—</b> unknown, <b>+</b> at least this many.")}
@@ -155,7 +155,7 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
   }
   function syncCoffee() {
     const c = $("support-link"), note = dialog && dialog.querySelector("[data-si-coffee]");
-    if (note) note.textContent = c && !c.hidden && c.href ? "Derelict Atlas is free, with no ads. A coffee helps keep it running." : "Coming soon: the support link is not connected yet.";
+    if (note) note.textContent = c && !c.hidden && c.href ? "Enjoy the Atlas? A coffee keeps it free, ad-free and the scanners running." : "Coming soon: the support link is not connected yet.";
   }
   // after site-integration.js (About) and site-stats.js (owner tools) have added their sections
   function start() { setTimeout(build, 0); }
