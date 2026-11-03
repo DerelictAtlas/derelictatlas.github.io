@@ -65,6 +65,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import re
 import unicodedata
 from pathlib import Path
@@ -532,6 +533,71 @@ def v3_items(cell, what):
             raise ValueError("extras %s has an entry that is not 'LABEL xAMOUNT=VALUE[~]'" % what)
         out.append((int(m.group(2)), label))
     return out
+
+
+FINDER_MAX = 24                 # FINDER1: the optional v3 "finder" name ("Atlas scout" on the site), after trimming
+FINDER_PUNCT = " _.-"           # allowed besides Unicode letters (category L*) and decimal digits (Nd)
+PERF_INTS = {"ms": (20, 120000), "p10": (20, 120000), "p90": (20, 120000), "n": (1, 200), "workers": (1, 64)}
+PERF_ENUMS = {"speed": ("gentle", "balanced", "max"), "dev": ("phone", "tablet", "pc"), "src": ("contribute", "lookup")}
+PERF_PRESETS = ("CARGO_BUGS", "MEDI_BUGS", "MEDI_TURRETS", "CARGO_TURRETS", "CARGO_FLOATERS", "MEDI_FLOATERS",
+                "CARGO_SLIME", "MEDI_SLIME", "CARGO_MAZE", "MEDI_MAZE")    # the 10 presets of the published index (2026-11-03)
+PERF_MAX_BYTES = 2048           # the perf object as compact UTF-8 JSON
+
+
+def v3_finder(s):
+    """The optional v3 "finder" -> the trimmed name, or "" for none (missing / null / empty after trimming).
+    ValueError("finder ...") when it breaks a rule: a string; no control / format character; 1-24 characters of
+    Unicode letters, decimal digits, space _ . - ; not digits only; no "@", "://" or "www." (any case)."""
+    if s is None:
+        return ""
+    if not isinstance(s, str):
+        raise ValueError("finder must be a string")
+    if any(unicodedata.category(c).startswith("C") for c in s):
+        raise ValueError("finder must not contain control characters")
+    t = s.strip()
+    if not t:
+        return ""
+    if len(t) > FINDER_MAX:
+        raise ValueError("finder must be at most %d characters" % FINDER_MAX)
+    if "@" in t or "://" in t or "www." in t.lower():
+        raise ValueError("finder must not be an e-mail address or a link")
+    if not all(c in FINDER_PUNCT or unicodedata.category(c).startswith("L") or unicodedata.category(c) == "Nd"
+               for c in t):
+        raise ValueError("finder may only hold letters, digits, spaces and _ . -")
+    if all(unicodedata.category(c) == "Nd" for c in t):
+        raise ValueError("finder must not be digits only")
+    return t
+
+
+def v3_perf(obj):
+    """The optional v3 "perf" object (the page's scan speed) -> the same dict, or None when missing.
+    ValueError("perf ...") when it breaks a rule: an object of at most 2,048 bytes (compact JSON); keys only ms, p10,
+    p90, n, workers, speed, dev, src, by_preset; ms required; ms / p10 / p90 integers 20-120000, n 1-200, workers
+    1-64; speed gentle|balanced|max, dev phone|tablet|pc, src contribute|lookup; by_preset an object {PRESET: ms
+    20-120000} with keys from PERF_PRESETS."""
+    if obj is None:
+        return None
+    if not isinstance(obj, dict):
+        raise ValueError("perf must be an object")
+    if len(json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")) > PERF_MAX_BYTES:
+        raise ValueError("perf must be at most %d bytes" % PERF_MAX_BYTES)
+    if not set(obj) <= set(PERF_INTS) | set(PERF_ENUMS) | {"by_preset"} or "ms" not in obj:
+        raise ValueError("perf keys must be ms, p10, p90, n, workers, speed, dev, src, by_preset (ms required)")
+    for k, (lo, hi) in PERF_INTS.items():
+        if k in obj and (isinstance(obj[k], bool) or not isinstance(obj[k], int) or not lo <= obj[k] <= hi):
+            raise ValueError("perf %s must be an integer %d-%d" % (k, lo, hi))
+    for k, allowed in PERF_ENUMS.items():
+        if k in obj and obj[k] not in allowed:
+            raise ValueError("perf %s must be one of %s" % (k, "|".join(allowed)))
+    bp = obj.get("by_preset", {})
+    if not isinstance(bp, dict):
+        raise ValueError("perf by_preset must be an object")
+    for p, v in bp.items():
+        if p not in PERF_PRESETS:
+            raise ValueError("perf by_preset keys must be published presets")
+        if isinstance(v, bool) or not isinstance(v, int) or not 20 <= v <= 120000:
+            raise ValueError("perf by_preset values must be integers 20-120000")
+    return obj
 
 
 def v3_check_row(line):

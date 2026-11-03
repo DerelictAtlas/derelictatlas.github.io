@@ -41,7 +41,7 @@ for attempt in 1 2 3; do
     --summary "$WORK/summary.json" --message "$WORK/message.txt" --run-id "$RUN_ID" --workers "$WORKERS" \
     --deadline "$DEADLINE"
   other=$(git status --porcelain --untracked-files=all \
-          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv)$' || true)
+          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv|views/finders\.csv|stats/speed\.json|views/map-lists\.txt|stats/systems\.json)$' || true)
   if [ -n "$other" ]; then
     echo "the processor changed files outside its outputs, stopping:"
     echo "$other"

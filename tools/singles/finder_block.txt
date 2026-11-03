@@ -1,0 +1,6 @@
+# FINDER1 finder block list (hand-edited; read by tools/singles/singles.py on every run).
+# One entry per line: an ADDRESS16 (its finder row is removed from views/finders.csv) or name:<finder>
+# (any case; that name is removed everywhere and never stored again). Lines starting with # are comments.
+# Example:
+# 0000A0002603CE8F
+# name:some offensive name

@@ -401,6 +401,61 @@ The labels `report-system` and `report-pc` must exist in the repo (create both o
 `report-pc` on the fly when the Action adds it). Summary: `reports` (count per result) and issue entries with
 `kind: "report"`, `result`, `changes`, `close`, `add_label`.
 
+A report whose body line 1 is the relay's `Reasons: ...` line and lists `name` (FINDER1: an offensive finder name)
+clears nothing automatically: after the normal rescan (results as above; not for bad_title / invalid / nonexistent /
+pending) the issue gets the label `report-pc`, stays OPEN, and the comment ends "Finder name reported; the atlas owner
+checks it (tools/singles/finder_block.txt)." (summary `reports_name`, issue field `name_reported`). Only that one line
+of the body is read, never echoed.
+
+## Finder names and scan speed (FINDER1, 2026-11-03)
+
+A v3 upload may carry a `finder` name (the site shows it as "Atlas scout: NAME") and a `perf` object (relay README
+"v3 results upload"). The relay already rejects bad ones; the Action checks them again with the same code
+(`atlas_rules.v3_finder` / `v3_perf`) and DROPS an invalid one from its record (the batch is never rejected for it).
+
+**`views/finders.csv`** (public; removed while empty): line 1 `address,finder,found_utc`, line 2 a `#` line (format 1,
+the rules), then one row per address sorted by address: `ADDRESS16,<finder>,<YYYY-MM-DDTHH:MM:SSZ>` (found_utc = the
+created time of the v3 issue that published it). Rules, every run:
+
+- an address gets a finder only when THIS run publishes it from a v3 issue (outcome `accepted`, not `replaced`) whose
+  record carries a valid finder, and only when it has none yet: the first one wins, later uploads never overwrite it
+  (a re-upload of a published system is `already` / `duplicate` anyway);
+- a system of the PC atlas never has a finder: rows whose address is no longer a single (region file, slim entry or
+  main index row; e.g. after a PC fold-in) are removed (summary `finders.not_single`);
+- `tools/singles/finder_block.txt` (hand-edited, committed by the owner): one entry per line, an ADDRESS16 (any case)
+  or `name:<finder>` (case-insensitive, compared after trimming); `#` lines and anything else are ignored. Blocked rows
+  are removed from finders.csv on every run (`finders.blocked`) and a blocked name is never stored again
+  (`finders.name_blocked`; the system itself is still published);
+- a dropped / rejected / pending batch adds nothing. Summary `finders` = {added, blocked, not_single, name_blocked,
+  total}.
+
+**`stats/speed.json`** (public, cumulative, written only when a run adds perf): the `perf` of every record of every
+ACCEPTED v3 issue (state ok) of the run. Document: `format` 1, `updated` (run time), `batches` (uploads with perf),
+`systems` (sum of their `n`, 1 when missing), `note`, and the groups `overall`, `by_dev` {phone, tablet, pc},
+`by_speed` {gentle, balanced, max}, `by_preset` {PRESET}. Each group: `avg` (exact weighted mean), `min`, `max`
+(exact), `p10` / `p50` / `p90` (from the histogram: the middle of the bin, clamped to min..max, about +-7 %), and the
+running state `n` (weight), `sum` (weighted ms), `hist` (64 log-spaced bins 20-120,000 ms). Running sums + a
+histogram, NO samples are kept. overall / by_dev / by_speed add each upload's median `ms` with weight `n`;
+by_preset adds each `by_preset` value with weight 1. Values outside 20-120,000 ms are dropped. Nothing else is stored
+(no address, name, time per upload or device detail). A stored file with a broken group restarts that group.
+
+`action.sh` allows exactly these two new outputs besides singles/, index/singles.csv and views/singles-extras.csv.
+
+## Map lists: singles rank like atlas systems (RANK1, 2026-11-03)
+
+After writing `index/singles.csv` and `views/singles-extras.csv`, every run re-ranks the 15 map lists
+(`tools/singles/rerank.py`, called from `process`), exactly as the PC publish (`build_atlas_index.build`) does on the
+same files: candidates = the main index rows + the singles rows (a single never duplicates an index row), item values
+from `views/extras.csv.gz` + `views/singles-extras.csv`, incumbents from `views/top100.json.gz` "k" +
+`views/map-lists.txt`. It rewrites `views/map-lists.txt`, the `maps` and `map_lists` parts of `stats/systems.json`
+(cut keys; the totals and tiers stay atlas-only) and the `map` column of `index/singles.csv`. The functions are a
+verbatim copy of the scanner's (the scanner's tests compare the source and the output bytes). No maps are made here:
+a single that enters a list has map bits but no `views/top100.json.gz` entry until the next PC publish, which ranks
+the singles too and adds their maps (the site draws a map on the device meanwhile). A system pushed out of every list
+loses its `map-lists.txt` line. A re-rank error never stops the run (summary `rerank.error`); summary `rerank` gives
+the number of singles in lists. `action.sh` allows `views/map-lists.txt` and `stats/systems.json` as outputs. When
+the PC pushes after such a commit, its pull keeps the PC's version of these two files (the next run re-ranks again).
+
 ## Run locally
 
 Requires Python 3.10+ and Node 18+. Nothing calls GitHub when an issues file and `--dry-run` are given.
@@ -427,7 +482,7 @@ A fresh wasm instance is used every 100 systems, which keeps memory under about 
 ## Deploy
 
 1. Commit these files to `main`: `.github/workflows/singles.yml` and `tools/singles/` (`action.sh`, `singles.py`,
-   `atlas_rules.py`, `scan_many.cjs`, `region_count.cjs`, `w29d/w29d_rc.wasm`, `w29d/w29d_rc.js`, `README.md`; not
+   `atlas_rules.py`, `rerank.py`, `scan_many.cjs`, `region_count.cjs`, `w29d/w29d_rc.wasm`, `w29d/w29d_rc.js`, `README.md`; not
    the `*.pre-*` backup files; the repo's `.gitattributes` keeps them byte-identical: `*.wasm binary`, the LF `.js`
    unchanged by `eol=lf`, and the sha256 check would stop the run otherwise). `scan/` (`scan_w29.wasm`,
    `w29_scan.js`, `w29.json`) comes from the SITE agent.
@@ -447,4 +502,5 @@ A fresh wasm instance is used every 100 systems, which keeps memory under about 
 
 - Stop: Actions -> singles -> "..." -> Disable workflow, or delete `.github/workflows/singles.yml`.
 - Remove published singles: delete `singles/`, `index/singles.csv` and `views/singles-extras.csv` in one commit.
-  Regions and the main index are never touched by this workflow.
+  Regions and the main index are never touched by this workflow (RANK1: it re-ranks `views/map-lists.txt` and the
+  map-list part of `stats/systems.json`; the next PC publish rewrites both).

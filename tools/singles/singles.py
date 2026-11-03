@@ -36,6 +36,7 @@ import gzip
 import hashlib
 import io
 import json
+import math
 import os
 import queue
 import random
@@ -53,6 +54,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True                                 # no __pycache__ in the repo checkout
 sys.path.insert(0, str(Path(__file__).resolve().parent))      # python -I does not add the script folder
 import atlas_rules as R  # noqa: E402
+import rerank as RK      # noqa: E402   RANK1: map-list re-rank (as the PC build), tools/singles/rerank.py
 
 HERE = Path(__file__).resolve().parent
 # ---- the site's scanner (SITE -09 owns scan/; path confirmed 2026-10-31) ----
@@ -155,7 +157,17 @@ NONEXISTENT = "does not exist in-game"     # outcome 'nonexistent': detail = f"{
 WORK_FILE = Path("stats") / "work.txt"      # region + system index work list (written by the PC; SITE format)
 NONE_FORMAT = 1
 HELD_FORMAT = 2                             # 2: + reason column (format 1 rows = reason range are still read)
-OUTPUTS = (SINGLES.as_posix() + "/", INDEX_SINGLES.as_posix(), EXTRAS_SINGLES.as_posix())
+FINDERS_FILE = Path("views") / "finders.csv"   # FINDER1: the first finder name per published single (public)
+FINDERS_HEADER = "address,finder,found_utc"
+FINDERS_FORMAT = 1
+FINDER_BLOCK = Path("tools") / "singles" / "finder_block.txt"   # hand-edited: ADDRESS16 or name:<finder> per line
+SPEED_FILE = Path("stats") / "speed.json"       # FINDER1: cumulative scan speed of accepted v3 uploads (public)
+SPEED_FORMAT = 1
+SPEED_BINS = 64                                 # log-spaced histogram bins from SPEED_LO to SPEED_HI ms (~14 % wide)
+SPEED_LO, SPEED_HI = 20, 120000                 # ms; perf values outside are dropped
+REPORT_REASONS_LINE = re.compile(r"Reasons: ([a-z]+(?:, [a-z]+)*)")   # line 1 of a relay report issue (relay 1.3)
+OUTPUTS = (SINGLES.as_posix() + "/", INDEX_SINGLES.as_posix(), EXTRAS_SINGLES.as_posix(), FINDERS_FILE.as_posix(),
+           SPEED_FILE.as_posix())
 NO_TIME = "1970-01-01T00:00:00Z"
 API = "https://api.github.com"
 
@@ -465,7 +477,8 @@ def v3_record(rec):
     / v3_check_extras), and that the row's glyphs + galaxy and the extras address are the record's address."""
     if not isinstance(rec, dict):
         raise ValueError("a record is not an object")
-    if set(rec) not in ({"address", "fp", "scanner", "none"}, {"address", "fp", "scanner", "row", "extras"}):
+    if set(rec) - {"finder", "perf"} not in ({"address", "fp", "scanner", "none"},
+                                             {"address", "fp", "scanner", "row", "extras"}):
         raise ValueError("a record has the wrong keys")
     a = rec["address"]
     if not isinstance(a, str) or not R.V3_ADDRESS.fullmatch(a) or a[3:6] == "000":
@@ -477,12 +490,179 @@ def v3_record(rec):
     if "none" in rec:
         if rec["none"] is not True:
             raise ValueError("a record none is not true")
-        return rec
+        return v3_optional(rec)
     ra, _ = R.v3_check_row(rec["row"])
     ea, _ = R.v3_check_extras(rec["extras"])
     if ra != a or ea != a:
         raise ValueError("the row glyphs / galaxy or the extras address is not the record address")
-    return rec
+    return v3_optional(rec)
+
+
+def v3_optional(rec):
+    """FINDER1: the record without an invalid "finder" (atlas_rules.v3_finder; only on rows) or "perf"
+    (atlas_rules.v3_perf). An invalid one is dropped here, the batch is never rejected for it."""
+    if "finder" not in rec and "perf" not in rec:
+        return rec
+    out = dict(rec)
+    if "finder" in out:
+        try:
+            name = R.v3_finder(out["finder"]) if "none" not in out else ""
+        except ValueError:
+            name = ""
+        if name:
+            out["finder"] = name
+        else:
+            del out["finder"]
+    if "perf" in out:
+        try:
+            ok = R.v3_perf(out["perf"]) is not None
+        except (ValueError, TypeError):
+            ok = False
+        if not ok:
+            del out["perf"]
+    return out
+
+
+# ======================================================================= FINDER1: finders.csv, finder_block, speed
+def read_finder_block(repo):
+    """tools/singles/finder_block.txt -> ({ADDRESS16}, {casefolded names}). One entry per line: an ADDRESS16 or
+    name:<finder> (any case); empty lines and lines starting with # are ignored, so is anything else."""
+    p = repo / FINDER_BLOCK
+    addrs, names = set(), set()
+    if p.exists():
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            if s[:5].lower() == "name:":
+                if s[5:].strip():
+                    names.add(s[5:].strip().casefold())
+            elif re.fullmatch(r"[0-9A-Fa-f]{16}", s):
+                addrs.add(s.upper())
+    return addrs, names
+
+
+def read_finders(repo):
+    """views/finders.csv -> {ADDRESS16: (finder, found_utc)}; invalid rows are dropped."""
+    p, out = repo / FINDERS_FILE, {}
+    if not p.exists():
+        return out
+    for line in p.read_text(encoding="utf-8").split("\n"):
+        if not line or line.startswith("#") or line == FINDERS_HEADER:
+            continue
+        c = line.split(",")
+        if len(c) != 3 or c[0] in out or not R.V3_ADDRESS.fullmatch(c[0]) or iso(c[2]) != c[2]:
+            continue
+        try:
+            if R.v3_finder(c[1]) != c[1] or not c[1]:
+                continue
+        except ValueError:
+            continue
+        out[c[0]] = (c[1], c[2])
+    return out
+
+
+def finders_text(finders):
+    return (FINDERS_HEADER + "\n" +
+            f"# nms-derelict-atlas finders format {FINDERS_FORMAT}: the name (\"Atlas scout\") a visitor sent with the v3 "
+            "upload that first published the system as a single; the first one wins and is never overwritten; never "
+            "for a system of the PC atlas; found_utc = the time of that upload's issue (UTC); entries blocked in "
+            "tools/singles/finder_block.txt are removed every run; rows sorted by address\n" +
+            "".join(f"{a},{n},{t}\n" for a, (n, t) in sorted(finders.items())))
+
+
+def _speed_bin(ms):
+    return min(SPEED_BINS - 1, int(math.log(ms / SPEED_LO) / math.log(SPEED_HI / SPEED_LO) * SPEED_BINS))
+
+
+def _speed_mid(i):
+    return round(SPEED_LO * (SPEED_HI / SPEED_LO) ** ((i + 0.5) / SPEED_BINS))
+
+
+def speed_group(old=None):
+    """A running group {n, sum, min, max, hist} (n / sum weighted, hist = SPEED_BINS counts), from a stored one or new."""
+    g = {"n": 0, "sum": 0, "min": None, "max": None, "hist": [0] * SPEED_BINS}
+    if isinstance(old, dict):
+        h = old.get("hist")
+        if (isinstance(old.get("n"), int) and isinstance(old.get("sum"), int) and isinstance(h, list)
+                and len(h) == SPEED_BINS and all(isinstance(x, int) and x >= 0 for x in h) and sum(h) == old["n"]
+                and (old["n"] == 0 or (isinstance(old.get("min"), int) and isinstance(old.get("max"), int)))):
+            g.update(n=old["n"], sum=old["sum"], min=old.get("min"), max=old.get("max"), hist=list(h))
+    return g
+
+
+def speed_add(g, ms, w=1):
+    if not isinstance(ms, int) or isinstance(ms, bool) or not SPEED_LO <= ms <= SPEED_HI or w < 1:
+        return
+    g["n"] += w
+    g["sum"] += ms * w
+    g["min"] = ms if g["min"] is None else min(g["min"], ms)
+    g["max"] = ms if g["max"] is None else max(g["max"], ms)
+    g["hist"][_speed_bin(ms)] += w
+
+
+def speed_out(g):
+    """The public group: avg (exact, weighted), min / max (exact), p10 / p50 / p90 (from the histogram: the middle of
+    the bin, clamped to min..max, so about +-7 %), plus the running state n / sum / hist."""
+    out = {"n": g["n"], "sum": g["sum"], "min": g["min"], "max": g["max"], "hist": g["hist"],
+           "avg": round(g["sum"] / g["n"]) if g["n"] else None}
+    for name, q in (("p10", 0.1), ("p50", 0.5), ("p90", 0.9)):
+        v, acc = None, 0
+        for i, c in enumerate(g["hist"]):
+            acc += c
+            if g["n"] and acc >= q * g["n"]:
+                v = min(g["max"], max(g["min"], _speed_mid(i)))
+                break
+        out[name] = v
+    return out
+
+
+def update_speed(repo, perfs, run_utc, changed):
+    """stats/speed.json: add the perf objects of this run's accepted v3 issues to the running totals."""
+    if not perfs:
+        return 0
+    p = repo / SPEED_FILE
+    try:
+        old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    except (ValueError, OSError):
+        old = {}
+    old = old if isinstance(old, dict) and old.get("format") == SPEED_FORMAT else {}
+    groups = {"overall": speed_group(old.get("overall"))}
+    for k in ("by_dev", "by_speed", "by_preset"):
+        groups[k] = {n: speed_group(v) for n, v in (old.get(k) or {}).items()
+                     if isinstance(v, dict) and n in (R.PERF_ENUMS["dev"] if k == "by_dev" else R.PERF_ENUMS["speed"]
+                                                      if k == "by_speed" else R.PERF_PRESETS)}
+    batches = old.get("batches") if isinstance(old.get("batches"), int) else 0
+    systems = old.get("systems") if isinstance(old.get("systems"), int) else 0
+    for pf in perfs:
+        w = pf.get("n", 1)
+        batches += 1
+        systems += w
+        speed_add(groups["overall"], pf["ms"], w)
+        for k, f in (("by_dev", "dev"), ("by_speed", "speed")):
+            if f in pf:
+                speed_add(groups[k].setdefault(pf[f], speed_group()), pf["ms"], w)
+        for preset, ms in (pf.get("by_preset") or {}).items():
+            speed_add(groups["by_preset"].setdefault(preset, speed_group()), ms, 1)
+    doc = {"format": SPEED_FORMAT, "updated": run_utc, "batches": batches, "systems": systems,
+           "note": "scan speed reported by the site's scanner with accepted v3 uploads (ms per system; anonymous: "
+                   "no address, no name, no time per upload). Cumulative: running weighted count n / sum / min / "
+                   "max plus a %d-bin log histogram %d-%d ms per group (no samples are kept); overall, by_dev and "
+                   "by_speed weight each upload's median by its system count n, by_preset counts each upload once; "
+                   "p10 / p50 / p90 come from the histogram (about +-7 %%); values outside %d-%d ms are dropped"
+                   % (SPEED_BINS, SPEED_LO, SPEED_HI, SPEED_LO, SPEED_HI),
+           "overall": speed_out(groups["overall"])}
+    for k in ("by_dev", "by_speed", "by_preset"):
+        doc[k] = {n: speed_out(g) for n, g in sorted(groups[k].items()) if g["n"]}
+    write_if_changed(p, json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n", changed, SPEED_FILE.as_posix())
+    return len(perfs)
+
+
+def report_names_finder(body):
+    """True when line 1 of a report body is the relay's "Reasons: ..." line and lists "name" (FINDER1)."""
+    first = (body if isinstance(body, str) else "")[:300].replace("\r", "").split("\n", 1)[0]
+    m = REPORT_REASONS_LINE.fullmatch(first)
+    return bool(m) and "name" in m.group(1).split(", ")
 
 
 def parse_v3_body(lines):
@@ -1590,6 +1770,39 @@ def _process(args, repo, version, region_counts):
             e.update(result="replaced")
         else:
             e.update(result="differs", close=False, add_label=REPORT_PC_LABEL)
+    # ---- FINDER1: report reason "name" needs a human: label report-pc, left open ----
+    name_flag = {it["number"]: report_names_finder(it.get("body")) for it in reports}
+    for e in rep_out:
+        if name_flag.get(e["number"]) and e.get("address") and e["result"] not in ("pending", "bad_title", "invalid",
+                                                                                    "nonexistent"):
+            e.update(name_reported=True, close=False, add_label=REPORT_PC_LABEL)
+    # ---- FINDER1: views/finders.csv (first finder per published single) + the perf of accepted v3 issues ----
+    block_addr, block_name = read_finder_block(repo)
+    finders = read_finders(repo)
+    f_stats = {"added": 0, "blocked": 0, "not_single": 0, "name_blocked": 0}
+    for a in list(finders):
+        if a in block_addr or finders[a][0].casefold() in block_name:
+            del finders[a]
+            f_stats["blocked"] += 1
+        elif locate(a) != "singles":                    # the PC atlas has it now (or it is gone): never a finder
+            del finders[a]
+            f_stats["not_single"] += 1
+    perfs = []
+    for t in taken:
+        if t["format"] != "v3" or t["state"] != "ok":
+            continue
+        num = t["it"]["number"]
+        perfs += [r["perf"] for r in t["records"].values() if "perf" in r]
+        for o in v3_out[num]:
+            a = o["address"]
+            name = t["records"].get(a, {}).get("finder")
+            if not name or o["outcome"] != "accepted" or o.get("replaced") or a in finders or locate(a) != "singles":
+                continue
+            if a in block_addr or name.casefold() in block_name:
+                f_stats["name_blocked"] += 1
+                continue
+            finders[a] = (name, issue_time[num])
+            f_stats["added"] += 1
     # ---- none.csv: never an address that has a row anywhere; held.csv: capped, oldest dropped ----
     for a in sorted(nones):
         gal, glyphs = int(a[6:8], 16), f"0{a[3:6]}{a[8:]}"
@@ -1609,10 +1822,18 @@ def _process(args, repo, version, region_counts):
     for e in rep_out:
         if e.get("result") in ("published", "replaced"):
             e["file"] = bucket_of(int(e["address"][6:8], 16), f"0{e['address'][3:6]}{e['address'][8:]}", store.split)
+    rank_before = RK.snapshot(repo)             # RANK1: bytes before this run writes (for `changed`)
     n_index = write_index(repo, atlas, store, index_keys, changed)
     write_extras(repo, atlas, store, index_keys, extras_store, changed)
+    try:        # RANK1: the singles rank in the 15 map lists like atlas rows (map-lists.txt, stats map_lists, map column)
+        rank = RK.apply(repo, changed, rank_before)
+    except Exception as exc:    # never blocks the singles; the PC publish ranks them too
+        rank = {"ranked": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
+        print(f"map-list re-rank skipped: {rank['error']}")
     write_small(repo, NONE_FILE, none_text(nones), not nones, changed)
     write_small(repo, HELD_FILE, held_text(held), not held, changed)
+    write_small(repo, FINDERS_FILE, finders_text(finders), not finders, changed)
+    n_speed = update_speed(repo, perfs, run_utc, changed)
     # ---- summary ----
     counts = {k: 0 for k in ("accepted", "already", "no_derelict", "invalid", "nonexistent", "error", "over_cap",
                              "duplicate", "held", "pending", "dropped", "rejected")}
@@ -1679,6 +1900,10 @@ def _process(args, repo, version, region_counts):
                "reports": {r: sum(1 for e in rep_out if e["result"] == r) for r in REPORT_RESULTS},
                "report_waiting": report_wait,
                "changed": sorted(set(changed)), "commit_message": msg, "issues": out_issues}
+    summary["finders"] = dict(f_stats, total=len(finders))
+    summary["speed_batches"] = n_speed
+    summary["reports_name"] = sum(1 for e in rep_out if e.get("name_reported"))
+    summary["rerank"] = rank                   # RANK1
     Path(args.summary).write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     if args.message:
         Path(args.message).write_text(msg + "\n", encoding="utf-8")
@@ -1787,6 +2012,17 @@ def _short(v, n=60):
 
 
 def report_text(run_id, e):
+    """The comment of a report-system issue (+ the FINDER1 "name" sentence when the report lists reason name)."""
+    t = _report_text(run_id, e)
+    if e.get("name_reported"):
+        t = re.sub(r" Closed(?:;[^.]*)?\.\Z", "", t)
+        t += " Finder name reported; the atlas owner checks it (tools/singles/finder_block.txt)."
+        if f"label `{REPORT_PC_LABEL}`" not in t:
+            t += f" Left open (label `{REPORT_PC_LABEL}`)."
+    return t
+
+
+def _report_text(run_id, e):
     """The comment of a report-system issue. Only our own data: the parsed address, published rows, our rescan."""
     a, r = e.get("address"), e["result"]
     head = f"Automatic report check (run {run_id})"
