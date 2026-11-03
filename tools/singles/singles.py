@@ -18,12 +18,19 @@ Design: docs/SINGLES_FORMAT.md of the scanner (not in this repo); summary in too
 Untrusted input: issue titles / bodies are only ever matched line by line against strict regular expressions
 (ADDRESS16 = 16 hex digits; "none ADDRESS16" and "scanner <[0-9a-f+]{1,40}>" in relay batches v2; or
 "<galaxy 0-255>:<12 glyph hex digits>"); nothing else of them is used, printed or echoed.
+v3 batches (V3UP 2026-11-02, "single-scan batch v3"): the relay files the visitors' FINISHED scan results (index row +
+extras line per system, or "none"); they are verified, not rescanned: format + ranges + consistency (atlas_rules
+v3_check_row / v3_check_extras, the same rules as the relay), the W29d rule, the scanner tables fingerprint, and a
+rescan of a 1 % sample (at least 1 per issue), of conflicting uploads and (after 1,000,000 systems) of top-list
+entries; one rescan mismatch drops the whole batch. report-system issues (title = ADDRESS16) are rescanned and the
+published row is verified / replaced / handed to the scanner agent (label report-pc). README "v3 results upload".
 Exit codes: 0 ok, 1 error, 2 usage, 3 W29 integrity failure (scan/ files do not match scan/w29.json), 4 W29d region
 count failure (tools/singles/w29d/ files do not match their pinned sha256, Node / the wasm does not start, the
 self-test fails, or a count fails): the run stops, there is no fallback range.
 """
 from __future__ import annotations
 import argparse
+import base64
 import csv
 import gzip
 import hashlib
@@ -31,6 +38,7 @@ import io
 import json
 import os
 import queue
+import random
 import re
 import subprocess
 import sys
@@ -39,6 +47,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import zlib
 from pathlib import Path
 
 sys.dont_write_bytecode = True                                 # no __pycache__ in the repo checkout
@@ -87,6 +96,23 @@ V1_LINE = re.compile(r"[0-9A-F]{16}")
 V2_NONE = re.compile(r"none ([0-9A-F]{16})")
 V2_SCANNER = re.compile(r"scanner ([0-9a-f+]{1,40})")
 MAX_SCANNERS = 10               # scanner tokens kept per issue (summary / log only)
+#   v3 body (V3UP 2026-11-02): BATCH_V3 line, then ONE fenced block (``` lines) of base64(gzip(JSON lines)), one
+#   record per system: {"address","fp","scanner","row","extras"} (the visitor's scan result: index row + extras line,
+#   format = atlas_rules.V3_ROW_HEADER / V3_EXTRAS_HEADER) or {"address","fp","scanner","none":true}.
+BATCH_V3 = "single-scan batch v3"
+V3_MAX_RAW = 4_000_000          # bytes of one v3 payload after gunzip (a 2,000-system relay issue is < 2 MB)
+V3_SAMPLE_PERCENT = 1           # rescanned share of a v3 batch's new rows (at least 1 per issue; seed = issue number)
+V3_EXTRA_FPS = frozenset()      # tables fingerprints accepted besides the live scan/w29.json one (none: a new game
+                                # table set makes every older upload invalid)
+# report-system issues (V3UP): a visitor reports a wrong system; title = exactly one ADDRESS16 (also accepted WITHOUT
+# the label: any open issue whose trimmed title is exactly 16 hex digits and that has no single-scan label, because
+# GitHub drops ?labels= for visitors; SITE links .github/ISSUE_TEMPLATE/report-system.md, which sets the label)
+REPORT_LABEL = "report-system"
+REPORT_PC_LABEL = "report-pc"   # added when a PC atlas row differs from the rescan: left open for the scanner agent
+REPORT_MAX = 50                 # report rescans per run (the rest wait, untouched)
+REPORT_TITLE = re.compile(r"[ \t]*([0-9A-Fa-f]{16})[ \t]*")
+REPORT_RESULTS = ("bad_title", "invalid", "nonexistent", "pending", "error", "no_derelict", "published", "verified",
+                  "replaced", "differs")
 # Any other single-scan issue (e.g. filed by hand): one address per line, "<ADDRESS16>" or "<galaxy>:<12 glyphs>"
 LINE_RE = re.compile(r"(?:scan[ \t]+)?(?:([0-9]{1,3}):([0-9A-Fa-f]{12})|([0-9A-Fa-f]{16}))")
 # ---- scanning ----
@@ -377,7 +403,12 @@ def parse_issue(title, body):
     title = title if isinstance(title, str) else ""
     body = body if isinstance(body, str) else ""
     lines = body[:MAX_TEXT].replace("\r", "").split("\n")
-    fmt = {BATCH_V1: "v1", BATCH_V2: "v2"}.get(lines[0] if lines else None, "other")
+    fmt = {BATCH_V1: "v1", BATCH_V2: "v2", BATCH_V3: "v3"}.get(lines[0] if lines else None, "other")
+    if fmt == "v3":
+        recs, err = parse_v3_body(lines[1:])
+        scanners = list(dict.fromkeys(r["scanner"] for r in recs.values()))[:MAX_SCANNERS]
+        return {"addrs": list(recs), "none": {a for a, r in recs.items() if r.get("none")}, "bad": 0,
+                "scanners": scanners, "format": "v3", "records": recs, "error": err}
     if fmt != "other":
         lines = lines[1:]
     else:
@@ -415,6 +446,84 @@ def parse_issue(title, body):
     return {"addrs": out, "none": none, "bad": bad, "scanners": scanners, "format": fmt}
 
 
+def _no_dup(pairs):
+    out = {}
+    for k, v in pairs:
+        if k in out:
+            raise ValueError("a record has a key twice")
+        out[k] = v
+    return out
+
+
+def _no_const(_name):
+    raise ValueError("a record has NaN / Infinity")
+
+
+def v3_record(rec):
+    """rec if it is a valid v3 record (the relay's queue3.jsonl / issue line), else ValueError(reason). Checks (a)
+    and (d) of the README: shape, address, fp / scanner form, the row and extras line rules (atlas_rules.v3_check_row
+    / v3_check_extras), and that the row's glyphs + galaxy and the extras address are the record's address."""
+    if not isinstance(rec, dict):
+        raise ValueError("a record is not an object")
+    if set(rec) not in ({"address", "fp", "scanner", "none"}, {"address", "fp", "scanner", "row", "extras"}):
+        raise ValueError("a record has the wrong keys")
+    a = rec["address"]
+    if not isinstance(a, str) or not R.V3_ADDRESS.fullmatch(a) or a[3:6] == "000":
+        raise ValueError("a record address is not an ADDRESS16")
+    if not isinstance(rec["fp"], str) or not R.V3_FP.fullmatch(rec["fp"]):
+        raise ValueError("a record fp is not 16 hex digits")
+    if not isinstance(rec["scanner"], str) or not R.V3_SCANNER.fullmatch(rec["scanner"]):
+        raise ValueError("a record scanner has the wrong form")
+    if "none" in rec:
+        if rec["none"] is not True:
+            raise ValueError("a record none is not true")
+        return rec
+    ra, _ = R.v3_check_row(rec["row"])
+    ea, _ = R.v3_check_extras(rec["extras"])
+    if ra != a or ea != a:
+        raise ValueError("the row glyphs / galaxy or the extras address is not the record address")
+    return rec
+
+
+def parse_v3_body(lines):
+    """Lines after BATCH_V3 -> ({ADDRESS16: record} in order, error or None). The body must be exactly one fenced
+    block of base64 (gzip of JSON lines, one record per line; at most V3_MAX_RAW bytes unpacked); any other line, a
+    bad record or an address twice rejects the whole issue (error = the reason; column names only, no issue text)."""
+    rest = [l for l in lines if l.strip()]
+    if len(rest) < 3 or rest[0] != "```" or rest[-1] != "```":
+        return {}, "the body is not one fenced block"
+    b64 = "".join(rest[1:-1])
+    if not re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", b64):
+        return {}, "the fenced block is not base64"
+    try:
+        data = base64.b64decode(b64, validate=True)
+        d = zlib.decompressobj(wbits=31)
+        raw = d.decompress(data, V3_MAX_RAW)
+        if d.unconsumed_tail or not d.eof or d.unused_data:
+            return {}, f"the payload is not one gzip stream of at most {V3_MAX_RAW} bytes"
+        text = raw.decode("ascii")
+    except (ValueError, zlib.error, UnicodeDecodeError):
+        return {}, "the payload is not base64(gzip(ASCII JSON lines))"
+    if not text.endswith("\n"):
+        return {}, "the payload does not end with a line end"
+    recs = {}
+    for n, line in enumerate(text[:-1].split("\n"), 1):
+        try:
+            rec = v3_record(json.loads(line, object_pairs_hook=_no_dup, parse_constant=_no_const))
+        except json.JSONDecodeError:
+            return {}, f"record {n}: not JSON"
+        except RecursionError:
+            return {}, f"record {n}: nested too deeply"
+        except ValueError as exc:                       # our own reasons: column names only
+            return {}, f"record {n}: {exc}"
+        if rec["address"] in recs:
+            return {}, f"record {n}: the same system twice"
+        recs[rec["address"]] = rec
+    if not recs:
+        return {}, "the payload has no records"
+    return recs, None
+
+
 def parse_addresses(title, body):
     """(addresses in order of appearance, unique; number of ignored non-empty lines): parse_issue without the rest."""
     r = parse_issue(title, body)
@@ -430,17 +539,37 @@ def label_names(issue):
     return out
 
 
+def is_report(it):
+    """A report-system issue: the label, or (fallback, no single-scan label) a title of exactly one ADDRESS16."""
+    names = label_names(it)
+    if REPORT_LABEL in names:
+        return True
+    title = it.get("title") if isinstance(it.get("title"), str) else ""
+    return LABEL not in names and bool(REPORT_TITLE.fullmatch(title[:100]))
+
+
 def usable_issues(issues):
-    """Open single-scan issues (no pull requests), oldest first; at most MAX_ISSUES."""
+    """Open single-scan issues and report issues (no pull requests), oldest first; at most MAX_ISSUES single-scan
+    issues + all reports (report rescans are capped separately, REPORT_MAX). A report gets the label REPORT_LABEL in
+    the returned copy when it was found by its title only."""
     ok = []
     for it in issues if isinstance(issues, list) else []:
         if not isinstance(it, dict) or not isinstance(it.get("number"), int) or it.get("pull_request"):
             continue
-        if it.get("state") != "open" or LABEL not in label_names(it):
+        if it.get("state") != "open":
+            continue
+        if is_report(it):
+            if REPORT_LABEL not in label_names(it):
+                it = dict(it, labels=list(it.get("labels") or []) + [{"name": REPORT_LABEL}])
+            ok.append(it)
+            continue
+        if LABEL not in label_names(it):
             continue
         ok.append(it)
     ok.sort(key=lambda i: (str(i.get("created_at") or ""), i["number"]))
-    return ok[:MAX_ISSUES]
+    batches = [i for i in ok if REPORT_LABEL not in label_names(i)][:MAX_ISSUES]
+    return sorted(batches + [i for i in ok if REPORT_LABEL in label_names(i)],
+                  key=lambda i: (str(i.get("created_at") or ""), i["number"]))
 
 
 def gh_request(method, path, body=None):
@@ -464,21 +593,31 @@ def repo_name():
 
 
 def fetch_issues(out_path):
-    rn, got = repo_name(), []
-    for page in range(1, MAX_ISSUES // 100 + 2):
-        batch = gh_request("GET", f"/repos/{rn}/issues?state=open&labels={LABEL}&sort=created&direction=asc"
-                                  f"&per_page=100&page={page}")
-        if not isinstance(batch, list):
-            break
-        for it in batch:
-            got.append({"number": it.get("number"), "state": it.get("state"),
-                        "labels": sorted(n for n in label_names(it) if isinstance(n, str)),
-                        "created_at": it.get("created_at"), "pull_request": bool(it.get("pull_request")),
-                        "title": (it.get("title") or "")[:MAX_TEXT], "body": (it.get("body") or "")[:MAX_TEXT]})
-        if len(batch) < 100 or len(got) >= MAX_ISSUES:
-            break
+    """Open issues labelled single-scan (<= MAX_ISSUES), labelled report-system, and (report fallback) every open issue
+    whose title is exactly one ADDRESS16 (<= 2 x MAX_ISSUES looked at); one list, each issue once."""
+    rn, got, seen = repo_name(), [], set()
+    for label, cap, keep in ((LABEL, MAX_ISSUES, None), (REPORT_LABEL, MAX_ISSUES, None),
+                             (None, 2 * MAX_ISSUES, lambda it: is_report(it))):
+        n = 0
+        for page in range(1, cap // 100 + 2):
+            q = f"&labels={label}" if label else ""
+            batch = gh_request("GET", f"/repos/{rn}/issues?state=open{q}&sort=created&direction=asc"
+                                      f"&per_page=100&page={page}")
+            if not isinstance(batch, list):
+                break
+            for it in batch:
+                n += 1
+                if it.get("number") in seen or (keep and not keep(it)):
+                    continue
+                seen.add(it.get("number"))
+                got.append({"number": it.get("number"), "state": it.get("state"),
+                            "labels": sorted(n for n in label_names(it) if isinstance(n, str)),
+                            "created_at": it.get("created_at"), "pull_request": bool(it.get("pull_request")),
+                            "title": (it.get("title") or "")[:MAX_TEXT], "body": (it.get("body") or "")[:MAX_TEXT]})
+            if len(batch) < 100 or n >= cap:
+                break
     Path(out_path).write_text(json.dumps(got, ensure_ascii=True) + "\n", encoding="utf-8")
-    print(f"{len(got)} open {LABEL} issues")
+    print(f"{len(got)} open {LABEL} / {REPORT_LABEL} issues")
 
 
 # ======================================================================= published atlas (read only)
@@ -927,6 +1066,82 @@ def process(args):
         counts.close()
 
 
+def tables_fp(version):
+    """The tables fingerprint in a w29_version() string ('...; tables fingerprint <16 hex>' since W29f, '...;
+    fingerprint <16 hex>' before; never W29e's '; check fingerprint ...'), or None."""
+    m = re.search(r"(?:^|; )(?:tables )?fingerprint ([0-9a-f]{16})(?=;|$)", version or "")
+    return m.group(1) if m else None
+
+
+def v3_cells(rec):
+    """The region-file format 4 cells (glyphs .. room_detail, check placeholder) of an uploaded v3 row. room_detail is
+    not uploaded: it stays empty (a rescanned row keeps the scan's)."""
+    row = dict(zip(R.V3_ROW_COLS, rec["row"].split(",")))
+    return [row[c] for c in R.COLUMNS4[:-2]] + ["", ""]
+
+
+def v3_extras(rec):
+    """The extras cells of an uploaded v3 record that views/singles-extras.csv keeps (format 2: items_all dropped)."""
+    ex = dict(zip(R.V3_EXTRAS_COLS, rec["extras"].split(",")))
+    return {c: ex[c] for c in R.EXTRAS_COLUMNS[1:]}
+
+
+def v3_same(r1, r2):
+    return all(r1.get(k) == r2.get(k) for k in ("none", "row", "extras"))
+
+
+def v3_matches_store(line, rec, stored_extras):
+    """True when an uploaded row equals a published singles row (every published column; a pruned / slim row: the
+    module count) and no extras cell both filled differs."""
+    cells = line.split(",")
+    up = v3_cells(rec)
+    if tier_of_line(line) in R.SLIM_TIERS:
+        d = R.decode(cells[14]) if cells[14] and cells[14] in R.DIGITS + R.PRUNED_DIGITS else None
+        return d is not None and str(d[0]) == up[14]
+    if cells[:19] != up[:19]:
+        return False
+    ex = v3_extras(rec)
+    return not any(ex[c] and (stored_extras or {}).get(c) and ex[c] != stored_extras[c] for c in ex)
+
+
+def v3_mismatch(rec, res, a):
+    """'' when our rescan res equals the uploaded record rec (every row cell except map and game_build; every extras
+    cell the upload filled, except items_all, which the scanner does not write), else the reason. The reason holds
+    column names and our own scan status only, never uploaded text."""
+    if res.get("error"):
+        return "could not be rescanned"
+    if res.get("status") != 0:
+        return f"the rescan found scanner status {res.get('status')}" + (" (no derelict)" if res.get("status") == 4
+                                                                         else "")
+    bad = check_scan(res, a)
+    if bad:
+        return bad
+    row = dict(zip(R.V3_ROW_COLS, rec["row"].split(",")))
+    scan = dict(zip(R.COLUMNS4, res["atlas"]))
+    scan["glyphs"] = scan["glyphs"].upper()
+    diff = [c for c in R.V3_ROW_COLS if c in scan and row[c] != scan[c]]
+    ex = dict(zip(R.V3_EXTRAS_COLS, rec["extras"].split(",")))
+    sx = res.get("extras") or {}
+    diff += [c for c in R.V3_EXTRAS_COLS[1:] if c != "items_all" and ex[c] != "" and ex[c] != sx.get(c, "")]
+    return ("differs in " + ", ".join(diff)) if diff else ""
+
+
+def cell_changes(old, new, cols):
+    """[[column, old, new]] of the columns whose cells differ (old / new: {column: cell})."""
+    return [[c, old.get(c, ""), new.get(c, "")] for c in cols if old.get(c, "") != new.get(c, "")]
+
+
+def extras_changes(old, new):
+    """[[column, old, new]] of the stored extras cells (format 2) that the rescan gives differently (an empty stored
+    cell that the rescan fills is not a change)."""
+    old = old or {}
+    return [[c, old[c], new.get(c, "")] for c in R.EXTRAS_COLUMNS[1:] if old.get(c) and old[c] != new.get(c, "")]
+
+
+def scan_extras(res):
+    return {k: ("" if v == "ERR" else v) for k, v in (res.get("extras") or {}).items()}
+
+
 def _process(args, repo, version, region_counts):
     global NONE_VERIFIED
     if args.none_verified:                              # tests only: the flag forced on
@@ -934,7 +1149,9 @@ def _process(args, repo, version, region_counts):
     if args.atlas_cap is not None:                      # tests only: a lowered cap
         R.ATLAS_CAP = args.atlas_cap
     atlas, store = Atlas(repo, region_counts), Store(repo)
-    issues = usable_issues(json.loads(Path(args.issues_file).read_text(encoding="utf-8")))
+    every = usable_issues(json.loads(Path(args.issues_file).read_text(encoding="utf-8")))
+    issues = [it for it in every if REPORT_LABEL not in label_names(it)]
+    reports = [it for it in every if REPORT_LABEL in label_names(it) and REPORT_PC_LABEL not in label_names(it)]
     index_keys = atlas.index()
     nones, held = read_none(repo), read_held(repo)
     # ---- region supersede: a single whose system now has a region row / slim entry leaves singles (a main index
@@ -949,6 +1166,17 @@ def _process(args, repo, version, region_counts):
                     reg_line.rpartition(",")[0] != line.rpartition(",")[0]:
                 mismatch.append(R.address({"glyphs": g, "galaxy": gal}))
             del store.rows[(gal, g)]
+    total = args.community_total if args.community_total is not None else atlas.total()
+    community = None if total is None else total + sum(1 for k in store.rows if k not in index_keys)
+    running, cap_seen, tops = community, False, None
+    fp = R.FINGERPRINTS[SINGLES_BUILD]
+    extras_store = read_singles_extras(repo)
+    for a in superseded:
+        extras_store.pop(a, None)
+    live_fp = tables_fp(version)
+    fps_ok = ({live_fp} if live_fp else set()) | set(V3_EXTRA_FPS)
+    toplist_rescan = R.post_cap(community)              # V3: rescan uploads that enter a top list, only after 1M
+    plan_tops = []
 
     def classify(a):
         """('already' | 'invalid' | 'nonexistent' | 'held' | 'scan', detail)."""
@@ -973,10 +1201,122 @@ def _process(args, repo, version, region_counts):
             return "nonexistent", f"{NONEXISTENT} ({region_counts.nonexistent_reason(gal, region, idx)})"
         return "scan", ("deferred" if info and idx in info["deferred"] else None)
 
+    def locate(a):
+        """Where the system is published: 'region' | 'slim' | 'singles' | 'index' | None."""
+        gal, region, idx = int(a[6:8], 16), a[8:], int(a[3:6], 16)
+        glyphs, info = f"0{a[3:6]}{region}", atlas.region(gal, region)
+        if info and glyphs in info["rows"]:
+            return "region"
+        if info and idx in info["slim"]:
+            return "slim"
+        if (gal, glyphs) in store.rows:
+            return "singles"
+        if (gal, glyphs) in index_keys:
+            return "index"
+        return None
+
     # ---- take issues up to the run caps (MAX_PER_RUN = addresses to scan), classify every address ----
     taken, wait, first_issue, cls, to_scan, origin, n_scan, claim_none = [], [], {}, {}, [], {}, 0, set()
+    v3_claim, v3_entry = {}, {}         # address -> record of its first v3 issue; issue number -> taken entry
+
+    def take_v3(it, p):
+        """Plan a v3 batch (format / range / consistency already checked by parse_issue): per address 'publish'
+        (the upload as it is), 'verify' (rescan: the 1 % sample, after the cap a top-list entry, or a conflict),
+        'compare' (rescan: differs from another upload of this run or from the published single, or held), 'none'
+        (recomputed like a v2 'none'), 'final' (already / invalid / nonexistent) or 'duplicate'."""
+        nonlocal n_scan
+        num = it["number"]
+        entry = {"it": it, "addrs": [], "none": set(), "bad": 0, "over": 0, "scanners": p["scanners"], "format": "v3",
+                 "plan": {}, "records": {}, "reject": p["error"], "state": None, "reason": None}
+        recs = {}
+        if entry["reject"] is None:
+            items = list(p["records"].items())
+            entry["over"] = max(0, len(items) - MAX_PER_ISSUE)
+            recs = dict(items[:MAX_PER_ISSUE])
+            bad_fp = sorted({r["fp"] for r in recs.values()} - fps_ok)
+            if bad_fp:
+                entry["reject"] = (f"scanner tables fingerprint {', '.join(bad_fp)} is not the live scanner's "
+                                   f"({live_fp or 'none'})")
+        if entry["reject"] is not None:
+            taken.append(entry)
+            return
+        plan, local, scans, upgrade = {}, {}, [], []
+        fresh = [a for a in recs if a not in first_issue]
+        for a, rec in recs.items():
+            if a in first_issue:                        # claimed by an earlier issue of this run
+                if a in v3_claim and v3_same(v3_claim[a], rec):
+                    plan[a] = ("duplicate", first_issue[a])
+                elif not rec.get("none") and (a in origin or cls[a][0] == "scan"):
+                    plan[a] = ("compare", "conflict with issue #%d" % first_issue[a])
+                    scans.append(a)
+                    if a in v3_claim:
+                        upgrade.append(a)
+                else:
+                    plan[a] = ("duplicate", first_issue[a])
+                continue
+            c = cls.get(a) or classify(a)
+            local[a] = c
+            if rec.get("none"):
+                plan[a] = ("none", None)
+                if c[0] == "scan":
+                    scans.append(a)
+            elif c == ("already", "singles"):
+                key = (int(a[6:8], 16), f"0{a[3:6]}{a[8:]}")
+                if v3_matches_store(store.rows[key], rec, extras_store.get(a)):
+                    plan[a] = ("final", None)
+                else:
+                    plan[a] = ("compare", "differs from the published single")
+                    scans.append(a)
+            elif c[0] == "held":
+                plan[a] = ("compare", "held: an earlier recompute found no derelict")
+                scans.append(a)
+            elif c[0] == "scan":
+                plan[a] = ("publish", None)
+            else:
+                plan[a] = ("final", None)
+        cands = sorted(a for a, (k, _) in plan.items() if k == "publish")
+        if cands:
+            n = max(1, -(-len(cands) * V3_SAMPLE_PERCENT // 100))
+            for a in random.Random(f"singles-v3-sample/{num}").sample(cands, n):
+                plan[a] = ("verify", "sample")
+                scans.append(a)
+            if toplist_rescan:
+                if not plan_tops:
+                    plan_tops.append(published_tops(atlas, store, index_keys, extras_store))
+                for a in cands:
+                    if plan[a][0] == "publish" and \
+                            R.breaks_into(scan_record(v3_cells(recs[a]), v3_extras(recs[a])), plan_tops[0]):
+                        plan[a] = ("verify", "top list")
+                        scans.append(a)
+        new_scans = [a for a in dict.fromkeys(scans) if a not in origin]
+        if taken and n_scan + len(new_scans) > MAX_PER_RUN:
+            wait.append(num)
+            return
+        n_scan += len(new_scans)
+        for a in new_scans:
+            to_scan.append(a)
+            origin[a] = num
+        for a in fresh:
+            first_issue[a] = num
+            cls[a] = local[a]
+            v3_claim[a] = recs[a]
+            if recs[a].get("none"):
+                claim_none.add(a)
+            if cls[a][0] in ("already", "invalid", "nonexistent"):
+                held.pop(a, None)
+        for a in upgrade:
+            owner = v3_entry.get(first_issue[a])
+            if owner and owner["plan"][a][0] == "publish":
+                owner["plan"][a] = ("verify", "conflict with issue #%d" % num)
+        entry.update(addrs=list(recs), plan=plan, records=recs, none={a for a in recs if recs[a].get("none")})
+        taken.append(entry)
+        v3_entry[num] = entry
+
     for it in issues:
         p = parse_issue(it.get("title"), it.get("body"))
+        if p["format"] == "v3":
+            take_v3(it, p)
+            continue
         over = max(0, len(p["addrs"]) - MAX_PER_ISSUE)
         addrs = p["addrs"][:MAX_PER_ISSUE]
         new = [a for a in addrs if a not in first_issue]
@@ -999,7 +1339,8 @@ def _process(args, repo, version, region_counts):
                 origin[a] = it["number"]
         taken.append({"it": it, "addrs": addrs, "none": p["none"], "bad": p["bad"], "over": over,
                       "scanners": p["scanners"], "format": p["format"]})
-    run_utc = iso(args.utc) or max((iso(t["it"].get("created_at")) or NO_TIME for t in taken), default=NO_TIME)
+    run_utc = iso(args.utc) or max((iso(t.get("created_at")) or NO_TIME for t in [t["it"] for t in taken] + reports),
+                                   default=NO_TIME)
     # ---- held addresses: retried every run (after the issues, inside the run cap); old 'range' rows of systems that
     #      do not exist in-game are dropped (W29DW-3) ----
     held_dropped, held_nonexistent = [], []
@@ -1018,30 +1359,101 @@ def _process(args, repo, version, region_counts):
     issue_time = {t["it"]["number"]: iso(t["it"].get("created_at")) or run_utc for t in taken}
     for t in taken:                                     # new held addresses (earliest batch time wins)
         for a in t["addrs"]:
-            if first_issue[a] == t["it"]["number"] and cls[a][0] == "held":      # only status4 is held now
+            if first_issue[a] == t["it"]["number"] and cls[a][0] == "held":
                 held[a] = (min((held.get(a) or ("9999",))[0], issue_time[t["it"]["number"]]), HELD_STATUS4)
+    # ---- report-system issues (at most REPORT_MAX per run, oldest first): the reported address is rescanned ----
+    report_plan, report_wait = {}, []
+    for it in reports:
+        num = it["number"]
+        if len(report_plan) >= REPORT_MAX:
+            report_wait.append(num)
+            continue
+        title = it.get("title") if isinstance(it.get("title"), str) else ""
+        m = re.fullmatch(r"[ \t]*([0-9A-Fa-f]{16})[ \t]*", title[:100])
+        a = m.group(1).upper() if m and m.group(1)[:3] == "000" else None
+        if a is None:
+            report_plan[num] = {"result": "bad_title"}
+            continue
+        gal, region, idx = int(a[6:8], 16), a[8:], int(a[3:6], 16)
+        if not 1 <= idx <= 0xFFF:
+            report_plan[num] = {"address": a, "result": "invalid", "detail": "no such system index"}
+            continue
+        if locate(a) is None and not atlas.known(a):
+            report_plan[num] = {"address": a, "result": "nonexistent",
+                                "detail": f"{NONEXISTENT} ({region_counts.nonexistent_reason(gal, region, idx)})"}
+            continue
+        report_plan[num] = {"address": a, "result": None}
+        if a not in origin:
+            to_scan.append(a)
+            origin[a] = "report"
     # ---- scan ----
     deadline = args.deadline
     results = scan_all(repo / SCAN_DIR, to_scan, version, args.workers, args.cache, deadline=deadline) \
         if to_scan else {}
-    total = args.community_total if args.community_total is not None else atlas.total()
-    community = None if total is None else total + sum(1 for k in store.rows if k not in index_keys)
-    running, cap_seen, tops = community, False, None
-    fp = R.FINGERPRINTS[SINGLES_BUILD]
-    extras_store = read_singles_extras(repo)
-    for a in superseded:
-        extras_store.pop(a, None)
+    # ---- v3 batches: every rescan must equal the upload, or the WHOLE batch is dropped ----
+    for t in taken:
+        if t["format"] != "v3":
+            continue
+        if t["reject"] is not None:
+            t["state"], t["reason"] = "rejected", t["reject"]
+            continue
+        fails, pend = [], False
+        for a, (k, why) in t["plan"].items():
+            if k not in ("verify", "compare"):
+                continue
+            if results.get(a) is None:
+                pend = True
+                continue
+            d = v3_mismatch(t["records"][a], results[a], a)
+            if d:
+                fails.append(f"`{a}` ({why}): {d}")
+        if fails:
+            t["state"] = "dropped"
+            t["reason"] = "rescan mismatch: " + "; ".join(fails[:5]) + (f" (+{len(fails) - 5} more)"
+                                                                         if len(fails) > 5 else "")
+        else:
+            t["state"] = "pending" if pend else "ok"
+    v3_nums = {t["it"]["number"] for t in taken if t["format"] == "v3"}
     accepted, new_none, outcome, pending, reported_none_found = [], [], {}, [], 0
-    for a in to_scan:
-        res, o = results.get(a), outcome.setdefault(a, {})
+    acc_o, published_now = {}, set()
+
+    def accept(a, cells, extras, o, new=True):
+        """Publish one system (scan cells or an uploaded row): tier by the cap rule, row into the store, extras."""
+        nonlocal running, cap_seen, tops
+        cap_mode = R.post_cap(running)
+        if cap_mode and tops is None:
+            tops = published_tops(atlas, store, index_keys, extras_store)
+        cap_seen |= cap_mode
+        line, tier, lists, rec = single_row(cells, extras, fp, cap_mode, tops)
+        gal, glyphs = int(a[6:8], 16), cells[0].upper()
+        store.rows[(gal, glyphs)] = line
+        o.update(outcome="accepted", tier=tier, **({"lists": lists} if lists else {}))
+        if tier not in R.SLIM_TIERS:
+            ex = {k: ("" if v == "ERR" else v) for k, v in (extras or {}).items()}
+            if any(v != "" for v in ex.values()):
+                extras_store[a] = ex
+            elif not new:
+                extras_store.pop(a, None)
+            if tops is not None:
+                R.add_to_tops(rec, tops)
+        if running is not None and new:
+            running += 1
+        held.pop(a, None)
+        accepted.append(a)
+        acc_o[a] = o
+        published_now.add(a)
+
+    def scan_outcome(a, o, claimed_none):
+        """The outcome of a recomputed address (v1 / v2 addresses, held retries, v3 'none' claims)."""
+        nonlocal reported_none_found
+        res = results.get(a)
         if cls[a][1] == "deferred":
             o["deferred"] = True
         if res is None:                                 # run time was up: next run (issue stays open / stays held)
             o.update(outcome="pending")
             pending.append(a)
-            continue
+            return
         prev = held.pop(a, None)
-        claimed_none = a in claim_none
         if res.get("error"):
             o.update(outcome="error", detail=res["error"])
         elif res.get("status") == 4 and not NONE_VERIFIED:   # unverified status 4: held, never rejected
@@ -1056,26 +1468,128 @@ def _process(args, repo, version, region_counts):
         elif check_scan(res, a):
             o.update(outcome="error", detail=check_scan(res, a))
         else:
-            cap_mode = R.post_cap(running)
-            if cap_mode and tops is None:
-                tops = published_tops(atlas, store, index_keys, extras_store)
-            cap_seen |= cap_mode
-            line, tier, lists, rec = single_row(res["atlas"], res.get("extras"), fp, cap_mode, tops)
-            gal, glyphs = int(a[6:8], 16), res["atlas"][0].upper()
-            store.rows[(gal, glyphs)] = line
-            o.update(outcome="accepted", tier=tier, **({"lists": lists} if lists else {}))
+            accept(a, res["atlas"], res.get("extras"), o)
             if claimed_none:
                 o["reported"] = "none"
                 reported_none_found += 1
-            if tier not in R.SLIM_TIERS:
-                ex = {k: ("" if v == "ERR" else v) for k, v in (res.get("extras") or {}).items()}
-                if any(v != "" for v in ex.values()):
-                    extras_store[a] = ex
-                if tops is not None:
-                    R.add_to_tops(rec, tops)
-            if running is not None:
-                running += 1
-            accepted.append(a)
+
+    for a in to_scan:
+        if origin[a] == "report" or origin[a] in v3_nums:
+            continue                                    # v3 batches and reports: below
+        scan_outcome(a, outcome.setdefault(a, {}), a in claim_none)
+    v3_out, rescans = {}, {}
+    for t in taken:
+        if t["format"] != "v3":
+            continue
+        num, lst, st = t["it"]["number"], [], t["state"]
+        for a in t["addrs"]:
+            k, why = t["plan"][a]
+            o = {"address": a}
+            if st in ("dropped", "pending"):            # nothing of a dropped / unfinished batch is published
+                o["outcome"] = st
+            elif k == "duplicate":
+                o.update(outcome="duplicate", detail=f"also in issue #{why}")
+            elif k == "final" or (k == "none" and cls[a][0] != "scan"):
+                o.update(outcome=cls[a][0], **({"detail": cls[a][1]} if cls[a][1] else {}))
+            elif a in published_now:
+                o.update(outcome="duplicate", detail=f"also in issue #{first_issue[a]}" if first_issue[a] != num
+                         else "published once")
+            elif k == "none":
+                scan_outcome(a, o, True)
+            elif k == "publish":
+                accept(a, v3_cells(t["records"][a]), v3_extras(t["records"][a]), o)
+            else:                                       # verify / compare: the rescan equals the upload
+                key = (int(a[6:8], 16), f"0{a[3:6]}{a[8:]}")
+                old = key in store.rows
+                accept(a, results[a]["atlas"], results[a].get("extras"), o, new=not old)
+                o["verified"] = why
+                rescans[why.split(" with ")[0]] = rescans.get(why.split(" with ")[0], 0) + 1
+                if old:
+                    o["replaced"] = True
+            lst.append(o)
+        v3_out[num] = lst
+    # ---- report-system issues: compare the rescan with the published row ----
+    rep_out = []
+    pc_keys = {}
+    for num, rp in report_plan.items():
+        if rp.get("result") is None and locate(rp["address"]) == "index":
+            a = rp["address"]
+            pc_keys[(int(a[6:8], 16), f"0{a[3:6]}{a[8:]}")] = None
+    if pc_keys:
+        for r in atlas.index_records():
+            k = (int(r["galaxy"]), r["glyphs"].upper())
+            if k in pc_keys:
+                pc_keys[k] = r
+    rep_time = {it["number"]: iso(it.get("created_at")) or run_utc for it in reports}
+    for num, rp in report_plan.items():
+        e = {"number": num, "kind": "report", "address": rp.get("address"), "close": True, "changes": []}
+        rep_out.append(e)
+        if rp.get("result") is not None:
+            e.update(result=rp["result"], detail=rp.get("detail"))
+            continue
+        a = rp["address"]
+        gal, region, idx = int(a[6:8], 16), a[8:], int(a[3:6], 16)
+        key = (gal, f"0{a[3:6]}{region}")
+        res, where = results.get(a), locate(a)
+        e["where"] = where
+        if res is None:
+            e.update(result="pending", close=False)
+            continue
+        status = res.get("status")
+        if res.get("error") or status not in (0, 4) or (status == 0 and check_scan(res, a)):
+            e.update(result="error", detail=res.get("error") or (check_scan(res, a) if status == 0
+                                                                  else f"scanner status {status}"))
+            continue
+        if where is None:
+            if status == 4:
+                e.update(result="no_derelict", detail="the rescan found no derelict (scan status 4)")
+                if NONE_VERIFIED:
+                    nones.add(a)
+                    new_none.append(a)
+                else:
+                    held[a] = (held[a][0] if a in held else rep_time[num], HELD_STATUS4)
+            else:
+                o = {}
+                accept(a, res["atlas"], res.get("extras"), o)
+                e.update(result="published", tier=o["tier"])
+            continue
+        if status == 4:
+            e.update(result="differs", close=False, add_label=REPORT_PC_LABEL,
+                     detail="the rescan found no derelict (scan status 4), the atlas has one")
+            continue
+        scan = dict(zip(R.COLUMNS4, res["atlas"]))
+        if where == "singles" or where == "slim":
+            line = store.rows[key] if where == "singles" else None
+            if where == "slim" or tier_of_line(line) in R.SLIM_TIERS:
+                ch = atlas.region(gal, region)["slim"][idx] if where == "slim" else line.split(",")[14]
+                d = R.decode(ch)
+                old = {"frigate_modules": str(d[0]) if d else ""}
+                changes = cell_changes(old, scan, ["frigate_modules"])
+            else:
+                old = dict(zip(R.COLUMNS4, line.split(",")))
+                changes = cell_changes(old, scan, R.COLUMNS4[1:-2]) + \
+                    extras_changes(extras_store.get(a), scan_extras(res))
+        elif where == "region":
+            old = dict(zip(R.COLUMNS4, atlas.region(gal, region)["rows"][key[1]].split(",")))
+            changes = cell_changes(old, scan, R.COLUMNS4[1:-2])
+        else:                                           # main index row (no region row, not a single)
+            old = pc_keys.get(key) or {}
+            changes = cell_changes(old, scan, [c for c in R.V3_ROW_COLS if c in R.COLUMNS4[1:-2]])
+        e["changes"] = changes
+        if not changes:
+            e.update(result="verified")
+        elif where == "singles":
+            o = {}
+            if tier_of_line(store.rows[key]) in R.SLIM_TIERS:
+                cells = store.rows[key].split(",")[:-1]
+                m = int(scan["frigate_modules"])
+                cells[14] = R.encode(m, True) if tier_of_line(store.rows[key]) == "pruned" else str(m)
+                store.rows[key] = f"{','.join(cells)},{R.row_check(','.join(cells), fp)}"
+            else:
+                accept(a, res["atlas"], res.get("extras"), o, new=False)
+            e.update(result="replaced")
+        else:
+            e.update(result="differs", close=False, add_label=REPORT_PC_LABEL)
     # ---- none.csv: never an address that has a row anywhere; held.csv: capped, oldest dropped ----
     for a in sorted(nones):
         gal, glyphs = int(a[6:8], 16), f"0{a[3:6]}{a[8:]}"
@@ -1091,17 +1605,36 @@ def _process(args, repo, version, region_counts):
     changed = []
     paths = write_store(repo, store, run_utc, version, args.split_bytes, changed)
     for a in accepted:
-        outcome[a]["file"] = bucket_of(int(a[6:8], 16), f"0{a[3:6]}{a[8:]}", store.split)
+        acc_o[a]["file"] = bucket_of(int(a[6:8], 16), f"0{a[3:6]}{a[8:]}", store.split)
+    for e in rep_out:
+        if e.get("result") in ("published", "replaced"):
+            e["file"] = bucket_of(int(e["address"][6:8], 16), f"0{e['address'][3:6]}{e['address'][8:]}", store.split)
     n_index = write_index(repo, atlas, store, index_keys, changed)
     write_extras(repo, atlas, store, index_keys, extras_store, changed)
     write_small(repo, NONE_FILE, none_text(nones), not nones, changed)
     write_small(repo, HELD_FILE, held_text(held), not held, changed)
     # ---- summary ----
     counts = {k: 0 for k in ("accepted", "already", "no_derelict", "invalid", "nonexistent", "error", "over_cap",
-                             "duplicate", "held", "pending")}
+                             "duplicate", "held", "pending", "dropped", "rejected")}
     out_issues, scanners = [], {}
     for t in taken:
         num, lst = t["it"]["number"], []
+        if t["format"] == "v3":
+            lst = v3_out[num] if t["state"] != "rejected" else []
+            for x in lst:
+                counts[x["outcome"]] += 1
+            if t["state"] == "rejected":
+                counts["rejected"] += 1                 # whole issues (its records are not counted)
+            counts["over_cap"] += t["over"]
+            for tok in t["scanners"]:
+                scanners[tok] = scanners.get(tok, 0) + 1
+            out_issues.append({"number": num, "format": "v3", "addresses": lst, "invalid_matches": 0,
+                               "over_cap": t["over"], "scanners": t["scanners"],
+                               "pending": len(lst) if t["state"] == "pending" else 0,
+                               "close": t["state"] != "pending", "v3_state": t["state"], "v3_reason": t["reason"],
+                               "v3_rescans": {a: why for a, (k, why) in t["plan"].items()
+                                              if k in ("verify", "compare")}})
+            continue
         for a in t["addrs"]:
             if first_issue[a] != num:
                 lst.append({"address": a, "outcome": "duplicate", "detail": f"also in issue #{first_issue[a]}"})
@@ -1119,11 +1652,13 @@ def _process(args, repo, version, region_counts):
         out_issues.append({"number": num, "format": t["format"], "addresses": lst, "invalid_matches": t["bad"],
                            "over_cap": t["over"], "scanners": t["scanners"], "pending": open_left,
                            "close": open_left == 0})
+    out_issues += rep_out
+    v3_taken = [t for t in taken if t["format"] == "v3"]
     msg = f"singles: {len(accepted)} systems, {len(new_none)} without a derelict (run {args.run_id})"
     summary = {"format": 2, "run_id": args.run_id, "w29_version": version, "run_utc": run_utc,
                "community_total": community, "cap_mode": cap_seen or R.post_cap(community), "atlas_cap": R.ATLAS_CAP,
                "counts": counts,
-               "tiers": {k: sum(1 for a in accepted if outcome[a]["tier"] == k) for k in ("detail", "full", "slim", "pruned")},
+               "tiers": {k: sum(1 for a in accepted if acc_o[a]["tier"] == k) for k in ("detail", "full", "slim", "pruned")},
                "reported_none_found": reported_none_found, "scanners": scanners,
                "singles_rows": len(store.rows), "store_resigned": store.resigned, "store_bad_rows": store.bad,
                "build": SINGLES_BUILD, "index_rows": n_index, "none_rows": len(nones), "held_rows": len(held),
@@ -1136,12 +1671,20 @@ def _process(args, repo, version, region_counts):
                "region_counts": region_counts.computed,
                "portal_checks": region_counts.purple_computed,
                "superseded": superseded, "superseded_mismatch": mismatch, "waiting_issues": wait,
+               "v3": {"tables_fp": live_fp, "toplist_rescan": toplist_rescan,
+                      "issues": {s: sum(1 for t in v3_taken if t["state"] == s)
+                                 for s in ("ok", "dropped", "rejected", "pending")},
+                      "rescans": {a: why for t in v3_taken for a, (k, why) in t["plan"].items()
+                                  if k in ("verify", "compare")}, "verified": rescans},
+               "reports": {r: sum(1 for e in rep_out if e["result"] == r) for r in REPORT_RESULTS},
+               "report_waiting": report_wait,
                "changed": sorted(set(changed)), "commit_message": msg, "issues": out_issues}
     Path(args.summary).write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     if args.message:
         Path(args.message).write_text(msg + "\n", encoding="utf-8")
     print(f"{msg}: {json.dumps(counts, sort_keys=True)}; {len(superseded)} superseded; {len(pending)} left for the "
-          f"next run; scanners {json.dumps(scanners, sort_keys=True)}; {len(set(changed))} files changed")
+          f"next run; scanners {json.dumps(scanners, sort_keys=True)}; {len(set(changed))} files changed; v3 issues "
+          f"{json.dumps(summary['v3']['issues'], sort_keys=True)}; reports {json.dumps(summary['reports'], sort_keys=True)}")
     return summary
 
 
@@ -1238,7 +1781,42 @@ NAMES = {"accepted": "published", "already": "already in the atlas",
 COMMENT_LIST = 100              # addresses listed per comment line (a 3,000-address batch stays far below 65,536 chars)
 
 
+def _short(v, n=60):
+    v = str(v)
+    return v if len(v) <= n else v[:n] + "..."
+
+
+def report_text(run_id, e):
+    """The comment of a report-system issue. Only our own data: the parsed address, published rows, our rescan."""
+    a, r = e.get("address"), e["result"]
+    head = f"Automatic report check (run {run_id})"
+    ch = "; ".join(f"{c}: {_short(o) or '(empty)'} -> {_short(n) or '(empty)'}" for c, o, n in e.get("changes")[:20])
+    if r == "bad_title":
+        return (f"{head}: the title must be exactly one system address (16 hex digits, as the atlas shows it), "
+                "nothing else. Closed; please open a new report with the address as the title.")
+    if r in ("invalid", "nonexistent"):
+        return f"{head}: `{a}` {e.get('detail') or 'is not a valid system'}. Closed."
+    if r == "error":
+        return f"{head}: `{a}` could not be rescanned ({_short(e.get('detail'), 120)}). Closed; please report again later."
+    if r == "no_derelict":
+        return f"{head}: `{a}` was rescanned with the site's scanner: {e.get('detail')}. Nothing published. Closed."
+    if r == "published":
+        return (f"{head}: `{a}` was not in the atlas; the rescan found a derelict and it is now published "
+                f"({e.get('file')}). Closed.")
+    if r == "verified":
+        return f"{head}: `{a}` was rescanned with the site's scanner: verified, no change. Closed."
+    if r == "replaced":
+        return f"{head}: `{a}` was rescanned; the published single differed and was replaced: {ch}. Closed."
+    return (f"{head}: `{a}` was rescanned; the PC atlas row differs from the rescan: "
+            f"{ch or e.get('detail')}. Left open for the scanner agent (label `{REPORT_PC_LABEL}`).")
+
+
 def comment_text(run_id, issue):
+    if issue.get("kind") == "report":
+        return report_text(run_id, issue)
+    if issue.get("v3_state") in ("dropped", "rejected"):
+        return (f"Automatic singles check (run {run_id}): this v3 batch was {issue['v3_state']}: {issue['v3_reason']}. "
+                "Nothing of it was published (one rescan mismatch or one invalid record drops the whole batch).")
     groups = {}
     for a in issue["addresses"]:
         groups.setdefault(a["outcome"], []).append(a)
@@ -1261,6 +1839,10 @@ def comment_text(run_id, issue):
     if issue["invalid_matches"] or issue["over_cap"]:
         lines.append(f"- ignored: {issue['invalid_matches']} lines that are not one valid address, "
                      f"{issue['over_cap']} addresses over the {MAX_PER_ISSUE}-per-issue limit")
+    verified = [a for a in issue["addresses"] if a.get("verified")]
+    if verified:
+        lines.append(f"- verified by a rescan with the site's scanner: {len(verified)}: "
+                     + ", ".join(f"`{a['address']}` ({a['verified']})" for a in verified[:COMMENT_LIST]))
     if not issue["addresses"]:
         lines.append("- no valid system address found")
     return "\n".join(lines)
@@ -1272,11 +1854,15 @@ def comment(args):
     rn = None if dry else repo_name()
     done = 0
     for it in s["issues"]:
-        if not it.get("close"):
-            continue
         n = int(it["number"])
-        calls = [("POST", f"/issues/{n}/comments", {"body": comment_text(s["run_id"], it)}),
-                 ("PATCH", f"/issues/{n}", {"state": "closed", "state_reason": "completed"})]
+        if it.get("close"):
+            calls = [("POST", f"/issues/{n}/comments", {"body": comment_text(s["run_id"], it)}),
+                     ("PATCH", f"/issues/{n}", {"state": "closed", "state_reason": "completed"})]
+        elif it.get("add_label"):           # report: a PC row differs -> stays open for the scanner agent
+            calls = [("POST", f"/issues/{n}/comments", {"body": comment_text(s["run_id"], it)}),
+                     ("POST", f"/issues/{n}/labels", {"labels": [it["add_label"]]})]
+        else:
+            continue
         for method, path, body in calls:
             if dry:
                 with open(dry, "a", encoding="utf-8", newline="\n") as f:
@@ -1284,7 +1870,7 @@ def comment(args):
             else:
                 gh_request(method, f"/repos/{rn}{path}", body)
         done += 1
-    print(f"{done} issues commented and closed")
+    print(f"{done} issues commented (closed, or labelled {REPORT_PC_LABEL})")
 
 
 def pages_build(args):

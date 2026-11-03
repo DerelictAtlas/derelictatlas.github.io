@@ -56,12 +56,17 @@ If one of those sources changes (thresholds, map lists, row format, index column
   EXTRAS_COLUMNS, EXTRAS_FORMAT          TL build_atlas_index.py:124-128 (W28: format 2 = format 1 + items_units,
                                            items_units_min, items_units_max after spookbox_value; comment :118-123)
   extras_text                            TL build_atlas_index.py:433-445 (write_extras, plain text, own '#' wording)
+  V3_* / v3_check_row / v3_check_extras  V3UP 2026-11-02: the line rules of a v3 results upload (headers = the
+                                           published index shard header and TL EXTRAS_COLUMNS format 3; items_all
+                                           rule = TL build_top_bundle.py:182-214 items_all_cells); the SAME block is
+                                           in the Pi relay's relay.py
 """
 from __future__ import annotations
 import csv
 import hashlib
 import io
 import re
+import unicodedata
 from pathlib import Path
 
 # ---- region-file format 4 (FG atlas.py) ----
@@ -431,3 +436,143 @@ def extras_text(values, columns, fmt, what):
         v = values[a]
         w.writerow([a.upper()] + ["" if v.get(c) is None else v.get(c) for c in columns[1:]])
     return out.getvalue()
+
+
+# ---- v3 line rules (V3UP 2026-11-02, user-approved): the visitor's browser uploads its finished scan results ----
+# THE SAME BLOCK is in the Pi relay (relay.py) and in the singles Action (tools/singles/atlas_rules.py), from the line
+# "# ---- v3 line rules" to the end of v3_check_extras: keep both copies identical (diff them after a change).
+# Columns of an uploaded row / extras line, hard-coded copies of the published headers:
+#   V3_ROW_HEADER    = line 2 of index/systems/00.csv of the published atlas (build_atlas_index.py INDEX_COLUMNS +
+#                      INDEX_EXTRA + INDEX_REWARD + INDEX_FRIGATE + game_build), checked 2026-11-02
+#   V3_EXTRAS_HEADER = build_atlas_index.py EXTRAS_COLUMNS, extras format 3 (= line 2 of views/extras.csv.gz)
+V3_ROW_HEADER = ("glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcases,tall_lockers,"
+                 "reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,"
+                 "frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,game_build")
+V3_EXTRAS_HEADER = ("address,spookbox,spookbox_ambiguous,spookbox_alt,items_value,items_value_min,items_value_max,"
+                    "items_nanites,items_nanites_direct,items_nanites_refiner,items_nanites_min,items_nanites_max,"
+                    "items_ambiguous,items_tech,items_top,end_reward_value,spookbox_value,items_units,items_units_min,"
+                    "items_units_max,items_all")
+V3_ROW_COLS = V3_ROW_HEADER.split(",")
+V3_EXTRAS_COLS = V3_EXTRAS_HEADER.split(",")
+V3_MAX_LINE = 4000              # characters per row / extras line
+# Integer cells: (lowest, highest, required). highest = ceil(1.5 x the largest value published on 2026-11-02 (index:
+# 324,874 rows; extras: the 971 rows of views/extras.csv.gz + 4 singles); for a value group (value/min/max) the group's
+# largest); fixed: galaxy 0-255, map 0 (no maps are uploaded), 0/1 flags, frigate modules 0-7 (the most the game has).
+# Published maxima: rooms 13, crates 77, footlockers 39, floors 4, stairs 9, hangars 11, briefcases 62, tall_lockers
+# 202, frigate_modules_ambiguous 5; items_value* 11,549,394, items_nanites* 4,663, items_ambiguous 126,
+# end_reward_value 12,000, spookbox_value 560,000, items_units* 394,623.
+V3_ROW_INTS = {"galaxy": (0, 255, True), "rooms": (0, 20, True), "crates": (0, 116, True),
+               "footlockers": (0, 59, True), "floors": (0, 6, True), "stairs": (0, 14, True), "hangars": (0, 17, True),
+               "map": (0, 0, True), "briefcases": (0, 93, False), "tall_lockers": (0, 303, False),
+               "reward_ambiguous": (0, 1, False), "frigate_modules": (0, 7, True),
+               "frigate_modules_ambiguous": (0, 7, True)}
+V3_EXTRAS_INTS = {"spookbox_ambiguous": (0, 1), "items_value": (0, 17324091), "items_value_min": (0, 17324091),
+                  "items_value_max": (0, 17324091), "items_nanites": (0, 6995), "items_nanites_direct": (0, 6995),
+                  "items_nanites_refiner": (0, 6995), "items_nanites_min": (0, 6995), "items_nanites_max": (0, 6995),
+                  "items_ambiguous": (0, 189), "end_reward_value": (0, 18000), "spookbox_value": (0, 840000),
+                  "items_units": (0, 591935), "items_units_min": (0, 591935), "items_units_max": (0, 591935)}
+_V3_INT = re.compile(r"0|[1-9][0-9]{0,8}")
+_V3_DOTS = re.compile(r"(?:[0-9]{1,3}(?:\.[0-9]{1,3})*)?")
+_V3_BOX = r"[0-9]{1,2}x[0-9]{1,2}"
+V3_ROW_TEXT = {"glyphs": re.compile(r"0[0-9A-F]{11}"), "preset": re.compile(r"[A-Z0-9_]{1,40}"),
+               "reward_class": re.compile(r"[SABC]?"), "frigate_module_rooms": _V3_DOTS,
+               "frigate_module_ids": _V3_DOTS, "frigate_module_alt_ids": _V3_DOTS,
+               "game_build": re.compile(r"[0-9A-Za-z .-]{0,40}")}
+V3_EXTRAS_TEXT = {"address": re.compile(r"000[0-9A-F]{13}"), "spookbox": re.compile("(?:%s)?" % _V3_BOX),
+                  "spookbox_alt": re.compile("(?:%s(?:\\|%s)*)?" % (_V3_BOX, _V3_BOX)),
+                  "items_tech": re.compile(r"(?:[0-9]{1,4}/[0-9]{1,4}/[0-9]{1,4}/[0-9]{1,4})?")}
+V3_EXTRAS_ORDER = (("items_value_min", "items_value", "items_value_max"),
+                   ("items_nanites_min", "items_nanites", "items_nanites_max"),
+                   ("items_units_min", "items_units", "items_units_max"))
+V3_ITEM_AMOUNT = re.compile(r"([0-9]{1,9})=([0-9]{1,9})~?")      # an items entry after its LAST " x": AMOUNT=VALUE[~]
+V3_ADDRESS = re.compile(r"000[0-9A-F]{13}")
+V3_SCANNER = re.compile(r"[0-9A-Za-z ;:.+_()/=-]{1,200}")       # the page's scan/w29.json version string
+V3_FP = re.compile(r"[0-9a-f]{16}")                             # its tables fingerprint
+_V3_BAD_ASCII = re.compile(r'[\x00-\x1f\x7f"]')
+
+
+def v3_chars_ok(s):
+    """True when s has no '"', CR, LF or other control / format character (any Unicode category C*)."""
+    if s.isascii():
+        return not _V3_BAD_ASCII.search(s)
+    return '"' not in s and not any(unicodedata.category(ch)[0] == "C" for ch in s)
+
+
+def _v3_split(line, cols, what):
+    if not isinstance(line, str):
+        raise ValueError("%s line is not a string" % what)
+    if len(line) > V3_MAX_LINE:
+        raise ValueError("%s line is longer than %d characters" % (what, V3_MAX_LINE))
+    if not v3_chars_ok(line):
+        raise ValueError("%s line has a quote or a control character" % what)
+    cells = line.split(",")
+    if len(cells) != len(cols):
+        raise ValueError("%s line has %d cells, want %d" % (what, len(cells), len(cols)))
+    return dict(zip(cols, cells))
+
+
+def _v3_int(r, col, lo, hi, required, what):
+    v = r[col]
+    if v == "":
+        if required:
+            raise ValueError("%s %s is empty" % (what, col))
+        return None
+    if not _V3_INT.fullmatch(v) or not lo <= int(v) <= hi:
+        raise ValueError("%s %s is not an integer %d-%d" % (what, col, lo, hi))
+    return int(v)
+
+
+def v3_items(cell, what):
+    """[(value, label)] of an items_top / items_all cell ('LABEL xAMOUNT=VALUE[~]' joined by '|'); [] for ''."""
+    out = []
+    for e in cell.split("|") if cell else []:
+        label, sep, rest = e.rpartition(" x")
+        m = V3_ITEM_AMOUNT.fullmatch(rest)
+        if not (sep and label and m):
+            raise ValueError("extras %s has an entry that is not 'LABEL xAMOUNT=VALUE[~]'" % what)
+        out.append((int(m.group(2)), label))
+    return out
+
+
+def v3_check_row(line):
+    """(ADDRESS16, {column: cell}) of an uploaded index row, or ValueError(reason). The reason names columns only,
+    never a cell value (it is shown to the uploader and in issue comments)."""
+    r = _v3_split(line, V3_ROW_COLS, "row")
+    for col, rx in V3_ROW_TEXT.items():
+        if not rx.fullmatch(r[col]):
+            raise ValueError("row %s has the wrong form" % col)
+    if r["glyphs"][1:4] == "000":
+        raise ValueError("row glyphs: system index 000 is not a system")
+    ints = {c: _v3_int(r, c, lo, hi, req, "row") for c, (lo, hi, req) in V3_ROW_INTS.items()}
+    ids = r["frigate_module_ids"]
+    if (len(ids.split(".")) if ids else 0) != ints["frigate_modules"]:
+        raise ValueError("row frigate_module_ids does not list frigate_modules modules")
+    g = r["glyphs"]
+    return "000%s%02X%s" % (g[1:4], ints["galaxy"], g[4:]), r
+
+
+def v3_check_extras(line):
+    """(ADDRESS16, {column: cell}) of an uploaded extras line (format 3; '' = not computed), or ValueError(reason):
+    forms, integer ranges, min <= value <= max, nanites = direct + refiner, items_top / items_all entries, items_all
+    sorted by value (desc) then label and its values summing to items_value (as build_top_bundle.items_all_cells)."""
+    r = _v3_split(line, V3_EXTRAS_COLS, "extras")
+    for col, rx in V3_EXTRAS_TEXT.items():
+        if not rx.fullmatch(r[col]):
+            raise ValueError("extras %s has the wrong form" % col)
+    if r["address"][3:6] == "000":
+        raise ValueError("extras address: system index 000 is not a system")
+    v = {c: _v3_int(r, c, lo, hi, False, "extras") for c, (lo, hi) in V3_EXTRAS_INTS.items()}
+    for lo, mid, hi in V3_EXTRAS_ORDER:
+        if None not in (v[lo], v[mid], v[hi]) and not v[lo] <= v[mid] <= v[hi]:
+            raise ValueError("extras %s <= %s <= %s does not hold" % (lo, mid, hi))
+    n, d, f = v["items_nanites"], v["items_nanites_direct"], v["items_nanites_refiner"]
+    if None not in (n, d, f) and n != d + f:
+        raise ValueError("extras items_nanites is not items_nanites_direct + items_nanites_refiner")
+    v3_items(r["items_top"], "items_top")
+    ents = v3_items(r["items_all"], "items_all")
+    if ents:
+        if sorted(ents, key=lambda e: (-e[0], e[1])) != ents:
+            raise ValueError("extras items_all is not sorted by value (desc), then label")
+        if v["items_value"] is None or sum(e[0] for e in ents) != v["items_value"]:
+            raise ValueError("extras items_all values do not sum to items_value")
+    return r["address"], r

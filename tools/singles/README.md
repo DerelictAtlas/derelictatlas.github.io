@@ -8,11 +8,15 @@ The workflow `.github/workflows/singles.yml` runs every hour at minute 7 and can
    issue is touched. Then checks the region-count files `tools/singles/w29d/` against their pinned sha256 and runs a
    self-test (4 known region counts + 5 known portal-rule answers); any failure there is exit code 4, same effect (see
    "Known system ranges").
-2. Reads the open issues labelled `single-scan` through the GitHub API (at most 200, oldest first).
+2. Reads the open issues labelled `single-scan` through the GitHub API (at most 200, oldest first), and the open
+   report issues (label `report-system`, or a title of exactly one ADDRESS16; see "Report a system").
 3. Takes the system addresses out of those issues (found and `none` alike). Addresses already in the atlas are
    skipped; addresses of systems that do not exist in-game are rejected with the reason (see "Known system ranges").
-4. Recomputes every remaining address with the site's own W29 WebAssembly scanner under Node, one Node process per
-   CPU of the runner. Nothing a visitor sends is used except the address: a `none` claim is recomputed like any other.
+4. Recomputes every remaining address of a v1 / v2 batch with the site's own W29 WebAssembly scanner under Node, one
+   Node process per CPU of the runner. Nothing a visitor sends in a v1 / v2 batch is used except the address: a `none`
+   claim is recomputed like any other. A **v3 batch** (since 2026-11-02) carries the visitors' finished results: it is
+   verified instead (checks + a 1 % rescan sample + conflicts; one mismatch drops the whole batch), see "v3 results
+   upload" below. Report issues are rescanned (at most 50 per run).
 5. Writes the results: systems with a derelict as full rows into `singles/` (after the 1,000,000 cap only systems that
    break into a top-100 list; the rest pruned), `index/singles.csv` and `views/singles-extras.csv`; for now every
    system without a derelict into `singles/held.csv` (reason `status4`); once scan status 4 is verified, systems
@@ -59,6 +63,8 @@ scanner 0b5e1235+5ca4c66b
 00009F0002609CAA
 none 00009FFF02609CAA
 ```
+
+**Relay batch format v3** (since 2026-11-02): see "v3 results upload" below.
 
 **Relay batch format v1** (older relay, still read): the first line is exactly `single-scan batch v1`, then one
 ADDRESS16 per line, nothing else (no `none`, no `scanner` lines).
@@ -301,6 +307,100 @@ comparison ignores that suffix; the sha256 checks still pin both files. `scan_ma
 header name (W29e has 3 more trailing cells: `items_units`, `items_units_min`, `items_units_max`) and passes no
 `onProgress`.
 
+## v3 results upload: verify instead of rescanning (V3UP, user-approved 2026-11-02)
+
+Since 2026-11-02 the browser uploads its FINISHED scan results through the relay (relay README "v3 results upload").
+The Action verifies a v3 batch instead of rescanning every system. v1 / v2 batches are processed exactly as before.
+
+**Issue body** (`single-scan batch v3`): the first line is exactly `single-scan batch v3`, then ONE fenced block (a line
+```` ``` ````, base64 lines, a line ```` ``` ````; empty lines and `\r` ignored; any other line rejects the issue). The
+base64 is gzip (one stream, at most `V3_MAX_RAW` = 4,000,000 bytes unpacked) of ASCII JSON lines, one record per
+system: `{"address","fp","scanner","row","extras"}` (a derelict: the index row + extras line the page computed) or
+`{"address","fp","scanner","none":true}` (scanned, no derelict). At most 3,000 records are read per issue (the relay
+writes at most 2,000).
+
+**Checks, in this order** (a failure of (a), (c) or (d) rejects the WHOLE issue, outcome `rejected`, comment with the
+reason, closed; reasons name columns, never echo issue text):
+
+- (a) format + ranges of every record: exact keys, ADDRESS16, `fp` 16 hex, `scanner` form, and the line rules
+  `atlas_rules.v3_check_row` / `v3_check_extras` (the same block as the relay's: header cell counts, forms, the
+  integer ranges below, no `"` / control / format characters, at most 4,000 characters per line), no address twice;
+- (d) consistency: the row's glyphs + galaxy and the extras address are the record's address; `frigate_module_ids`
+  lists `frigate_modules` entries; `min <= value <= max` (value, nanites, units); nanites = direct + refiner;
+  `items_all` (when filled) parses, is sorted by value then label, and sums to `items_value` (as
+  `build_top_bundle.items_all_cells`). Integer ranges (max = ceil(1.5 x the largest value published on 2026-11-02):
+  rooms 0-20, crates 0-116, footlockers 0-59, floors 0-6, stairs 0-14, hangars 0-17, briefcases 0-93, tall_lockers
+  0-303, frigate_modules 0-7, frigate_modules_ambiguous 0-7 (a count), reward_ambiguous 0-1, map 0, galaxy 0-255;
+  items_value* 0-17,324,091, items_nanites* 0-6,995, items_ambiguous 0-189, end_reward_value 0-18,000, spookbox_value
+  0-840,000, items_units* 0-591,935, spookbox_ambiguous 0-1; reward_class S/A/B/C/empty;
+- (c) scanner: every record's `fp` must be the tables fingerprint of the live `scan/w29.json` version
+  (`... tables fingerprint <16 hex>`, or W29c/e `...; fingerprint <16 hex>`; `tables_fp()`), or in `V3_EXTRA_FPS`
+  (empty). Otherwise: `rejected` ("scanner tables fingerprint X is not the live scanner's (Y)");
+- (b) every address goes through the same classification as a v2 address: already in a region file / the main index
+  (**atlas wins**: outcome `already`, nothing compared), index 000 `invalid`, W29d `nonexistent` (with its reason).
+
+**Rescans** (the existing wasm scan path, inside the run cap `MAX_PER_RUN`):
+
+- a **1 % sample** of the issue's new rows (`V3_SAMPLE_PERCENT`; ceil, at least 1 per issue), chosen with
+  `random.Random("singles-v3-sample/<issue number>")` from the sorted addresses (deterministic: the same picks on a
+  push retry);
+- **conflicts**: an address uploaded with different values by two issues of the run (the later one is compared with
+  the rescan, the earlier one is upgraded to a rescan too), an upload that differs from the published single
+  (`differs from the published single`), and an upload of a held address (`held`); an address uploaded twice with the
+  same values is a `duplicate` (no rescan);
+- **top lists, only after the cap**: once the community total reaches 1,000,000 (`atlas_rules.post_cap`, the same
+  switch as the post-cap pruning, `ATLAS_CAP` = FG pruning.py `ATLAS_CAP`), every new row that would enter a top-100
+  map list (`atlas_rules.breaks_into` against the published lists) is rescanned too (`top list`). Below the cap this
+  is off (summary `v3.toplist_rescan`);
+- `none` records are recomputed like v2 `none` claims (status 4 held while `NONE_VERIFIED` is off; a derelict found
+  is published, "reported none").
+
+A rescan equals the upload when every row cell except `map` and `game_build` is equal, and every extras cell the
+upload filled (except `items_all`, which the scanner does not write) is equal (`v3_mismatch`). **Any mismatch** (also
+"no derelict" or a scan error) **drops the WHOLE issue**: outcome `dropped` for every address, comment "this v3 batch
+was dropped: rescan mismatch: `ADDR` (sample): differs in crates", closed, nothing of it published. An issue whose
+rescans did not finish before the deadline stays open (`pending`), nothing of it published, and is redone next run.
+
+**Publishing** (unchanged files and formats): an accepted row becomes a singles row from the uploaded cells (region
+format 4; `room_detail` empty, because it is not uploaded; a rescanned row keeps the scan's `room_detail`), signed
+with `SINGLES_BUILD`; `index/singles.csv` gets the same index row (`map` 0, `game_build` = `7.10-b26295378 D393C678`);
+`views/singles-extras.csv` stays format 2 (the format-2 cells of the upload; `items_all` is only used for check (d)).
+The post-cap tier rule applies as for scans. An upload that replaced a differing single after a matching rescan is
+marked `replaced`. Summary: issue fields `v3_state` (ok / dropped / rejected / pending), `v3_reason`, `v3_rescans`
+({address: why}); top-level `v3` (`tables_fp`, `toplist_rescan`, `issues` per state, `rescans`, `verified`).
+
+What it costs: only the sample, conflicts and none claims are scanned (about 1 system per 100 uploaded rows), so a run
+handles far more than 20,000 uploaded systems. What it does not catch: a forged row that is not sampled is published
+(the chance to catch a batch with k forged rows is about 1 - 0.99^k per batch); a wrong single can be fixed with a
+report (below).
+
+## Report a system (report-system issues, V3UP)
+
+A visitor who thinks a system is wrong opens an issue (SITE links `issues/new?template=report-system.md&title=<ADDRESS16>`;
+the template sets the label `report-system`, because GitHub drops `?labels=` for visitors without triage rights).
+The Action reads **open** issues that have the label `report-system`, and, as a fallback, every open issue WITHOUT the
+`single-scan` label whose trimmed title is exactly 16 hex digits (any case). Only the title is used: it must be
+exactly one ADDRESS16; the body is free text and is never read or echoed. Issues that already have the label
+`report-pc` are skipped (waiting for the scanner agent). At most `REPORT_MAX` = 50 reports are rescanned per run
+(oldest first); the rest wait untouched (summary `report_waiting`).
+
+| case | result | issue |
+|---|---|---|
+| title not one ADDRESS16 | `bad_title` | comment, closed |
+| index 000 / does not exist in-game (W29d) | `invalid` / `nonexistent` (with the reason) | comment, closed |
+| a singles row, rescan equal | `verified` | "verified, no change", closed |
+| a singles row, rescan differs (row cells except room_detail; a stored extras cell) | `replaced`: the single (and its extras) is replaced by the rescan | comment lists `column: old -> new`, closed |
+| a PC row (region file row, slim entry or main index row, not a single), rescan equal | `verified` | closed |
+| a PC row, rescan differs, or the rescan finds no derelict | `differs` | comment with the changes, left OPEN, label `report-pc` added (`POST /issues/{n}/labels`) |
+| not published (also held / none.csv), rescan finds a derelict | `published` | closed |
+| not published, rescan finds none (status 4) | `no_derelict` (held while `NONE_VERIFIED` is off) | closed |
+| scan error | `error` | closed ("report again later") |
+| rescan not reached before the deadline | `pending` | stays open |
+
+The labels `report-system` and `report-pc` must exist in the repo (create both once; GitHub would otherwise create
+`report-pc` on the fly when the Action adds it). Summary: `reports` (count per result) and issue entries with
+`kind: "report"`, `result`, `changes`, `close`, `add_label`.
+
 ## Run locally
 
 Requires Python 3.10+ and Node 18+. Nothing calls GitHub when an issues file and `--dry-run` are given.
@@ -336,7 +436,7 @@ A fresh wasm instance is used every 100 systems, which keeps memory under about 
    - Settings -> Actions -> General -> Workflow permissions: "Read and write permissions".
    - `main` must allow pushes by `github-actions[bot]` (no branch protection requiring PRs).
    - Pages: deploy from the `main` branch (as today).
-3. Create the label `single-scan` (Issues -> Labels).
+3. Create the labels `single-scan`, `report-system` and `report-pc` (Issues -> Labels).
 4. Run the workflow once by hand (Actions -> singles -> Run workflow). Then check:
    - the commit, and that the site picks up `index/singles.csv`;
    - that a Pages build ran after the bot's push. Pushes made with `GITHUB_TOKEN` may not trigger the branch Pages
