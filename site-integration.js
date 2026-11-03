@@ -130,7 +130,19 @@
     const links = OPEN_IN.filter((e) => !e.slugs || e.slugs[galaxy]).map((e) => `<a href="${esc(e.url.replace("{glyphs}", glyphs)
       .replace("{galaxy}", galaxy).replace("{slug}", (e.slugs || {})[galaxy] || ""))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
       title="External site, not affiliated">${esc(e.name)} ↗</a>`);
-    return links.length ? `<span>Open in</span>${links.join("")}` : "";
+    return links.length ? `<span>Open in</span>${links.join("")}${reportHtml(address, glyphs, galaxy)}` : reportHtml(address, glyphs, galaxy);
+  }
+  // "Report this system" (user 2026-11-02: "just add a report system, where they can complain using github issues"): a
+  // prefilled GitHub issue (title = ADDRESS16, label report-system); the singles Action rescans reported systems and
+  // replaces a wrong row. Needs a GitHub account; nothing is sent from here.
+  function reportHtml(address, glyphs, galaxy) {
+    const base = String((window.DV_CONFIG || {}).siteBase || "https://derelictatlas.github.io/");
+    const body = "What looks wrong with this system? (for example the modules, containers, rooms, decks or loot)\n\n\n---\n" +
+      `Address: ${address}\nGlyphs: ${glyphs} (galaxy ${galaxy + 1}${galaxy === 0 ? ", Euclid" : ""})\nLink: ${base}#/d/${address}\n`;
+    const url = "https://github.com/DerelictAtlas/derelictatlas.github.io/issues/new?template=report-system.md&labels=report-system&title=" +
+      encodeURIComponent(address) + "&body=" + encodeURIComponent(body);
+    return `<a class="site-report" href="${esc(url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
+      title="Opens a GitHub issue (needs a GitHub account): tell us what looks wrong and the atlas checks this system again">Report this system ↗</a>`;
   }
   function mountOpenIn() {
     const strip = document.querySelector("#viewer-content .identity-strip .glyph-address");

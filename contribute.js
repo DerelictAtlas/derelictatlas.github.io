@@ -3,8 +3,10 @@
  * Scans systems from the atlas work list (stats/work.txt: "GG REGION8 001 007 00D-00E ..." = hex system indexes still to
  * scan, written with the index) in this browser with the W29 scanner (scan/bulk-worker.js, one per scanner).
  * Scanning here is the contribution (user: "its implied consent if they're contributing"): with DV_CONFIG.scanRelay
- * set, the addresses scanned (found / no derelict) go to the relay in batches, nothing else. Without a relay nothing is
- * sent and the page says so. Device counts live in localStorage only. */
+ * set, the scan results go to the relay in batches (upload format v3, 2026-11-02, user: "they upload automatically their
+ * scanned data via relay"): per system the index line + extras line the scanner wrote (scan/v3-lines.js, no map), plus the
+ * addresses without a derelict; the GitHub Action verifies them and publishes. Without a relay nothing is sent and the
+ * page says so. Device counts live in localStorage only. */
 (function () {
   "use strict";
   const cfg = () => window.DV_CONFIG || {};
@@ -45,7 +47,7 @@
   const done = new Set(jsonGet(DONE_KEY, []));
   const taken = new Set();       // addresses a scanner is working on right now
   const known = new Set();       // published since work.txt was written: index/singles.csv + singles/none.csv
-  const outbox = { found: [], none: [] };
+  const outbox = [];             // v3 upload queue: {a, ver, row, ext} (a found system) or {a, ver} (no derelict)
   let work = [], state = "loading", pool = [], version = "", wakeLock = null, dirty = 0, failStreak = 0, lastError = "";
   let session = null;            // {scanned, found, mods, ms, startedAt|0, feed[]}
   const newSession = () => ({ scanned: 0, found: 0, mods: 0, ms: 0, startedAt: 0, feed: [] });
@@ -202,7 +204,10 @@
         const r = d.row || {}, m = r.frigate_modules, t = (r.crates || 0) + (r.footlockers || 0) + (r.briefcases || 0) + (r.tall_lockers || 0);
         const prevBest = Math.max(-1, ...dev.best.map((b) => b.m ?? -1));
         dev.found++; session.found++; session.mods += Number(m) || 0;
-        if (relay()) outbox.found.push(a);
+        if (relay()) {
+          if (d.v3 && d.v3.row && d.v3.extras) outbox.push({ a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras });
+          else logFailure({ address: a, mode: "contribute", step: "upload", error: "not sent: " + (d.v3err || "no upload lines") });
+        }
         const entry = { a, m, amb: r.frigate_modules_ambiguous ? 1 : 0, t, v: r.items_value == null || r.items_value === "" ? null : Number(r.items_value),
           rw: r.reward_class ? `${r.reward_class} · ${r.reward_name || ""}` : "", p: r.preset || "" };
         keepBest(entry);
@@ -215,7 +220,7 @@
         // status 4 never happens for a real system (RE W31): logged as unexpected; still reported to the atlas
         dev.none++;
         logFailure({ address: a, mode: "contribute", step: "scan", error: "status 4 (no abandoned freighter): unexpected, every real system has one (RE W31)" });
-        if (relay()) outbox.none.push(a);
+        if (relay()) outbox.push({ a, ver: String(d.version || "") });
         item = { a, none: true };
       }
       session.feed.unshift(item);
@@ -231,7 +236,7 @@
       if (isNetwork(lastError)) { render(); setTimeout(() => feed(s), 2000 * failStreak); return; }
     }
     if (dirty >= 20) save();
-    if (outbox.found.length + outbox.none.length >= BATCH) flush();
+    if (outbox.length >= BATCH) flush();
     render();
     feed(s);
   }
@@ -284,24 +289,51 @@
   // ---- adding to the atlas (scanning here is the contribution) ----
   // one batch at a time by a CORS fetch (text/plain = no preflight) so the answer is readable: 202 queued / 200 duplicate
   // = sent; 429/503 = wait Retry-After and resend the same batch (the relay takes a whole body or none of it)
-  let inFlight = null, retryAt = 0;
-  function takeBatch() {
-    const found = outbox.found.splice(0, BATCH), none = outbox.none.splice(0, BATCH - found.length);
-    return { found, none };
+  // v3 body (scanner -cc, 2026-11-02): {"v":3,"scanner":<w29.json version>,"fp":<tables fingerprint>,"rows","extras","none"};
+  // at most BATCH (200) systems and 256 KB per POST (kept under ~200 KB here; UTF-8 margin). One scanner version per body.
+  // keepalive / sendBeacon bodies must stay under 64 KB (browser limit), so those use smaller batches.
+  let inFlight = null, retryAt = 0, maxBytes = 200 * 1024;
+  const KEEPALIVE_MAX = 60000;
+  const fpOf = (ver) => (/tables fingerprint ([0-9a-f]{16})\b/.exec(ver) || [])[1] || "";
+  function takeBatch(limit) {
+    const ver = outbox[0].ver, out = [];
+    let bytes = 400 + ver.length;
+    while (out.length < BATCH && outbox.length && outbox[0].ver === ver) {
+      const e = outbox[0], add = e.row ? e.row.length + e.ext.length + 8 : 21;
+      if (out.length && bytes + add > limit) break;
+      out.push(outbox.shift()); bytes += add;
+    }
+    return out;
   }
-  function putBack(b) { outbox.found.unshift(...b.found); outbox.none.unshift(...b.none); }
+  function putBack(b) { outbox.unshift(...b); }
+  function bodyOf(b) {
+    const ver = b[0].ver, rows = [], extras = [], none = [];
+    for (const e of b) if (e.row) { rows.push(e.row); extras.push(e.ext); } else none.push(e.a);
+    return JSON.stringify({ v: 3, scanner: ver, fp: fpOf(ver), rows, extras, none });
+  }
+  // a scanner version without a tables fingerprint cannot be verified by the relay: such results are not sent
+  function dropUnsendable() {
+    while (outbox.length && !fpOf(outbox[0].ver)) {
+      const ver = outbox[0].ver;
+      let n = 0;
+      while (outbox.length && outbox[0].ver === ver) { outbox.shift(); n++; }
+      logFailure({ what: "relay", error: `not sent: scanner version "${ver.slice(0, 80)}" has no tables fingerprint`, n });
+    }
+  }
   function flush() {
     const url = relay();
-    if (!url || inFlight || Date.now() < retryAt || !(outbox.found.length + outbox.none.length)) return;
-    const b = inFlight = takeBatch(), n = b.found.length + b.none.length;
+    dropUnsendable();
+    if (!url || inFlight || Date.now() < retryAt || !outbox.length) return;
+    const b = inFlight = takeBatch(maxBytes), n = b.length, body = bodyOf(b);
     const retry = (s) => { putBack(b); retryAt = Date.now() + s * 1000; setTimeout(flush, s * 1000 + 50); };
-    fetch(url, { method: "POST", body: JSON.stringify({ found: b.found, none: b.none, scanner: version }), keepalive: true,
-      mode: "cors", headers: { "Content-Type": "text/plain" } })
+    fetch(url, { method: "POST", body, keepalive: body.length < KEEPALIVE_MAX, mode: "cors", headers: { "Content-Type": "text/plain" } })
       .then((r) => {
         inFlight = null;
         if (r.ok) { dev.sent += n; save(); render(); flush(); return; }
         if (r.status === 429 || r.status === 503) { retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
-        logFailure({ what: "relay", status: r.status, n });   // a body the relay refuses would be refused again: dropped
+        if (r.status === 413 && maxBytes > 16384) { maxBytes = Math.max(16384, maxBytes >> 1); putBack(b); setTimeout(flush, 50); return; }
+        // a body the relay refuses would be refused again: dropped, with the relay's reason in the log
+        r.text().catch(() => "").then((why) => logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }));
       })
       .catch((err) => { inFlight = null; retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); });
   }
@@ -310,9 +342,11 @@
     const url = relay();
     if (!url) return;
     if (inFlight) { putBack(inFlight); inFlight = null; }
-    while (outbox.found.length + outbox.none.length) {
-      const b = takeBatch();
-      try { navigator.sendBeacon && navigator.sendBeacon(url, new Blob([JSON.stringify({ found: b.found, none: b.none, scanner: version })], { type: "text/plain" })); } catch (_) {}
+    dropUnsendable();
+    while (outbox.length) {
+      const b = takeBatch(KEEPALIVE_MAX - 2000);
+      try { navigator.sendBeacon && navigator.sendBeacon(url, new Blob([bodyOf(b)], { type: "text/plain" })); } catch (_) {}
+      dropUnsendable();
     }
   }
   setInterval(flush, FLUSH_MS);
@@ -377,7 +411,7 @@
   const dur = (ms) => { const s = Math.round(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, "0")}m` : s >= 60 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s` : s ? `${s}s` : "—"; };
   let waitingAt = 0, waitingVal = 0;
   function waitingCached() { if (Date.now() - waitingAt > 3000) { waitingVal = countWaiting(); waitingAt = Date.now(); } return waitingVal; }
-  const STATE = { elsewhere: "Scanning in another tab", loading: "Loading the scanner…", ready: "Ready", scanning: "Scanning", paused: "Paused", stopped: "Stopped", done: "Finished", nowork: "Nothing to scan right now", error: "The scanner could not load" };
+  const STATE = { elsewhere: "Scanning in another tab", loading: "Getting ready…", ready: "Ready", scanning: "Scanning", paused: "Paused", stopped: "Stopped", done: "Finished", nowork: "Nothing to scan right now", error: "The scanner could not start" };
   function render() {
     const liveMs = running() ? Date.now() - session.startedAt : 0, ms = session.ms + liveMs, rate = session.scanned / Math.max(1, ms) * 60000;
     $("cb-state").textContent = STATE[state] || state;
@@ -475,7 +509,7 @@
       .then(([s, n]) => { lists = s && s.map_lists || null; if (s) s.singles = n; showStats(s); });
     const [text] = await Promise.all([
       fetch("stats/work.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
-      manifest().catch((e) => { logFailure({ step: "manifest", error: "downloading the scanner info (scan/w29.json): " + e.message }); note = "Downloading the scanner failed (" + e.message + "). Reload the page to try again."; }),
+      manifest().catch((e) => { logFailure({ step: "manifest", error: "downloading the scanner info (scan/w29.json): " + e.message }); note = "The scanner could not start (network problem). Reload the page to try again."; }),
     ]);
     work = version ? parseWork(text) : [];
     const sources = await Promise.all([addressList("index/singles.csv"), addressList("singles/none.csv")]);

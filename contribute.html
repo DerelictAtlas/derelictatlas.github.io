@@ -47,7 +47,7 @@
     <section class="cb-card cb-scanner" id="cb-scanner" aria-labelledby="cb-state">
       <div class="cb-status-row">
         <div class="cb-radar" id="cb-radar" aria-hidden="true"><i></i><i></i><b></b></div>
-        <div><div class="cb-state" id="cb-state" role="status">Loading the scanner…</div><div class="cb-detail" id="cb-detail"></div></div>
+        <div><div class="cb-state" id="cb-state" role="status">Getting ready…</div><div class="cb-detail" id="cb-detail"></div></div>
       </div>
       <button id="cb-scan" class="cb-scan-btn" type="button" disabled>▶ SCAN</button>
       <div class="cb-row"><button id="cb-pause" type="button" disabled>⏸ Pause</button><button id="cb-stop" type="button" disabled>⏹ Stop</button></div>
@@ -113,7 +113,7 @@
       <section class="cb-card" aria-labelledby="cb-sent-title" id="cb-what">
         <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5Z M8.5 12l2.5 2.5 4.5-5"/></svg><h2 id="cb-sent-title">What is sent</h2></div>
         <p>Scanning on this page adds the systems you scan to the atlas, with every number: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only the 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list. Any system can still be opened in the viewer, which draws its map on your device.</p>
-        <p>To keep the atlas honest, your device sends just the addresses (galaxy and glyphs); the atlas scans each one again itself before publishing it. Nothing about you is sent.</p>
+        <p>Your device sends what it found for each system (its numbers and loot values, no map); the atlas checks every result before publishing it, and anyone can report a wrong one. Nothing about you is sent.</p>
         <p id="cb-relay-note" class="cb-muted"></p>
       </section>
     </div>

@@ -3,8 +3,10 @@
  * - The W29 scanner (scan/scan_w29.wasm, the same engine as the atlas scanner) runs in a fresh Web Worker per scan;
  *   after 120 s the page asks whether to keep waiting (the scan keeps running), Cancel stops the worker.
  * - Adding a scan to the atlas is opt-in (user 2026-10-31): the "Scanned on this device" button opens the explanation
- *   and an "Add this system to the atlas" box. Ticked, only the address is sent to the atlas relay
- *   (DV_CONFIG.scanRelay), once, as soon as it is ticked (a top-100 system as soon as it is found).
+ *   and an "Add this system to the atlas" box. Ticked, the scan result is sent to the atlas relay (DV_CONFIG.scanRelay),
+ *   once, as soon as it is ticked (a top-100 system as soon as it is found): upload format v3 (2026-11-02, scanner -cc;
+ *   user: "they upload automatically their scanned data via relay"), the saved scan's index + extras lines
+ *   (scan/v3-lines.js), no map; the GitHub Action verifies them before publishing.
  *   Without a relay in the config nothing is sent and the page says so.
  * - An atlas system with numbers but no published map draws its map on opening (user 2026-10-31: no button): the same
  *   scanner runs on the device only to draw the map (the atlas numbers stay, nothing is stored or sent).
@@ -159,24 +161,52 @@
     if (!sent.includes(address)) { sent.push(address); jsonSet(SENT_KEY, sent.slice(-500)); }
     changed();
   }
+  // v3 upload (2026-11-02): scan/v3-lines.js builds the lines; the body names the scanner version the scan was made with
+  let v3lib = null;
+  function v3Load() {
+    if (!v3lib) v3lib = loadManifest().then((m) => new Promise((ok, bad) => {
+      if (globalThis.DvV3) return ok(globalThis.DvV3);
+      const s = document.createElement("script");
+      s.src = BASE + "v3-lines.js?v=" + encodeURIComponent(m.v);
+      s.onload = () => (globalThis.DvV3 ? ok(globalThis.DvV3) : bad(new Error("DvV3 missing")));
+      s.onerror = () => bad(new Error("loading scan/v3-lines.js failed"));
+      document.head.appendChild(s);
+    })).catch((e) => { v3lib = null; throw e; });
+    return v3lib;
+  }
+  // the relay body for one saved scan (throws when it cannot be built: never an invalid row)
+  function v3Body(address) {
+    const V = globalThis.DvV3, c = cached(address);
+    if (!V) throw new Error("upload format not loaded");
+    if (!c || c.status !== 0 || !c.row) throw new Error("this scan is no longer saved on this device");
+    if (!V.fingerprint(c.version)) throw new Error("scanner version without a tables fingerprint");
+    const l = V.lines(address, c.row, c.extras);
+    return V.body(c.version, [l.row], [l.extras], []);
+  }
   function send(address) {
     clearTimeout(pending.get(address));
     pending.delete(address);
     const url = relay(), st = states.get(address);
     if (!url || !(st && st.send) || wasSent(address) || st.sending || savedInvalid(address)) return;
     st.sending = true; st.sendError = "";
-    fetch(url, { method: "POST", body: JSON.stringify({ address }), keepalive: true, mode: "cors", headers: { "Content-Type": "text/plain" } })
+    v3Load().then(() => v3Body(address)).catch((e) => {
+      st.sending = false; st.sendError = "could not prepare the upload";
+      logFailure({ what: "relay", address, step: "upload", error: String(e && e.message || e) }); render();
+      return null;
+    }).then((body) => body && fetch(url, { method: "POST", body, keepalive: body.length < 60000, mode: "cors", headers: { "Content-Type": "text/plain" } })
       .then((r) => {
         st.sending = false;
         if (r.ok) { markSent(address); render(); return; }
         if (r.status === 429 || r.status === 503) { const s = Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60)); st.sendError = "busy"; pending.set(address, setTimeout(() => send(address), s * 1000)); render(); return; }
-        st.sendError = `the atlas relay answered ${r.status}`; logFailure({ what: "relay", address, status: r.status }); render();
+        st.sendError = `the atlas relay answered ${r.status}`; render();
+        r.text().catch(() => "").then((why) => logFailure({ what: "relay", address, status: r.status, error: String(why || "").slice(0, 300) }));
       })
-      .catch((err) => { st.sending = false; st.sendError = "could not reach the atlas relay"; logFailure({ what: "relay", address, error: String(err && err.message || err) }); render(); });
+      .catch((err) => { st.sending = false; st.sendError = "could not reach the atlas relay"; logFailure({ what: "relay", address, error: String(err && err.message || err) }); render(); }));
     render();
   }
   function schedule(address) {
     if (!relay() || wasSent(address) || pending.has(address) || savedInvalid(address)) return;
+    v3Load().catch(() => {});   // ready for a last-chance sendBeacon too
     verdictOf(address).then((v) => { if (!isBad(v)) send(address); else markChecked(address, v); });
   }
   // leaving the page while a retry waits: last chance by sendBeacon (its answer cannot be read)
@@ -185,7 +215,9 @@
     for (const a of [...pending.keys()]) {
       clearTimeout(pending.get(a)); pending.delete(a);
       if (savedInvalid(a)) continue;
-      try { if (url && navigator.sendBeacon(url, new Blob([JSON.stringify({ address: a })], { type: "text/plain" }))) markSent(a); } catch (_) {}
+      let body = null;
+      try { body = v3Body(a); } catch (e) { logFailure({ what: "relay", address: a, step: "upload", error: String(e && e.message || e) }); continue; }
+      try { if (url && navigator.sendBeacon(url, new Blob([body], { type: "text/plain" }))) markSent(a); } catch (_) {}
     }
   }
   addEventListener("pagehide", flushAll);
@@ -290,9 +322,9 @@
 
   // ---- the panel in the viewer notice ----
   function secs(ms) { return Math.max(0, Math.round(ms / 1000)) + " s"; }
-  const kb = (n) => Math.round((n || 0) / 1024).toLocaleString("en-US") + " KB";
   // download 0-30 % (real bytes), start 30-35 %, generate 35-90 % (time based: the engine reports nothing inside the
-  // call yet), map 90-100 % (done when the viewer shows the map)
+  // call yet), map 90-100 % (done when the viewer shows the map). Shown as scanning only (user 2026-11-02): the
+  // download is not a visible step, it is part of "Starting the scanner"; the info page Scanning tab explains it.
   const STEPS = ["download", "start", "scan", "map"];
   function percent(st) {
     const now = Date.now(), i = STEPS.indexOf(st.step);
@@ -303,14 +335,13 @@
     return i < 0 ? 0 : 100;
   }
   function stepsHtml(st, map) {
-    const at = STEPS.indexOf(st.step), now = Date.now(), r = st.summary;
+    const at = Math.max(0, STEPS.indexOf(st.step) - 1), now = Date.now(), r = st.summary;   // download + start = row 0
     const found = r ? [r.preset && String(r.preset).replace(/_/g, " ").toLowerCase(), r.rooms != null && r.rooms + " rooms",
       ((r.crates || 0) + (r.footlockers || 0) + (r.briefcases || 0) + (r.tall_lockers || 0)) + " containers",
       r.frigate_modules != null && r.frigate_modules + (r.frigate_modules_ambiguous ? "?" : "") + " Salvaged Frigate Module" + (r.frigate_modules === 1 ? "" : "s")].filter(Boolean).join(" · ") : "";
     const rows = [
-      ["Downloading the scanner", st.total ? `${kb(Math.min(st.loaded, st.total))} of ${kb(st.total)}` : st.loaded ? kb(st.loaded) : ""],
       ["Starting the scanner", ""],
-      [map ? "Generating the layout" : "Generating the derelict", at === 2 ? secs(now - st.stepAt) : found],
+      [map ? "Generating the layout" : "Generating the derelict", at === 1 ? secs(now - st.stepAt) : found],
       ["Building the 3D and 2D map", ""],
     ];
     return `<ol class="site-scan-steps">${rows.map(([label, note], i) => `<li class="${i < at ? "done" : i === at ? "now" : ""}"><span>${esc(label)}</span>${note ? `<small>${esc(note)}</small>` : ""}</li>`).join("")}</ol>`;
@@ -333,12 +364,13 @@
     if (st.phase === "error" && st.error === "unexpected") return `<p><b>Unexpected result.</b> The scanner found no abandoned freighter here, which should not happen for a real system. Please report this address (copy the error log below).</p><button id="site-scan-start" class="primary" type="button">Try again</button>`
       + `<details class="site-scan-log"><summary>Error log</summary><pre>${esc(logText(8))}</pre><button id="site-scan-copylog" type="button">Copy log</button></details>`;
     if (st.phase === "cancelled") return map ? `<p>The map was not drawn. Open the system again to draw it.</p>` : `<p>Scan cancelled.</p><button id="site-scan-start" class="primary" type="button">Scan again</button>`;
-    if (st.phase === "error") return `<p>${map ? "The map could not be drawn" : "The scan did not finish"} (${esc(st.error || "unknown error")}).</p><button id="site-scan-start" class="primary" type="button">Try again</button>`
+    // network trouble: a plain headline (the technical text stays in the error log below)
+    if (st.phase === "error") return `<p>${isNetwork(st.error) ? (map ? "The map could not be drawn (network problem). Try again." : "The scanner couldn't start (network problem). Try again.") : `${map ? "The map could not be drawn" : "The scan did not finish"} (${esc(st.error || "unknown error")}).`}</p><button id="site-scan-start" class="primary" type="button">Try again</button>`
       + `<details class="site-scan-log"><summary>Error log</summary><pre>${esc(logText(8))}</pre><button id="site-scan-copylog" type="button">Copy log</button></details>`;
     return "";
   }
   const KEPT = `If it is added, the atlas keeps every number of this system for everyone: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only its 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list.`;
-  const SENT = `Your device sends just the address (galaxy and glyphs); the atlas scans the system again itself before publishing it. Nothing about you is sent.`;
+  const SENT = `Your device sends what it found for this system (its numbers and loot values, no map); the atlas checks the result before publishing it, and anyone can report a wrong one. Nothing about you is sent.`;
   function topNames(c) { return (c && c.top || []).map((t) => t.label); }
   function consentHtml(address) {
     const rememberHtml = `<label class="site-scan-optin site-scan-remember" title="Add every system you scan in this browser to the atlas, at once. Untick to stop."><input id="site-scan-always" type="checkbox"${always() ? " checked" : ""}> Remember my choice</label>`;

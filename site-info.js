@@ -44,7 +44,7 @@ ${card(I.read, "Read the numbers", "Totals count every container: crates, footlo
 ${card(I.map, "Explore the maps", "3D and all-deck 2D maps: drag or pinch, expand either view, tap a ladder to follow it. Quick Run plans a route through the loot.")}
 ${card(I.check, "Track your runs", "Finished Run greys a system out (press again to undo); Filters → Hide done hides them. Saved in this browser only.")}</div>`;
     if (name === "scan") return `<div class="si-cards">${card(I.rules, "Built from the game’s rules", "The scanner runs the game’s own derelict generation from the system address alone: the same layout, containers and loot tables as in NMS 7.10.")}
-${card(I.device, "On your device", "Opening a system runs the scanner in your browser: it draws the 3D and 2D map and works out the loot in a few seconds.")}
+${card(I.device, "On your device", "Opening a system runs the scanner in your browser: it draws the 3D and 2D map and works out the loot in a few seconds. The scanner (about 120 KB) comes from this site on your first scan; your browser keeps a copy and only fetches it again after a site update. Nothing is installed.")}
 ${card(I.search, "Not in the atlas yet?", "Search its glyphs or hex address and it is scanned on the spot. Adding it to the atlas is up to you, unless it breaks into a top-100 list.")}
 ${card(I.save, "Kept to save space", "The atlas keeps every number of every system for everyone; the 3D and 2D maps are kept only for the top-100 lists.")}</div>`;
     if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">Loading atlas statistics…</p></div><div class="si-owner-stats"></div>`;
