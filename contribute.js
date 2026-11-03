@@ -53,7 +53,7 @@
   const newSession = () => ({ scanned: 0, found: 0, mods: 0, ms: 0, startedAt: 0, feed: [] });
   session = newSession();
   const running = () => state === "scanning";
-  let owner = false, releaseLock = null, cpuSamples = [];
+  let owner = false, releaseLock = null;
   const channel = "BroadcastChannel" in window ? new BroadcastChannel("dv-contribute") : null;
   // one scanning tab per browser: the Web Lock is held while this tab scans or is paused
   function acquire() {
@@ -77,9 +77,6 @@
     return s;
   }
   addEventListener("storage", (e) => { if (!owner && (e.key === STATS_KEY || e.key === SESSION_KEY)) { reload(); render(); } });
-  // CPU use: share of time the scanners are busy, as a share of this device's cores (sampled twice a second)
-  setInterval(() => { cpuSamples.push(running() ? pool.filter((p) => p.busy).length : 0); if (cpuSamples.length > 10) cpuSamples.shift(); }, 500);
-  const cpuPercent = () => (cpuSamples.length ? Math.min(100, Math.round(cpuSamples.reduce((a, b) => a + b, 0) / cpuSamples.length / cores * 100)) : 0);
 
   // ---- speed: like the scanner app ----
   const cores = Math.max(1, navigator.hardwareConcurrency || 2), phone = matchMedia("(pointer: coarse)").matches;
@@ -433,10 +430,6 @@
     $("cb-region").textContent = stopAfter ? `⏭ Stopping after this region${left ? ` · ${fmt(left)} left` : ""} (undo)` : `⏭ Stop after region${left ? ` · ${fmt(left)} left` : ""}`;
     document.querySelectorAll("#cb-speed button").forEach((b) => b.classList.toggle("on", b.dataset.s === speed));
     $("cb-speed-note").textContent = SPEED_NOTE[speed];
-    const cpu = cpuPercent();
-    $("cb-cpu").textContent = running() ? cpu + " %" : "idle";
-    $("cb-cpu-bar").style.width = (running() ? cpu : 0) + "%";
-    $("cb-cpu-bar").className = cpu >= 80 ? "hot" : cpu >= 50 ? "warm" : "";
     $("cb-elsewhere").hidden = state !== "elsewhere";
     $("cb-lsys").textContent = fmt(session.scanned);
     $("cb-lfound").textContent = fmt(session.found);
@@ -465,7 +458,7 @@
   function setup() {
     const url = relay();
     $("cb-consent").innerHTML = url
-      ? `Scanning here adds the systems you scan to the atlas with all their numbers (maps only for the top 100). Your device just sends the addresses. <a href="#cb-what">What is sent</a>`
+      ? `Scanning here adds the systems you scan to the atlas with all their numbers (maps only for the top 100). Your device sends what it found (numbers and loot values, no map); the atlas checks it before publishing. <a href="#cb-what">What is sent</a>`
       : `Sending to the atlas switches on soon. Until then your scans stay on this device. <a href="#cb-what">What is sent</a>`;
     $("cb-relay-note").textContent = url ? cfg().scanRelayNote || "" : "Sending is not switched on yet: right now nothing leaves your device.";
     $("cb-scan").addEventListener("click", () => scan());

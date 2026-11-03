@@ -162,14 +162,7 @@
 .cb-feed:has(.cb-feed-empty) { height: auto; }
 #cb-toast:not(.show) { visibility: hidden; transition: transform .35s, visibility 0s .35s; }
 .cb-feed .cb-top { margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-style: normal; font-size: 11px; font-weight: 700; color: #07131e; background: var(--gold, #f4cd54); }
-/* CPU use + another tab scanning (user 2026-10-31) */
-.cb-cpu { margin-top: 12px; }
-.cb-cpu-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted, #94a9bc); }
-.cb-cpu-label b { color: var(--text, #edf3f4); font-variant-numeric: tabular-nums; }
-.cb-cpu-track { height: 10px; margin: 6px 0 0; border-radius: 5px; background: #ffffff12; overflow: hidden; }
-.cb-cpu-track i { display: block; height: 100%; width: 0; border-radius: 5px; background: #4ade80; transition: width .5s, background .5s; }
-.cb-cpu-track i.warm { background: var(--gold, #f4cd54); }
-.cb-cpu-track i.hot { background: #f0883c; }
+/* another tab scanning (user 2026-10-31); CPU estimate removed 2026-11-03 (user) */
 .cb-elsewhere { margin-top: 12px; padding: 12px; border-radius: 8px; border: 1px solid #f4cd5466; background: #f4cd5414; }
 .cb-elsewhere p { margin: 0 0 8px; font-size: 13px; }
 /* Stop after region (user 2026-10-31) */
