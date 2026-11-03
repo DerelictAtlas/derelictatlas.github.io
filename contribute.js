@@ -195,6 +195,7 @@
     taken.delete(a); s.busy = null;
     if (d.ok && (d.status === 0 || d.status === 4)) {
       failStreak = 0;
+      if (Number(d.ms) > 0) { scanMs.push(Number(d.ms)); if (scanMs.length > 300) scanMs.shift(); }
       done.add(a); dev.scanned++; session.scanned++; dirty++;
       let item;
       if (d.status === 0) {
@@ -202,7 +203,7 @@
         const prevBest = Math.max(-1, ...dev.best.map((b) => b.m ?? -1));
         dev.found++; session.found++; session.mods += Number(m) || 0;
         if (relay()) {
-          if (d.v3 && d.v3.row && d.v3.extras) outbox.push({ a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras });
+          if (d.v3 && d.v3.row && d.v3.extras) outbox.push({ a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras, ms: d.ms, p: r.preset || "", sp: speed });
           else logFailure({ address: a, mode: "contribute", step: "upload", error: "not sent: " + (d.v3err || "no upload lines") });
         }
         const entry = { a, m, amb: r.frigate_modules_ambiguous ? 1 : 0, t, v: r.items_value == null || r.items_value === "" ? null : Number(r.items_value),
@@ -217,7 +218,7 @@
         // status 4 never happens for a real system (RE W31): logged as unexpected; still reported to the atlas
         dev.none++;
         logFailure({ address: a, mode: "contribute", step: "scan", error: "status 4 (no abandoned freighter): unexpected, every real system has one (RE W31)" });
-        if (relay()) outbox.push({ a, ver: String(d.version || "") });
+        if (relay()) outbox.push({ a, ver: String(d.version || ""), ms: d.ms, sp: speed });
         item = { a, none: true };
       }
       session.feed.unshift(item);
@@ -249,7 +250,7 @@
   async function scan(resumed) {
     if (running() || !work.length || scan.busy) return;
     scan.busy = true;
-    const ok = await acquire();
+    const ok = releaseLock ? true : await acquire();   // paused here: this tab still holds the lock
     scan.busy = false;
     if (!ok) { state = "elsewhere"; note = ""; render(); return; }
     if (!owner) { owner = true; const s = reload(); if (s && (s.state === "paused" || s.state === "scanning")) state = "paused"; }
@@ -290,11 +291,13 @@
   // at most BATCH (200) systems and 256 KB per POST (kept under ~200 KB here; UTF-8 margin). One scanner version per body.
   // keepalive / sendBeacon bodies must stay under 64 KB (browser limit), so those use smaller batches.
   let inFlight = null, retryAt = 0, maxBytes = 200 * 1024;
+  // the scanner's own time per system on this device (scan step only), for the Live card and the "perf" numbers
+  const scanMs = [];
   const KEEPALIVE_MAX = 60000;
   const fpOf = (ver) => (/tables fingerprint ([0-9a-f]{16})\b/.exec(ver) || [])[1] || "";
   function takeBatch(limit) {
     const ver = outbox[0].ver, out = [];
-    let bytes = 400 + ver.length;
+    let bytes = 400 + ver.length + (globalThis.dvPerf && globalThis.dvPerf.on() ? 2048 : 0);   // room for "perf"
     while (out.length < BATCH && outbox.length && outbox[0].ver === ver) {
       const e = outbox[0], add = e.row ? e.row.length + e.ext.length + 8 : 21;
       if (out.length && bytes + add > limit) break;
@@ -306,7 +309,35 @@
   function bodyOf(b) {
     const ver = b[0].ver, rows = [], extras = [], none = [];
     for (const e of b) if (e.row) { rows.push(e.row); extras.push(e.ext); } else none.push(e.a);
-    return JSON.stringify({ v: 3, scanner: ver, fp: fpOf(ver), rows, extras, none });
+    let body = JSON.stringify({ v: 3, scanner: ver, fp: fpOf(ver), rows, extras, none });
+    // the scan speed of this batch (site-perf.js; only when the relay takes it: DV_CONFIG.relayPerf)
+    const P = globalThis.dvPerf;
+    if (P && P.on()) { const sp = b[b.length - 1].sp || speed; body = P.add(body, P.summary(b.map((e) => ({ ms: e.ms, p: e.p })), { workers: SPEEDS[sp] || 1, speed: sp, src: "contribute" })); }
+    // the optional scout name (site-finder.js; only when the relay takes it: DV_CONFIG.relayFinder)
+    return globalThis.dvFinder ? globalThis.dvFinder.add(body, finderName()) : body;
+  }
+  // the name in the field when it is valid, else the one saved before (never an invalid name)
+  function finderName() {
+    const F = globalThis.dvFinder, input = document.getElementById("cb-finder-name");
+    if (!F || !F.on()) return "";
+    const v = input ? F.check(input.value) : { ok: false };
+    return v.ok ? v.value : F.saved();
+  }
+  function finderSetup() {
+    const F = globalThis.dvFinder, box = $("cb-finder"), input = $("cb-finder-name"), msg = $("cb-finder-msg");
+    if (!F || !F.on() || !relay() || !box) return;
+    box.hidden = false;
+    const sent = $("cb-finder-sent"); if (sent) sent.hidden = false;
+    input.value = F.saved();
+    const note = "Leave it empty to stay anonymous. Saved on this device.";
+    msg.textContent = note;
+    input.addEventListener("input", () => {
+      const v = F.check(input.value);
+      input.setAttribute("aria-invalid", v.ok ? "false" : "true");
+      msg.textContent = v.ok ? note : v.error;
+      msg.classList.toggle("bad", !v.ok);
+      if (v.ok) F.save(v.value);
+    });
   }
   // a scanner version without a tables fingerprint cannot be verified by the relay: such results are not sent
   function dropUnsendable() {
@@ -434,7 +465,8 @@
     $("cb-lsys").textContent = fmt(session.scanned);
     $("cb-lfound").textContent = fmt(session.found);
     $("cb-lmods").textContent = fmt(session.mods);
-    $("cb-rate").textContent = session.scanned && ms > 5000 ? `${rate.toFixed(rate < 10 ? 1 : 0)} systems / min · ${dur(ms)}` : "";
+    const med = scanMs.length && globalThis.dvPerf ? globalThis.dvPerf.median(scanMs) : null;
+    $("cb-rate").textContent = session.scanned && ms > 5000 ? `${rate.toFixed(rate < 10 ? 1 : 0)} systems / min${med ? ` · ${(med / 1000).toFixed(med < 10000 ? 2 : 0)} s per system` : ""} · ${dur(ms)}` : "";
     $("cb-scanned").textContent = fmt(dev.scanned);
     $("cb-found").textContent = fmt(dev.found);
     $("cb-top").textContent = fmt(dev.top || 0);
@@ -461,6 +493,9 @@
       ? `Scanning here adds the systems you scan to the atlas with all their numbers (maps only for the top 100). Your device sends what it found (numbers and loot values, no map); the atlas checks it before publishing. <a href="#cb-what">What is sent</a>`
       : `Sending to the atlas switches on soon. Until then your scans stay on this device. <a href="#cb-what">What is sent</a>`;
     $("cb-relay-note").textContent = url ? cfg().scanRelayNote || "" : "Sending is not switched on yet: right now nothing leaves your device.";
+    // the preview's stand-in relay keeps nothing: say so on the page (user 2026-11-03)
+    if (url === "relay-test" && $("cb-preview")) $("cb-preview").hidden = false;
+    finderSetup();
     $("cb-scan").addEventListener("click", () => scan());
     $("cb-pause").addEventListener("click", () => halt("paused"));
     $("cb-takeover").addEventListener("click", () => { if (channel) channel.postMessage({ type: "takeover" }); state = "ready"; setTimeout(() => scan(), 400); });

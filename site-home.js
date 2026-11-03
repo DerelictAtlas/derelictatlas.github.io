@@ -13,6 +13,7 @@
  *   dvHome.show()          route() / openFirst() when no system is open (modern.js has just closed the viewer)
  *   dvHome.takeTab()       the tab route() switches to: "viewer" after a logo tap on a phone, else "systems"
  *   dvHome.setRows(rows,x) the full atlas rows (x = true once the loot values from views/extras are in the rows)
+ *   dvHome.rows()          -> {rows, loot} (or null before they arrive), for the rank of a top-100 lookup scan
  * Rankings use only data the site already loaded (the rows of the Systems list). Placeholder cards keep their size
  * until the rows arrive, so nothing moves when the numbers fill in.
  *
@@ -157,7 +158,7 @@
     const rowsHtml = CATS.map((c) => `<section class="sh-row sh-c-${c.id}" data-cat="${c.id}" aria-label="${esc(c.title)}"><div class="sh-lead">${icon(c.id)}<div><h2>${esc(c.title)}</h2><p>${esc(c.text)}</p></div></div><div class="sh-cards"></div></section>`).join("")
       + `<section class="sh-row sh-c-worst" data-cat="worst" aria-label="Worst of the worst"><div class="sh-lead">${SKULL}<div><h2>Worst of the worst</h2><p>Lowest yield derelicts in our database.</p></div></div><div class="sh-cards"></div></section>`;
     const trivia = TRIVIA.map((t) => `<a class="sh-fact" href="#/d/${t.address}" data-address="${t.address}" title="${esc(t.text)}"><small>${esc(t.tag)}</small><span class="sh-hex">${t.glyphs}</span><span class="sh-glyphs">${glyphRow(t.glyphs)}</span><span class="sh-fact-text">${esc(t.short)}</span></a>`).join("");
-    empty.innerHTML = `<div class="sh-head">${HOUSE}<b>Home</b><span class="sh-sep" aria-hidden="true"></span><h1>What are you hunting?</h1><span class="sh-act"></span></div>`
+    empty.innerHTML = `<div class="sh-head">${HOUSE}<b>Home</b><span class="sh-sep" aria-hidden="true"></span><h1>What are you hunting?</h1><span class="sh-end"><button type="button" class="site-tutorial sh-tutorial" data-tutorial title="Tutorial: how the atlas works" aria-label="Tutorial: how the atlas works"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 5l10 4.5L12 14Z M6 11.6V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.4 M22 9.5v5.5"/></svg></button><span class="sh-act"></span></span></div>`
       + `<div class="sh-trivia" aria-label="Trivia"><span class="sh-trivia-tag">Did you know?</span>${trivia}</div>`
       + `<div class="sh-rows">${rowsHtml}</div>`;
     if (btn) empty.querySelector(".sh-act").appendChild(btn);
@@ -177,6 +178,8 @@
     showing() { const e = document.getElementById("viewer-empty"); return !!(e && !e.hidden); },
     takeTab() { const t = wantViewer ? "viewer" : "systems"; wantViewer = false; return t; },
     setRows(next, loot) { if (!Array.isArray(next) || !next.length) return; rows = next; if (loot) withLoot = true; init(); schedule(); },
+    // the atlas rows for the top-100 rank of a system scanned here (site-scan.js / site-toplists.js rank)
+    rows() { return rows ? { rows, loot: withLoot } : null; },
   };
 
   // the logo opens the home screen (also when the address bar already says #/)

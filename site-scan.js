@@ -2,12 +2,16 @@
  * - A searched address that is not in the atlas is scanned at once; a direct link gets a "Scan this system" button.
  * - The W29 scanner (scan/scan_w29.wasm, the same engine as the atlas scanner) runs in a fresh Web Worker per scan;
  *   after 120 s the page asks whether to keep waiting (the scan keeps running), Cancel stops the worker.
- * - Adding a scan to the atlas is opt-in (user 2026-10-31): the "Scanned on this device" button opens the explanation
- *   and an "Add this system to the atlas" box. Ticked, the scan result is sent to the atlas relay (DV_CONFIG.scanRelay),
- *   once, as soon as it is ticked (a top-100 system as soon as it is found): upload format v3 (2026-11-02, scanner -cc;
- *   user: "they upload automatically their scanned data via relay"), the saved scan's index + extras lines
- *   (scan/v3-lines.js), no map; the GitHub Action verifies them before publishing.
- *   Without a relay in the config nothing is sent and the page says so.
+ * - A looked-up system is sent to the atlas ONLY when it breaks into a top-100 list (user 2026-11-03: "all scans that
+ *   are done on anyone else's device to be not uploaded unless they are top 100 ... when they are looking for a system
+ *   not when they're using the contribute ... I don't want the uploading to be optional it will just say this system
+ *   broke top 100 it will be listed soon"). No choice, no checkbox: a top-100 system is sent at once and the view says
+ *   "This system broke the top 100 — it will be listed soon." with its lists (and rank when the atlas rows are loaded);
+ *   any other lookup is not sent and the view says nothing about sending. (Contribute still sends every scan.)
+ *   With the "Atlas scout" names on (DV_CONFIG.relayFinder, site-finder.js) the notice first asks once for an optional
+ *   scout name ("Atlas scout", not the in-game discoverer); the upload goes either way, once: after Add / No thanks, 20 s after the last key, or on leaving.
+ *   The body is upload format v3 (2026-11-02, scanner -cc): the saved scan's index + extras lines (scan/v3-lines.js),
+ *   no map, to DV_CONFIG.scanRelay; the GitHub Action verifies them before publishing. Without a relay nothing is sent.
  * - An atlas system with numbers but no published map draws its map on opening (user 2026-10-31: no button): the same
  *   scanner runs on the device only to draw the map (the atlas numbers stay, nothing is stored or sent).
  * - An atlas system without loot numbers gets them the same way on opening (user 2026-10-31), shown with a small
@@ -45,7 +49,7 @@
   }
   const isNetwork = (msg) => /fetch|network|download|load|HTTP 5|timed? ?out/i.test(String(msg || ""));
 
-  const states = new Map();      // address -> {phase, startedAt, limitAt, asking, error, ms, send, infoOpen}
+  const states = new Map();      // address -> {phase, startedAt, limitAt, asking, error, ms, send, askName}
   const pending = new Map();     // address -> timer id (send after the grace period)
   let open = null;               // {address, unscanned, slim, nomap, noloot}
   let worker = null, ticker = null, manifest = null;
@@ -133,26 +137,16 @@
   }
   const savedInvalid = (address) => { const c = cached(address); return !!(c && c.valid === false); };
 
-  // "Remember my choice" (user 2026-11-01): add every system scanned in this browser, at once
-  const ALWAYS_KEY = "dv.scan.always", always = () => jsonGet(ALWAYS_KEY, false) === true;
-
   // ---- systems scanned on this device in the Systems list (user 2026-10-31) ----
-  // tag: "Uploaded" once the address was sent, "Not uploaded yet" while it is queued for the atlas (opted in or top 100),
-  // otherwise "Local only". modern.js turns the cached rows into list cards (withDeviceRows).
-  function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.queued || (c.top || []).length) ? "Not uploaded yet" : "Local only"; }
+  // tag: "Uploaded" once the address was sent, "Not uploaded yet" while a top-100 system waits to be sent, otherwise
+  // "Local only" (only top-100 lookups are sent). modern.js turns the cached rows into list cards (withDeviceRows).
+  function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.top || []).length ? "Not uploaded yet" : "Local only"; }
   const changed = () => { try { if (globalThis.dvDeviceChanged) globalThis.dvDeviceChanged(); } catch (_) {} };
   globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([, c]) => c && c.status === 0 && c.row && c.valid !== false)
     .map(([address, c]) => ({ address, row: c.row, extras: lootShown(address, c) ? c.extras : null, tag: tagOf(address, c) }));
   // loot on request (user 2026-10-31): a top-100 system shows it by default, any other after "Scan loot" (site-loot.js)
   function lootShown(address, c) { return (c.top || []).length > 0 || !!(globalThis.dvLootSaved && globalThis.dvLootSaved(address)); }
   globalThis.dvScannedHere = (address) => { const c = cached(address); return !!(c && c.status === 0 && c.valid !== false); };
-  function setQueued(address, on) {
-    const all = jsonGet(CACHE_KEY, {});
-    if (!all[address]) return;
-    all[address].queued = !!on;
-    jsonSet(CACHE_KEY, all);
-    changed();
-  }
 
   // ---- sending (address only, once, at once; user 2026-11-01 "i'd like this to be instant") ----
   // a CORS fetch (text/plain = no preflight) so the relay's answer is readable: "Sent" only after a 2xx
@@ -181,7 +175,32 @@
     if (!c || c.status !== 0 || !c.row) throw new Error("this scan is no longer saved on this device");
     if (!V.fingerprint(c.version)) throw new Error("scanner version without a tables fingerprint");
     const l = V.lines(address, c.row, c.extras);
-    return V.body(c.version, [l.row], [l.extras], []);
+    let body = V.body(c.version, [l.row], [l.extras], []);
+    // the scan speed (site-perf.js, DV_CONFIG.relayPerf): the scanner's own time for this one system
+    const P = globalThis.dvPerf;
+    if (P && P.on() && c.ms) body = P.add(body, P.summary([{ ms: c.ms, p: c.row.preset }], { workers: 1, src: "lookup" }));
+    return c.finder && globalThis.dvFinder ? globalThis.dvFinder.add(body, c.finder) : body;
+  }
+  // ---- the optional finder name of a top-100 lookup (asked once; never blocks or doubles the upload) ----
+  const ASK_MS = 20000;
+  const asks = new Map();        // address -> timer: the name prompt is open, the upload waits for it (20 s at most)
+  const finderOn = () => !!(globalThis.dvFinder && globalThis.dvFinder.on() && relay());
+  function ask(address) {
+    const st = states.get(address);
+    if (!st || wasSent(address) || asks.has(address)) return;
+    v3Load().catch(() => {});
+    st.askName = true;
+    asks.set(address, setTimeout(() => release(address, ""), ASK_MS));
+  }
+  function release(address, name) {
+    if (!asks.has(address)) return;
+    clearTimeout(asks.get(address)); asks.delete(address);
+    const st = states.get(address);
+    if (st) st.askName = false;
+    const all = jsonGet(CACHE_KEY, {});
+    if (all[address]) { all[address].asked = true; if (name) all[address].finder = name; else delete all[address].finder; jsonSet(CACHE_KEY, all); }
+    schedule(address);
+    render();
   }
   function send(address) {
     clearTimeout(pending.get(address));
@@ -205,13 +224,15 @@
     render();
   }
   function schedule(address) {
-    if (!relay() || wasSent(address) || pending.has(address) || savedInvalid(address)) return;
+    if (!relay() || wasSent(address) || pending.has(address) || asks.has(address) || savedInvalid(address)) return;
     v3Load().catch(() => {});   // ready for a last-chance sendBeacon too
     verdictOf(address).then((v) => { if (!isBad(v)) send(address); else markChecked(address, v); });
   }
   // leaving the page while a retry waits: last chance by sendBeacon (its answer cannot be read)
   function flushAll() {
     const url = relay();
+    // a name prompt still open: the upload goes now, without a name
+    for (const a of [...asks.keys()]) { clearTimeout(asks.get(a)); asks.delete(a); const s = states.get(a); if (s) s.askName = false; if (!wasSent(a)) pending.set(a, 0); }
     for (const a of [...pending.keys()]) {
       clearTimeout(pending.get(a)); pending.delete(a);
       if (savedInvalid(a)) continue;
@@ -232,7 +253,7 @@
     stopWorker();
     const prev = states.get(address);
     const now = Date.now(), st = { phase: "scanning", mode: open && (open.nomap || open.redraw) ? "map" : "scan", attempt: attempt || 1, startedAt: now, limitAt: now + LIMIT_MS, asking: false };
-    if (prev) for (const k of ["send", "sending", "sendError", "callout"]) if (prev[k] !== undefined) st[k] = prev[k];
+    if (prev) for (const k of ["send", "sending", "sendError", "askName"]) if (prev[k] !== undefined) st[k] = prev[k];
     states.set(address, st);
     st.step = "download"; st.loaded = 0; st.total = 0; st.stepAt = now;
     ticker = setInterval(() => {
@@ -300,12 +321,14 @@
     if (data.status === 4) { stopWorker(); logFailure({ address, mode: st.mode, step: "scan", error: "status 4 (no abandoned freighter): unexpected, every real system has one (RE W31)" }); st.phase = "error"; st.error = "unexpected"; render(); return; }
     if (data.status !== 0) { stopWorker(); st.phase = "error"; st.error = "scanner status " + data.status; render(); return; }
     if (data.derelict) maps.set(address, data.derelict);
-    const top = globalThis.dvTopLists ? await globalThis.dvTopLists.load().then((l) => globalThis.dvTopLists.breaks(data.row, data.extras, l)).catch(() => []) : [];
+    // the top-100 rule (site-toplists.js, the same as the Action): only a system that breaks into a list is sent
+    const T = globalThis.dvTopLists, lists = T ? await T.load().catch(() => null) : null;
+    let top = lists ? T.breaks(data.row, data.extras, lists) : [];
+    if (top.length && T.rank) try { top = T.rank(data.row, data.extras, lists, top, globalThis.dvHome && globalThis.dvHome.rows ? globalThis.dvHome.rows() : null); } catch (_) {}
     if (states.get(address) !== st) return;
-    remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, at: Date.now(), valid: true });
+    remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, ms: Math.round(Number(data.ms)) || null, at: Date.now(), valid: true });
     changed();
-    if (top.length) { st.send = true; st.callout = true; schedule(address); setTimeout(() => { st.callout = false; render(); }, 9000); }
-    else if (always() && relay()) { st.send = true; setQueued(address, true); schedule(address); }
+    if (top.length) { st.send = true; if (finderOn()) ask(address); else schedule(address); }
     if (data.derelict) drawing(address, st, data, () => show(address));
     else { stopWorker(); st.phase = "done"; show(address); }
   }
@@ -369,30 +392,31 @@
       + `<details class="site-scan-log"><summary>Error log</summary><pre>${esc(logText(8))}</pre><button id="site-scan-copylog" type="button">Copy log</button></details>`;
     return "";
   }
-  const KEPT = `If it is added, the atlas keeps every number of this system for everyone: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only its 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list.`;
-  const SENT = `Your device sends what it found for this system (its numbers and loot values, no map); the atlas checks the result before publishing it, and anyone can report a wrong one. Nothing about you is sent.`;
   function topNames(c) { return (c && c.top || []).map((t) => t.label); }
+  const listText = (c) => (c && c.top || []).map((t) => t.label + (t.rank ? " #" + t.rank : "")).join(" · ");
+  const ASK_NOTE = "Optional. Shown publicly as “Atlas scout” if this system is new to the atlas (not the in-game discoverer).";
+  // a scanned system: the "Scanned on this device" tag; a top-100 one also gets the notice (nothing about sending
+  // otherwise: only top-100 lookups are sent)
   function consentHtml(address) {
-    const rememberHtml = `<label class="site-scan-optin site-scan-remember" title="Add every system you scan in this browser to the atlas, at once. Untick to stop."><input id="site-scan-always" type="checkbox"${always() ? " checked" : ""}> Remember my choice</label>`;
-    const st = states.get(address) || {}, url = relay(), sent = wasSent(address), c = cached(address), top = topNames(c);
-    const choice = top.length
-      ? `<span class="site-scan-state">${!url ? "Added to the atlas once sending is switched on" : sent ? "Added to the atlas ✓" : "Will be added to the atlas"}</span>`
-      : !url ? `<span class="site-scan-state">Adding to the atlas is not switched on yet</span>`
-      : sent ? `<span class="site-scan-state">Sent to the atlas ✓ Thank you!</span>${always() ? rememberHtml : ""}`
-      : `<label class="site-scan-optin"><input id="site-scan-send" type="checkbox"${st.send ? " checked" : ""}> Add this system to the atlas</label>${rememberHtml}`
-        + (st.send ? `<span class="site-scan-state">${st.sendError === "busy" ? "the atlas is busy, sending again shortly…" : st.sendError ? `Not sent: ${esc(st.sendError)} <button id="site-scan-resend" type="button" class="site-scan-more">Retry</button>` : "sending…"}</span>` : "");
-    const callout = top.length && st.callout ? `<div class="site-scan-callout" role="status"><b>★ Top 100!</b> This system will be added to the atlas: ${esc(top.join(", "))}.<button id="site-scan-callout-x" type="button" aria-label="Close">×</button></div>` : "";
-    return `<div class="site-scan-row"><span class="site-scan-tag${top.length ? " top" : ""}"${top.length ? ` title="Top 100: ${esc(top.join(", "))}"` : ""}>${top.length ? "★ Top 100 · " : ""}Scanned on this device</span>${choice}<button id="site-scan-tag" class="site-scan-more" type="button" aria-expanded="${st.infoOpen ? "true" : "false"}" aria-controls="site-scan-info">What is sent? <span aria-hidden="true">▾</span></button></div>${callout}
-<div id="site-scan-info" class="site-scan-info"${st.infoOpen ? "" : " hidden"}>
-<p>This system was scanned in your browser by the atlas scanner, the same engine that builds the atlas.${sent || (top.length && url) ? "" : " Nothing has left your device."}</p>
-${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100: <b>${esc(top.join(", "))}</b>. Systems in a top-100 list are always added; adding any other system is up to you.</p>` : ""}
-<p>${KEPT}</p>
-<p>Remember my choice: every system you scan in this browser is added at once. Untick it to stop.</p>
-<p>${SENT}${cfg().scanRelayNote ? " " + esc(cfg().scanRelayNote) : ""}</p>
-<p><a href="contribute.html">Scan more systems with this device: Contribute →</a></p>
-</div>`;
+    const st = states.get(address) || {}, url = relay(), c = cached(address), top = topNames(c), lists = listText(c);
+    const tag = `<div class="site-scan-row"><span class="site-scan-tag${top.length ? " top" : ""}" title="${top.length ? esc("Top 100: " + lists) : "Scanned in your browser"}">${top.length ? "★ Top 100 · " : ""}Scanned on this device</span></div>`;
+    if (!top.length) return tag;
+    let ask = "";
+    if (st.askName && asks.has(address)) {
+      const name = globalThis.dvFinder ? globalThis.dvFinder.saved() : "";
+      ask = `<div class="site-scan-finder"><label for="site-scan-finder">Add your name as the Atlas scout?</label>`
+        + `<span class="site-scan-finder-row"><input id="site-scan-finder" type="text" maxlength="40" spellcheck="false" autocomplete="nickname" placeholder="Your name" value="${esc(name)}">`
+        + `<button id="site-scan-finder-add" type="button" class="primary">Add</button><button id="site-scan-finder-no" type="button">No thanks</button></span>`
+        + `<small id="site-scan-finder-msg" class="site-scan-finder-msg">${ASK_NOTE}</small></div>`;
+    } else if (c && c.finder) ask = `<p class="site-scan-finder-done">Atlas scout: <b>${esc(c.finder)}</b></p>`;
+    const problem = !wasSent(address) && st.sendError
+      ? `<p class="site-scan-finder-msg">${st.sendError === "busy" ? "The atlas is busy, sending again shortly…" : `Not sent yet: ${esc(st.sendError)} <button id="site-scan-resend" type="button" class="site-scan-more">Retry</button>`}</p>` : "";
+    return `${tag}<div class="site-scan-top100" role="status"><p><b>★ This system broke the top 100</b>${url ? " — it will be listed soon." : "."}</p>`
+      + `<p class="site-scan-lists">${esc(lists)}</p>${ask}${problem}</div>`;
   }
 
+  // the visitor is typing a finder name: the box is not rebuilt (it would lose the text)
+  const typing = (box) => { const a = document.activeElement; return !!(a && a.id === "site-scan-finder" && box.contains(a) && open && asks.has(open.address)); };
   function render() {
     if (!open) return;
     const content = document.getElementById("viewer-content");
@@ -405,7 +429,7 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
       let box = strip.querySelector("#site-scan");
       if (!box) { box = document.createElement("div"); box.id = "site-scan"; box.className = "site-scan site-scan-inline"; strip.appendChild(box); }
       const html = consentHtml(address);
-      if (box.innerHTML !== html) box.innerHTML = html;
+      if (box.innerHTML !== html && !typing(box)) box.innerHTML = html;
       return;
     }
     let html;
@@ -427,7 +451,7 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
       const p = notice.querySelector("p");
       (p || notice.querySelector("h2") || notice.firstChild) ? (p || notice.querySelector("h2")).after(box) : notice.prepend(box);
     }
-    if (box.innerHTML !== html) box.innerHTML = html;
+    if (box.innerHTML !== html && !typing(box)) box.innerHTML = html;
     if (!c || c.status !== 0) notice.querySelectorAll(":scope > p:not(.site-scan p)").forEach((p) => {
       if (/not scanned yet|no published full layout/i.test(p.textContent)) p.hidden = true;
     });
@@ -440,29 +464,35 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
     else if (t.id === "site-scan-copylog") { try { navigator.clipboard.writeText(logText()).then(() => { t.textContent = "Copied"; }); } catch (_) {} }
     else if (t.id === "site-scan-cancel") cancel(address);
     else if (t.id === "site-scan-wait" && st) { st.asking = false; st.limitAt = Date.now() + LIMIT_MS; render(); }
-    else if (t.id === "site-scan-callout-x") { if (st) { st.callout = false; render(); } }
     else if (t.id === "site-scan-resend") { if (st) send(address); }
-    else if (t.id === "site-scan-tag") { const s = states.get(address) || {}; s.infoOpen = !s.infoOpen; states.set(address, Object.assign(states.get(address) || {}, s)); render(); }
-    else if (t.id === "site-scan-always") {
-      jsonSet(ALWAYS_KEY, t.checked);
-      const s = states.get(address) || { phase: "done" };
-      if (t.checked && !s.send && !wasSent(address)) { s.send = true; states.set(address, s); setQueued(address, true); schedule(address); }
-      render();
-    }
-    else if (t.id === "site-scan-send") {
-      const s = states.get(address) || { phase: "done" };
-      s.send = t.checked;
-      states.set(address, s);
-      setQueued(address, s.send);
-      if (s.send) schedule(address); else { clearTimeout(pending.get(address)); pending.delete(address); }
-      render();
-    }
+    else if (t.id === "site-scan-finder-add") addName(address);
+    else if (t.id === "site-scan-finder-no") release(address, "");
   });
+  function addName(address) {
+    const input = document.getElementById("site-scan-finder"), msg = document.getElementById("site-scan-finder-msg");
+    if (!input || !globalThis.dvFinder) return release(address, "");
+    const v = globalThis.dvFinder.check(input.value);
+    if (!v.ok) { if (msg) { msg.textContent = v.error; msg.classList.add("bad"); } input.focus(); return; }
+    if (v.value) globalThis.dvFinder.save(v.value);
+    release(address, v.value);
+  }
+  // typing a name: checked as you type; the 20 s start again (the upload never waits more than 20 s after the last
+  // key); Enter = Add
+  document.addEventListener("input", (e) => {
+    const t = e.target;
+    if (!t || t.id !== "site-scan-finder" || !open || !asks.has(open.address)) return;
+    const address = open.address, msg = document.getElementById("site-scan-finder-msg");
+    clearTimeout(asks.get(address)); asks.set(address, setTimeout(() => release(address, ""), ASK_MS));
+    const v = globalThis.dvFinder ? globalThis.dvFinder.check(t.value) : { ok: true };
+    if (msg) { msg.textContent = v.ok ? ASK_NOTE : v.error; msg.classList.toggle("bad", !v.ok); }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target && e.target.id === "site-scan-finder" && open) { e.preventDefault(); addName(open.address); } });
 
   // modern.js calls this after a system is opened (before the scanned data, if any, is shown)
   globalThis.dvSystemOpened = (info) => {
     const address = info.address;
     if (!open || open.address !== address) {
+      for (const a of [...asks.keys()]) if (a !== address) release(a, "");   // left the system: sent without a name
       for (const a of [...pending.keys()]) if (a !== address) send(a);
       if (open && states.get(open.address)?.phase === "scanning") cancel(open.address);
     }
@@ -481,7 +511,7 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
       const c = cached(address);
       if (c && c.status === 0) {
         // a top-100 system found earlier and not sent yet: it is always added
-        if (topNames(c).length && !wasSent(address)) { const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s); schedule(address); }
+        if (topNames(c).length && !wasSent(address) && !asks.has(address)) { const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s); if (finderOn() && !c.asked) ask(address); else schedule(address); }
         setTimeout(() => show(address), 0);
         // the map is never saved (only the numbers): draw it again on this device, like an atlas system without a map
         // (user 2026-11-01: "the scanner should keep it's 3d-2d for a system that should be local")
@@ -523,7 +553,6 @@ ${top.length ? `<p class="site-scan-top">★ This system breaks into the top 100
       b.disabled = false; b.textContent = "Scan this system";
     });
   };
-  // (the explanation is part of the page now and stays open until "What is sent?" is pressed again)
   function watch() {
     const content = document.getElementById("viewer-content");
     if (content) new MutationObserver(render).observe(content, { childList: true });

@@ -1,12 +1,16 @@
-/* site-welcome.js (SITE integration, user 2026-10-31): on the first visit a welcome window takes the place of the empty
- * system viewer. It explains what the Derelict Atlas is and how it is scanned, step by step, and ends by pointing at the
+/* site-welcome.js (SITE integration, user 2026-10-31): the welcome window takes the place of the empty system viewer.
+ * Since 2026-11-03 (user) it no longer opens by itself: a glowing orange tutorial button (graduation cap) sits in the
+ * header middle until the welcome is seen, then a smaller one at the top right of the home screen (html.dv-tut-seen).
+ * Any [data-tutorial] element opens it. It explains what the Derelict Atlas is and how it is scanned, step by step, and ends by pointing at the
  * header's ⓘ information, Contribute! and coffee buttons. Seen = localStorage dv.welcome.v1 (finish or skip). The ⓘ
  * dialog's About section gets a "Show the welcome again" button. On phones the Viewer tab opens for it. */
 (function () {
   "use strict";
   const KEY = "dv.welcome.v1";
   const seen = () => { try { return localStorage.getItem(KEY) === "1"; } catch (_) { return false; } };
-  const markSeen = () => { try { localStorage.setItem(KEY, "1"); } catch (_) {} };
+  const syncSeen = () => document.documentElement.classList.toggle("dv-tut-seen", seen());
+  const markSeen = () => { try { localStorage.setItem(KEY, "1"); } catch (_) {} syncSeen(); };
+  syncSeen();
   const $ = (id) => document.getElementById(id);
   const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
   const count = () => { const t = ($("system-count") || {}).textContent || ""; return /\d/.test(t) ? t.trim() : "hundreds of thousands of"; };
@@ -21,10 +25,10 @@
         + `<p>Community PCs scan whole regions and publish them here, a few hundred systems a minute.</p>` }),
     () => ({ art: icon("M4 5h16v11H4Z M8 20h8 M12 16v4 M9 9l2 2 4-4"),
       eyebrow: "ON YOUR DEVICE", title: "Your browser scans too", shot: ["welcome/scan.webp", "A system scanned in the browser, step by step"],
-      body: `<p>The same scanner runs right in this page. Open any system and your phone or PC draws its 3D and 2D map and calculates its loot in a few seconds. Search a glyph address that is not in the atlas yet and it is scanned on the spot.</p>`
+      body: `<p>The same scanner runs right in this page. Open any system and your phone or PC draws its 3D and 2D map and calculates its loot in a few seconds. Search a glyph address that is not in the atlas yet and it is scanned on the spot; it joins the atlas only if it breaks into a top-100 list.</p>`
         + `<p>To save space the atlas keeps every number of a system, but maps only for the top-100 lists; your device draws the rest.</p>` }),
     () => ({ art: icon("M12 2l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 16.6 6.1 20l1.4-6.6-5-4.5 6.6-.7Z"),
-      eyebrow: "FIND THE BEST", title: "Sort, filter, plan", shot: ["welcome/plan.webp", "All decks in 2D: every container, ladder and room"],
+      eyebrow: "FIND THE BEST", title: "Sort, filter, plan", shot: ["welcome/plan.webp", "Sort and filter the Systems list; Quick Run and Show End Reward in a system"],
       body: `<p>Sort the Systems list by Salvaged Frigate Modules, <b>Best overall #1 #2 #3</b>, loot value or nanites, filter by end reward, and browse the top-100 lists. In a system, <b>Quick Run</b> plans a route through the loot and <b>Show End Reward</b> tells you what waits at the end.</p>` }),
     () => ({ art: icon("M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"), eyebrow: "WHERE TO NEXT", title: "Up there, at the top",
       body: `<div class="site-welcome-tiles">
@@ -96,8 +100,9 @@ ${s.shot ? `<figure class="site-welcome-shot"><img src="${s.shot[0]}" alt="${s.s
   }
   globalThis.dvShowWelcome = () => { if (box) { step = 0; render(); } else open(true); };
   document.addEventListener("click", (e) => {
-    const t = e.target instanceof Element ? e.target.closest("[data-act], [data-go], #site-welcome-again") : null;
+    const t = e.target instanceof Element ? e.target.closest("[data-act], [data-go], [data-tutorial], #site-welcome-again") : null;
     if (!t) return;
+    if (t.hasAttribute("data-tutorial")) { globalThis.dvShowWelcome(); return; }
     if (t.id === "site-welcome-again") { const d = t.closest("dialog"); if (d && d.open) d.close(); globalThis.dvShowWelcome(); return; }
     if (!box || !box.contains(t)) return;
     const act = t.dataset.act, go = t.dataset.go;
@@ -124,9 +129,9 @@ ${s.shot ? `<figure class="site-welcome-shot"><img src="${s.shot[0]}" alt="${s.s
   function watch() {
     const sc = $("system-count");
     if (sc) new MutationObserver(() => { if (box && step === 0) render(); }).observe(sc, { childList: true, characterData: true, subtree: true });
-    // a system opened from the list must be visible: the welcome steps aside (not marked as seen) and returns on #/
-    addEventListener("hashchange", () => { if (/^#\/d\//.test(location.hash)) { if (box) close(false); } else if (!seen()) open(false); });
-    (window.dvGateReady || Promise.resolve()).then(() => setTimeout(() => open(false), 0));
+    // a system opened from the list must be visible: the welcome steps aside (not marked as seen). It no longer opens
+    // by itself (user 2026-11-03): the tutorial button starts it.
+    addEventListener("hashchange", () => { if (/^#\/d\//.test(location.hash) && box) close(false); });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch); else watch();
 })();

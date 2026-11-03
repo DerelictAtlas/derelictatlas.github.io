@@ -87,14 +87,17 @@
     s.id = "site-about";
     s.setAttribute("aria-labelledby", "site-about-title");
     s.innerHTML = `<h3 id="site-about-title">About and credits</h3>
-      <p>Predicted derelict-freighter layouts for No Man's Sky, generated offline by running the game's own layout code. The data is the public atlas
-        <a href="https://github.com/DerelictAtlas/derelictatlas.github.io" target="_blank" rel="noopener">DerelictAtlas/derelictatlas.github.io</a>.</p>
+      <p>Predicted derelict-freighter layouts for No Man's Sky, generated offline by running the game's own layout code.</p>
       <details class="site-credits"><summary>Credits</summary><ul>${credits}</ul>${links ? `<p>Links to</p><ul>${links}</ul>` : ""}</details>
       <p><button id="site-welcome-again" type="button" class="inline-link">Show the welcome again</button></p>
-      <div class="site-facsimile"><b>Facsimiles, not game files</b>
+      <div class="site-about-cards"><div class="site-facsimile"><b>Facsimiles, not game files</b>
         <p>Unofficial fan project, not affiliated with or endorsed by Hello Games; No Man’s Sky is their trademark.
         No images, 3D models, textures, icons, sounds or other game files are on this site: every map, 3D view, portal glyph,
         icon and the logo is our own facsimile.</p></div>
+      <div class="site-facsimile site-free-use"><b>Free to link and use</b>
+        <p>Link to any system page and use its numbers, screenshots and maps in guides, videos, streams, wikis and your own
+        tools. A credit like “Data: Derelict Atlas” with a link is appreciated; the atlas data is public on
+        <a href="https://github.com/DerelictAtlas/derelictatlas.github.io" target="_blank" rel="noopener">GitHub</a>.</p></div></div>
       ${gcBase ? `<p class="site-muted">Page views are counted anonymously with <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a> (no cookies, no personal data).</p>` : ""}`;
     if (gcBase && !cfg.goatcounterToken && !cfg.goatcounterTokenSealed) {  // with a token, site-stats.js shows the full statistics (owner only)
       const v = document.createElement("p");
@@ -132,18 +135,174 @@
       title="External site, not affiliated">${esc(e.name)} ↗</a>`);
     return links.length ? `<span>Open in</span>${links.join("")}${reportHtml(address, glyphs, galaxy)}` : reportHtml(address, glyphs, galaxy);
   }
-  // "Report this system" (user 2026-11-02: "just add a report system, where they can complain using github issues"): a
-  // prefilled GitHub issue (title = ADDRESS16, label report-system); the singles Action rescans reported systems and
-  // replaces a wrong row. Needs a GitHub account; nothing is sent from here.
-  function reportHtml(address, glyphs, galaxy) {
+  // clicking the system that is already open in the Systems list shows the home screen again (user 2026-11-03: "select
+  // a system twice ... it will display the main menu"). Only where the list and the viewer are side by side; on phones
+  // they are separate tabs and tapping the open system still goes to its Viewer tab. Buttons inside a card keep working.
+  function sideBySide() { const nav = document.querySelector(".bottom-nav"); return !nav || getComputedStyle(nav).display === "none"; }
+  function deselect(e) {
+    const card = e.target instanceof Element ? e.target.closest("#results [data-address]") : null;
+    if (!card || !sideBySide()) return;
+    if (e.type === "keydown" && (e.target !== card || (e.key !== "Enter" && e.key !== " "))) return;
+    if (e.type === "click") { const inner = e.target.closest("button, a, input, select, label"); if (inner && inner !== card && card.contains(inner)) return; }
+    const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
+    if (!m || m[1].toUpperCase() !== String(card.dataset.address).toUpperCase()) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    location.hash = "#/";
+  }
+  document.addEventListener("click", deselect, true);
+  document.addEventListener("keydown", deselect, true);
+
+  // "Report this system" (user 2026-11-02 GitHub issue form; user 2026-11-03: "report system needs to be sent automatically
+  // without a github account, with options to report or a custom one"): a small dialog with reasons + optional text, sent
+  // through the atlas relay (POST <scanRelay minus /submit>/report, relay v1.3, scanner -cc): {"v":1,"address","reasons",
+  // "text"?,"scanner","fp"}; the relay files the GitHub issue (label report-system) and the singles Action rescans the
+  // system. The GitHub issue form stays as a fallback link. Sent reports are remembered per address (localStorage).
+  const REPORT_REASONS = [["modules", "Salvaged Frigate Modules wrong"], ["containers", "Containers wrong"],
+    ["rooms", "Rooms or decks wrong"], ["loot", "Loot or SpookBox wrong"], ["reward", "End reward wrong"],
+    ["nonexistent", "No derelict or the system doesn't exist"], ["name", "Offensive Atlas scout name"], ["other", "Other"]];
+  // "name" (relay v1.3, FINDER1): offered only with the Atlas scout feature on and a published scout for this system
+  const scoutOf = (address) => { const F = window.dvFinder; try { return F && F.on() ? F.foundBy(address) : ""; } catch (_) { return ""; } };
+  const REPORTED_KEY = "dv.reported.v1", REPORT_TEXT_MAX = 300;
+  const reported = () => { try { return JSON.parse(localStorage.getItem(REPORTED_KEY)) || {}; } catch (_) { return {}; } };
+  function markReported(address) {
+    try { const all = reported(); all[address] = Date.now(); localStorage.setItem(REPORTED_KEY, JSON.stringify(all)); } catch (_) {}
+  }
+  function githubReportUrl(address) {
+    const glyphs = "0" + address.slice(3, 6) + address.slice(8), galaxy = parseInt(address.slice(6, 8), 16);
     const base = String((window.DV_CONFIG || {}).siteBase || "https://derelictatlas.github.io/");
     const body = "What looks wrong with this system? (for example the modules, containers, rooms, decks or loot)\n\n\n---\n" +
       `Address: ${address}\nGlyphs: ${glyphs} (galaxy ${galaxy + 1}${galaxy === 0 ? ", Euclid" : ""})\nLink: ${base}#/d/${address}\n`;
-    const url = "https://github.com/DerelictAtlas/derelictatlas.github.io/issues/new?template=report-system.md&labels=report-system&title=" +
+    return "https://github.com/DerelictAtlas/derelictatlas.github.io/issues/new?template=report-system.md&labels=report-system&title=" +
       encodeURIComponent(address) + "&body=" + encodeURIComponent(body);
-    return `<a class="site-report" href="${esc(url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
-      title="Opens a GitHub issue (needs a GitHub account): tell us what looks wrong and the atlas checks this system again">Report this system ↗</a>`;
   }
+  function reportHtml(address) {
+    const done = !!reported()[address];
+    // href = the GitHub form, so the link still works if this script's click handler is not there
+    return `<a class="site-report${done ? " is-done" : ""}" data-report="${esc(address)}" href="${esc(githubReportUrl(address))}" target="_blank"
+      rel="noopener noreferrer" referrerpolicy="no-referrer" title="Tell the atlas what looks wrong; no account needed">${done ? "Reported ✓" : "Report this system"}</a>`;
+  }
+  // the relay endpoint: the upload relay's URL with /submit replaced by /report ("relay-test" on the preview -> relay-test/report)
+  const reportUrl = () => { const r = String((window.DV_CONFIG || {}).scanRelay || ""); return r ? (/\/submit$/.test(r) ? r.replace(/\/submit$/, "/report") : r.replace(/\/$/, "") + "/report") : ""; };
+  let reportScanner = null, reportBlockedUntil = 0;
+  // scanner version + tables fingerprint, the same as the v3 uploads send (read from scan/w29.json)
+  const scannerInfo = () => reportScanner || (reportScanner = fetch("scan/w29.json", { cache: "no-cache" })
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((m) => { const version = String(m.version || ""); const fp = (/tables fingerprint ([0-9a-f]{16})\b/.exec(version) || [])[1] || "";
+      if (!fp) throw new Error("scanner version without a tables fingerprint"); return { version, fp }; })
+    .catch((e) => { reportScanner = null; throw e; }));
+  function reportDialog() {
+    let d = document.getElementById("site-report-dialog");
+    if (d) return d;
+    d = document.createElement("dialog");
+    d.id = "site-report-dialog";
+    d.className = "sheet site-report-dialog";
+    d.setAttribute("aria-labelledby", "site-report-title");
+    d.innerHTML = `<form id="site-report-form" novalidate>
+<div class="dialog-heading"><div><div class="eyebrow" id="site-report-address"></div><h2 id="site-report-title">Report this system</h2></div>
+<button type="button" class="icon-button" data-report-close aria-label="Close report">×</button></div>
+<fieldset class="site-report-reasons"><legend>What looks wrong?</legend>
+${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox" name="reason" value="${k}"><span>${esc(label)}</span></label>`).join("")}
+</fieldset>
+<label class="site-report-text"><span>Anything else? <small id="site-report-count">0 / ${REPORT_TEXT_MAX}</small></span>
+<textarea id="site-report-textarea" maxlength="${REPORT_TEXT_MAX}" rows="3" placeholder="Anything else? (optional, ${REPORT_TEXT_MAX} characters)"></textarea></label>
+<p class="site-report-note">Sent anonymously through the atlas relay; no account needed. The atlas rescans the system and fixes it if it was wrong.</p>
+<p class="site-report-result" id="site-report-result" role="status" hidden></p>
+<div class="sheet-actions"><a class="site-report-gh" id="site-report-gh" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">or report on GitHub ↗</a>
+<span class="site-report-buttons"><button type="button" class="quiet" data-report-close id="site-report-cancel">Cancel</button><button type="submit" class="primary" id="site-report-send" disabled>Send report</button></span></div>
+</form>`;
+    document.body.appendChild(d);
+    const form = d.querySelector("form"), send = d.querySelector("#site-report-send"), ta = d.querySelector("#site-report-textarea");
+    const boxes = () => [...d.querySelectorAll('input[name="reason"]')];
+    const sync = () => {
+      send.disabled = d.dataset.state === "sending" || d.dataset.state === "done" || !boxes().some((b) => b.checked) || Date.now() < reportBlockedUntil;
+      d.querySelector("#site-report-count").textContent = `${ta.value.length} / ${REPORT_TEXT_MAX}`;
+    };
+    d.addEventListener("change", sync);
+    ta.addEventListener("input", sync);
+    d.querySelectorAll("[data-report-close]").forEach((b) => b.addEventListener("click", () => d.close()));
+    d.addEventListener("click", (e) => { if (e.target === d) d.close(); });   // backdrop
+    d.addEventListener("close", () => document.documentElement.classList.remove("site-report-open"));
+    form.addEventListener("submit", (e) => { e.preventDefault(); sendReport(d); });
+    d.syncReport = sync;
+    return d;
+  }
+  function reportResult(d, text, kind) {
+    const p = d.querySelector("#site-report-result");
+    p.textContent = text;
+    p.className = "site-report-result" + (kind ? " " + kind : "");
+    p.hidden = !text;
+  }
+  function openReport(address) {
+    const d = reportDialog();
+    d.dataset.address = address;
+    d.dataset.state = "";
+    d.querySelector("#site-report-address").textContent = address;
+    d.querySelector("#site-report-gh").href = githubReportUrl(address);
+    d.querySelectorAll('input[name="reason"]').forEach((b) => { b.checked = false; b.disabled = false; });
+    const nameBox = d.querySelector('input[name="reason"][value="name"]');
+    if (nameBox) nameBox.closest("label").hidden = !scoutOf(address);
+    const ta = d.querySelector("#site-report-textarea");
+    ta.value = ""; ta.disabled = false;
+    d.querySelector("#site-report-cancel").textContent = "Cancel";
+    d.classList.remove("is-done");
+    if (reported()[address]) {
+      d.dataset.state = "done";
+      d.classList.add("is-done");
+      d.querySelector("#site-report-cancel").textContent = "Close";
+      reportResult(d, "You already reported this system. Thanks! The atlas will check it.", "ok");
+    } else if (!reportUrl()) {
+      reportResult(d, "Reports can't be sent from this page right now; please use the GitHub link.", "err");
+    } else reportResult(d, "", "");
+    d.syncReport();
+    document.documentElement.classList.add("site-report-open");
+    if (!d.open) d.showModal();
+  }
+  async function sendReport(d) {
+    const address = d.dataset.address, url = reportUrl();
+    const reasons = [...d.querySelectorAll('input[name="reason"]:checked')].filter((b) => !b.closest("label").hidden).map((b) => b.value);
+    const text = d.querySelector("#site-report-textarea").value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, REPORT_TEXT_MAX);
+    if (!url || !reasons.length || d.dataset.state === "sending") return;
+    if (Date.now() < reportBlockedUntil) { reportResult(d, "Too many reports from this connection, please try again later.", "err"); return; }
+    d.dataset.state = "sending";
+    d.syncReport();
+    reportResult(d, "Sending…", "");
+    const done = (msg) => {
+      markReported(address);
+      d.dataset.state = "done";
+      d.classList.add("is-done");
+      d.querySelectorAll('input[name="reason"], #site-report-textarea').forEach((el) => { el.disabled = true; });
+      d.querySelector("#site-report-cancel").textContent = "Close";
+      reportResult(d, msg, "ok");
+      document.querySelectorAll(`a.site-report[data-report="${address}"]`).forEach((a) => { a.textContent = "Reported ✓"; a.classList.add("is-done"); });
+      d.syncReport();
+    };
+    const fail = (msg) => { d.dataset.state = ""; reportResult(d, msg, "err"); d.syncReport(); };
+    let info;
+    try { info = await scannerInfo(); } catch (e) { fail("Couldn't send the report (the scanner info did not load). Please try again or use the GitHub link."); return; }
+    const body = { v: 1, address, reasons, scanner: info.version, fp: info.fp };
+    if (text) body.text = text;
+    let r;
+    try {
+      r = await fetch(url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body), credentials: "omit", referrerPolicy: "no-referrer" });
+    } catch (e) { fail("Couldn't reach the atlas relay. Please try again later or use the GitHub link."); return; }
+    let j = null;
+    try { j = await r.json(); } catch (_) { /* empty body */ }
+    if (r.status === 202 || (r.ok && !(j && j.duplicate))) done("Thanks! The atlas will check this system.");
+    else if (r.ok && j && j.duplicate) done("Thanks! This system was already reported and will be checked.");
+    else if (r.status === 429) {
+      const after = Math.min(3600, Math.max(5, Number(r.headers.get("Retry-After")) || 600));
+      reportBlockedUntil = Date.now() + after * 1000;
+      setTimeout(() => d.syncReport && d.syncReport(), after * 1000 + 50);
+      fail("Too many reports from this connection, please try again later.");
+    } else fail("Couldn't send the report" + (j && j.error ? ` (${String(j.error).slice(0, 120)})` : r.status ? ` (HTTP ${r.status})` : "") + ". Please use the GitHub link instead.");
+  }
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a.site-report[data-report]");
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    e.preventDefault();
+    openReport(a.dataset.report);
+  });
   function mountOpenIn() {
     const strip = document.querySelector("#viewer-content .identity-strip .glyph-address");
     const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
@@ -229,6 +388,17 @@
     link.title = "Contribute: scan systems for the atlas with this device";
     link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18.5 5.5"/><circle cx="12" cy="12" r="1.2"/></svg><span>Contribute!</span>';
     goal.appendChild(link);
+    // tutorial (user 2026-11-03): glowing orange graduation cap in the header middle until the welcome is seen
+    // (site-welcome.js sets html.dv-tut-seen; the home screen then has a small one at its top right)
+    const tut = document.createElement("button");
+    tut.type = "button";
+    tut.id = "site-tutorial";
+    tut.className = "site-tutorial site-tutorial-head";
+    tut.setAttribute("data-tutorial", "");
+    tut.title = "Tutorial: how the atlas works";
+    tut.setAttribute("aria-label", "Tutorial: how the atlas works");
+    tut.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 5l10 4.5L12 14Z M6 11.6V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.4 M22 9.5v5.5"/></svg>';
+    goal.appendChild(tut);
     tools.before(goal);
     const count = tools.querySelector(".header-count"), heading = document.querySelector("#systems .section-heading");
     if (count && heading) { count.classList.add("site-list-count"); heading.appendChild(count); }

@@ -168,3 +168,11 @@
 /* Stop after region (user 2026-10-31) */
 .cb-region { width: 100%; margin-top: 8px; }
 .cb-region[aria-pressed="true"] { border-color: var(--gold, #f4cd54); color: var(--gold, #f4cd54); background: #f4cd5414; }
+
+/* SITE12 2026-11-03: the preview notice (stand-in relay) and the optional finder name */
+.cb-preview { margin: 0 0 12px; padding: 6px 10px; border-radius: 6px; background: #f4cd5422; border: 1px solid #f4cd5466; color: var(--gold, #f4cd54); font-size: 12px; }
+.cb-finder { margin: 12px 0 0; display: grid; gap: 6px; font-size: 13px; }
+.cb-finder input { width: 100%; max-width: 320px; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; border: 1px solid #55d9dc55; background: #0b1d2b; color: inherit; font: inherit; }
+.cb-finder input[aria-invalid="true"] { border-color: #ff7a7a; }
+.cb-finder .cb-small { margin: 0; }
+.cb-finder .cb-small.bad { color: #ff9a9a; }

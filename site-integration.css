@@ -430,9 +430,9 @@ dialog.sheet.si-info[open] { display: flex; }
 .sh-row { --c: #3fe0a8; display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 3.3fr); gap: 8px; min-height: 0; padding: clamp(3px, .6vh, 6px);
   border: 1.5px solid color-mix(in srgb, var(--c) 70%, transparent); border-left-width: 4px; border-radius: 6px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--c) 13%, transparent), transparent 45%), #08141e; box-shadow: 0 0 14px -6px var(--c); }
-.sh-row.sh-c-modules { --c: #3fe0a8; }
+.sh-row.sh-c-modules { --c: #f4c542; }  /* user 2026-11-03: modules yellow */
 .sh-row.sh-c-nanites { --c: #3cb8f5; }
-.sh-row.sh-c-value { --c: #f4c542; }
+.sh-row.sh-c-value { --c: #3fe0a8; }  /* user 2026-11-03: value green */
 .sh-row.sh-c-spookbox { --c: #b866f5; }
 .sh-row.sh-c-worst { --c: #ff4a4a; }
 .sh-lead { display: flex; align-items: center; gap: clamp(8px, .8vw, 14px); min-width: 0; padding: 0 4px 0 6px; }
@@ -523,3 +523,127 @@ a.sh-card:hover, a.sh-card:focus-visible { border-color: var(--c); background: #
 .site-scan-invalid .site-scan-invalid-code { color: #ff8da3; font-size: 13px; letter-spacing: .02em; }
 .site-scan-invalid .site-scan-invalid-code b { color: #ff8da3; }
 .site-scan-offer.site-scan-offer-invalid { padding: 0; border: 0; background: none; }
+
+/* Report this system (user 2026-11-03: sent without a GitHub account): the site's own .sheet dialog */
+html.site-report-open, html.site-report-open body { overflow: hidden; }
+.site-report-dialog { width: 460px; }
+.site-report-dialog .dialog-heading { margin-bottom: 12px; }
+.site-report-dialog .eyebrow { font-family: inherit; letter-spacing: .08em; }
+.site-report-reasons { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; }
+.site-report-reasons legend { padding: 0; margin-bottom: 8px; font-size: 12px; color: var(--muted, #94a9bc); }
+.site-report-reasons label.check { display: flex; align-items: center; gap: 8px; min-height: 34px; font-size: 12px; color: #b9cbd8; cursor: pointer; }
+.site-report-text { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 12px; color: #b9cbd8; }
+.site-report-text span { display: flex; justify-content: space-between; gap: 8px; }
+.site-report-text small { color: var(--muted, #94a9bc); font-variant-numeric: tabular-nums; }
+.site-report-text textarea { font: inherit; font-size: 13px; color: inherit; border: 1px solid var(--line, #7395b340); border-radius: 3px; background: #0a1c2aba;
+  padding: 8px 10px; resize: vertical; min-height: 64px; max-height: 160px; width: 100%; box-sizing: border-box; }
+.site-report-text textarea::placeholder { color: #829bae; }
+.site-report-text textarea:focus-visible { outline: 2px solid var(--gold, #f4cd54); outline-offset: 3px; }
+.site-report-note { margin: 12px 0 0; font-size: 11px; line-height: 1.45; color: var(--muted, #94a9bc); }
+.site-report-result { margin: 10px 0 0; font-size: 13px; }
+.site-report-result.ok { color: #4ade80; }
+.site-report-result.err { color: #f0883c; }
+.site-report-dialog .sheet-actions { align-items: center; margin-top: 16px; }
+.site-report-gh { font-size: 11px; color: var(--accent, #55d9dc); text-decoration: none; }
+.site-report-gh:hover, .site-report-gh:focus-visible { text-decoration: underline; }
+.site-report-buttons { display: flex; gap: 8px; }
+.site-report-dialog button[disabled] { opacity: .45; cursor: not-allowed; }
+.site-report-dialog.is-done .site-report-reasons, .site-report-dialog.is-done .site-report-text { opacity: .55; }
+.site-report-dialog.is-done #site-report-send { display: none; }
+.site-open-in a.site-report.is-done { color: #4ade80; }
+@media (max-width: 520px) {
+  .site-report-dialog { padding: 16px; }
+  .site-report-reasons { grid-template-columns: minmax(0, 1fr); }
+  .site-report-reasons label.check { min-height: 30px; }
+  .site-report-dialog .sheet-actions { flex-wrap: wrap; }
+}
+
+/* tutorial button (user 2026-11-03): glowing orange graduation cap in the header middle until the welcome is seen,
+   then a smaller one at the top right of the home screen (html.dv-tut-seen, site-welcome.js) */
+.site-tutorial { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; min-height: 34px; padding: 0;
+  border: 1px solid #ffb866; border-radius: 50%; color: #241002; background: radial-gradient(circle at 35% 30%, #ffc777, #f0861f);
+  box-shadow: 0 0 10px #ff9a3a99, 0 0 22px #ff8a1f55; }
+.site-tutorial:hover { border-color: #ffd29a; background: radial-gradient(circle at 35% 30%, #ffd08a, #f5922e); filter: brightness(1.05); }
+.site-tutorial svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.site-tutorial-head { animation: dv-tut-glow 1.8s ease-in-out infinite; }
+@keyframes dv-tut-glow { 0%, 100% { transform: scale(1); box-shadow: 0 0 6px #ff9a3a80, 0 0 14px #ff8a1f40; }
+  50% { transform: scale(1.14); box-shadow: 0 0 16px #ffb055f0, 0 0 38px #ff8a1fb0, 0 0 60px #ff7a1060; } }
+html.dv-tut-seen .site-tutorial-head { display: none; }
+html:not(.dv-tut-seen) .sh-tutorial { display: none; }
+.site-home .sh-end { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+.site-home .sh-tutorial { width: 28px; height: 28px; min-height: 28px; box-shadow: 0 0 6px #ff9a3a59; }
+.site-home .sh-tutorial svg { width: 17px; height: 17px; }
+.site-free-use a { color: var(--accent, #55d9dc); }
+@media (max-width: 700px) { .site-tutorial-head { width: 30px; height: 30px; min-height: 30px; } .site-tutorial-head svg { width: 17px; height: 17px; } }
+@media (prefers-reduced-motion: reduce) { .site-tutorial-head { animation: none; } }
+.site-about-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.site-about-cards > .site-facsimile { margin: 0; }
+@media (max-width: 700px) { .site-about-cards { grid-template-columns: 1fr; } }
+
+/* End reward placeholder (user 2026-11-03, site-reward.js): a gray "?" reward card in the same place and size as the
+   real one; the question "Reveal end reward?" floats above it. */
+.reward.reward-hidden { --reward-color: #9aa4ab; --reward-tint: #2a3239; }
+.reward.reward-hidden .reward-name, .reward.reward-hidden .reward-prediction { color: #8d979e; }
+.reward .reward-art.reward-reveal { border: 0; border-radius: 6px; padding: 0; margin: 0; min-height: 0; background: none; color: inherit; font: inherit; cursor: pointer; transition: filter .15s, transform .15s; }
+.reward .reward-art.reward-reveal:hover, .reward .reward-art.reward-reveal.ask { filter: brightness(1.25); }
+/* pressed / asking (user 2026-11-03 "doesn't light up"): the site's pressed gold (.viewer-control-row button[aria-pressed=true]) */
+.reward .reward-art.reward-reveal:active, .reward .reward-art.reward-reveal.ask { outline: 2px solid #e6bd55; outline-offset: 2px; filter: brightness(1.25); }
+.reward .reward-art.reward-reveal:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reward-ask-bubble { position: fixed; z-index: 10000; margin: 0; min-height: 0; padding: 6px 10px; border: 1px solid #9aa4ab88; border-radius: 6px; background: #0d1b26f2; color: var(--text); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 6px 18px #0009; cursor: pointer; touch-action: manipulation; }
+.reward-ask-bubble:hover, .reward-ask-bubble:active { border-color: #e6bd55; background: #514626f2; color: #ffe297; }
+.reward-ask-bubble[hidden] { display: none; }
+/* the "End reward value" card of the open system: always in its place, "?" until revealed */
+body:not(.show-reward) .atlas-extras [data-extra-label^="End reward"], body:not(.show-reward) #details-body [data-extra-label^="End reward"] { display: block; }
+body:not(.show-reward):not(.dv-cur-revealed) :is(.atlas-extras, #details-body) [data-extra-label^="End reward"] { cursor: pointer; }
+body:not(.show-reward):not(.dv-cur-revealed) :is(.atlas-extras, #details-body) [data-extra-label^="End reward"] .v { font-size: 0; }
+body:not(.show-reward):not(.dv-cur-revealed) :is(.atlas-extras, #details-body) [data-extra-label^="End reward"] .v::after { content: "?"; font-size: 15px; color: #9aa4ab; }
+
+/* Share banner (user 2026-11-03, site-banner.js): Photo | Banner in "Photo & share" */
+.dvb-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 8px; }
+.dvb-tabs button { min-height: 34px; padding: 5px; font-size: 12px; }
+.dvb-tabs button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); background: #55d9dc14; }
+#share-dialog.dvb-banner-mode > :not(.dialog-heading):not(.dvb-tabs):not(.dvb-panel) { display: none !important; }
+.dvb-panel[hidden] { display: none; }
+.dvb-preview { border: 1px solid var(--line); border-radius: 6px; background: #030a10; padding: 6px; }
+.dvb-preview canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 1; }
+.dvb-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; margin: 10px 0 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.dvb-options legend { padding: 0 4px; font-size: 11px; color: var(--muted); }
+.dvb-options label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; line-height: 1.25; padding: 3px 0; cursor: pointer; }
+.dvb-options input { width: 16px; height: 16px; min-height: 0; margin: 0; flex: none; accent-color: var(--accent); }
+.dvb-options label span { min-width: 0; overflow-wrap: anywhere; }
+.dvb-options .dvb-na { display: none; margin-left: auto; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.dvb-options label.is-na { cursor: default; opacity: .55; }
+.dvb-options label.is-na .dvb-na { display: inline; }
+.dvb-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.dvb-actions button { min-height: 38px; padding: 6px; font-size: 12px; }
+.dvb-status { min-height: 18px; margin: 8px 0 0; font-size: 12px; color: #b8d5df; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .dvb-options { grid-template-columns: minmax(0, 1fr); }
+  .dvb-actions { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* SITE12 2026-11-03: a looked-up system that broke the top 100 (the only lookups that are sent), the optional finder
+   name, and "Found by" under the glyphs */
+.site-scan-top100 { margin: 8px 0 0; max-width: 520px; padding: 8px 12px; border-radius: 6px; text-align: left; font-size: 13px; line-height: 1.45; color: #07131e; background: linear-gradient(135deg, var(--gold, #f4cd54), #f0a93c); }
+.site-scan-top100 p { margin: 0; }
+.site-scan-top100 .site-scan-lists { margin-top: 2px; font-size: 12px; font-weight: 600; }
+.site-scan-finder { display: grid; gap: 4px; margin-top: 8px; }
+.site-scan-finder label { font-weight: 700; }
+.site-scan-finder-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.site-scan-finder input { flex: 1 1 140px; min-width: 0; max-width: 240px; height: 30px; box-sizing: border-box; padding: 0 8px; border-radius: 5px; border: 1px solid #07131e55; background: #fff8e6; color: #07131e; font: inherit; }
+.site-scan-finder button { min-height: 0; height: 30px; margin: 0; padding: 0 12px; border-radius: 5px; border: 1px solid #07131e55; background: #fff8e6; color: #07131e; font-weight: 700; font-size: 12px; }
+.site-scan-finder button.primary { background: #07131e; color: var(--gold, #f4cd54); border-color: #07131e; }
+.site-scan-top100 .site-scan-finder-msg { display: block; margin-top: 2px; font-size: 11px; color: #07131ecc; }
+.site-scan-top100 .site-scan-finder-msg.bad { color: #8a0f0f; font-weight: 700; }
+.site-scan-top100 .site-scan-finder-done { margin-top: 4px; font-size: 12px; }
+.site-scout { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0; padding: 2px 9px 2px 5px; border-radius: 999px; border: 1px solid #55d9dc55; background: #55d9dc14; font-size: 12px; color: var(--accent, #55d9dc); cursor: help; }
+.site-scout b { color: var(--text, #edf3f4); font-weight: 700; }
+.site-scout-badge { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+/* SITE12 2026-11-03: Scanner speed card (Stats tab) */
+.si-speed { margin-top: 18px; }
+.si-speed-note { margin: 6px 0; font-size: 12px; }
+.si-speed-table { width: 100%; max-width: 560px; margin: 10px 0 0; border-collapse: collapse; font-size: 12px; }
+.si-speed-table caption { text-align: left; font-weight: 700; padding: 0 0 4px; color: var(--muted, #94a9bc); }
+.si-speed-table th, .si-speed-table td { padding: 4px 8px; border-bottom: 1px solid var(--line, #7395b340); text-align: right; font-variant-numeric: tabular-nums; }
+.si-speed-table th[scope="row"], .si-speed-table thead th:first-child { text-align: left; font-weight: 600; }
+@media (max-width: 420px) { .si-speed-table th, .si-speed-table td { padding: 4px 4px; } .si-speed-table th[scope="row"] { white-space: normal; } }

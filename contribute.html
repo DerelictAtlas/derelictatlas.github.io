@@ -13,6 +13,9 @@
 <script src="config.js"></script>
 <script src="gate.js"></script>
 <script src="site-toplists.js"></script>
+<script src="finder-blocklist.js"></script>
+<script src="site-finder.js"></script>
+<script src="site-perf.js"></script>
 <script src="contribute.js" defer></script>
 </head>
 <body class="contribute-page">
@@ -45,6 +48,7 @@
     </section>
 
     <section class="cb-card cb-scanner" id="cb-scanner" aria-labelledby="cb-state">
+      <p class="cb-preview" id="cb-preview" hidden><b>PREVIEW:</b> scans are not saved to the atlas</p>
       <div class="cb-status-row">
         <div class="cb-radar" id="cb-radar" aria-hidden="true"><i></i><i></i><b></b></div>
         <div><div class="cb-state" id="cb-state" role="status">Getting ready…</div><div class="cb-detail" id="cb-detail"></div></div>
@@ -56,6 +60,11 @@
       <div class="cb-seg" id="cb-speed" role="group" aria-label="Speed"><button type="button" data-s="gentle">Gentle</button><button type="button" data-s="balanced">Balanced</button><button type="button" data-s="max">Maximum</button></div>
       <p class="cb-small" id="cb-speed-note"></p>
       <div class="cb-elsewhere" id="cb-elsewhere" hidden><p>This browser is already scanning in another tab. One tab at a time keeps your device cool and the counts right.</p><button id="cb-takeover" type="button">Scan here instead</button></div>
+      <div class="cb-finder" id="cb-finder" hidden>
+        <label for="cb-finder-name">Scout name (optional): shown as “Atlas scout” on the systems you add first</label>
+        <input id="cb-finder-name" type="text" maxlength="40" spellcheck="false" autocomplete="nickname" placeholder="Your name">
+        <small class="cb-small" id="cb-finder-msg" aria-live="polite"></small>
+      </div>
       <p class="cb-consent" id="cb-consent"></p>
     </section>
 
@@ -111,7 +120,7 @@
       <section class="cb-card" aria-labelledby="cb-sent-title" id="cb-what">
         <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5Z M8.5 12l2.5 2.5 4.5-5"/></svg><h2 id="cb-sent-title">What is sent</h2></div>
         <p>Scanning on this page adds the systems you scan to the atlas, with every number: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only the 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list. Any system can still be opened in the viewer, which draws its map on your device.</p>
-        <p>Your device sends what it found for each system (its numbers and loot values, no map); the atlas checks every result before publishing it, and anyone can report a wrong one. Nothing about you is sent.</p>
+        <p>Your device sends what it found for each system (its numbers and loot values, no map); the atlas checks every result before publishing it, and anyone can report a wrong one. Nothing about you is sent<span id="cb-finder-sent" hidden>, except the name you add: it is published with the systems you find first</span>.</p>
         <p id="cb-relay-note" class="cb-muted"></p>
       </section>
     </div>

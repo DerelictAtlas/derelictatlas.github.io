@@ -43,11 +43,11 @@
 ${card(I.read, "Read the numbers", "Totals count every container: crates, footlockers, briefcases and tall lockers. <b>?</b> uncertain prediction, <b>—</b> unknown, <b>+</b> at least this many.")}
 ${card(I.map, "Explore the maps", "3D and all-deck 2D maps: drag or pinch, expand either view, tap a ladder to follow it. Quick Run plans a route through the loot.")}
 ${card(I.check, "Track your runs", "Finished Run greys a system out (press again to undo); Filters → Hide done hides them. Saved in this browser only.")}</div>`;
-    if (name === "scan") return `<div class="si-cards">${card(I.rules, "Built from the game’s rules", "The scanner runs the game’s own derelict generation from the system address alone: the same layout, containers and loot tables as in NMS 7.10.")}
+    if (name === "scan") return `<div class="si-cards">${card(I.rules, "Built from the game’s rules", "The scanner runs the game’s own derelict generation from the system address alone: the same layout, containers and loot tables as in NMS 7.10. Something looks wrong? Use “Report this system” on its page; no account needed.")}
 ${card(I.device, "On your device", "Opening a system runs the scanner in your browser: it draws the 3D and 2D map and works out the loot in a few seconds. The scanner (about 120 KB) comes from this site on your first scan; your browser keeps a copy and only fetches it again after a site update. Nothing is installed.")}
-${card(I.search, "Not in the atlas yet?", "Search its glyphs or hex address and it is scanned on the spot. Adding it to the atlas is up to you, unless it breaks into a top-100 list.")}
+${card(I.search, "Not in the atlas yet?", "Search its glyphs or hex address and it is scanned on the spot, on your device. If it breaks into a top-100 list it is added to the atlas automatically; otherwise nothing is sent." + (window.dvFinder && window.dvFinder.on() ? " If you add a name, it is published with the systems you find first." : ""))}
 ${card(I.save, "Kept to save space", "The atlas keeps every number of every system for everyone; the 3D and 2D maps are kept only for the top-100 lists.")}</div>`;
-    if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">Loading atlas statistics…</p></div><div class="si-owner-stats"></div>`;
+    if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">Loading atlas statistics…</p></div><div class="si-speed" aria-live="polite"></div><div class="si-owner-stats"></div>`;
     return `<div class="si-about-slot"></div>${creditsHtml()}<div class="si-owner-slot"></div><div class="si-foot"><span class="si-version-slot"></span><span class="si-actions-slot"></span></div>`;
   }
 
@@ -83,7 +83,7 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
     if (!dialog) return;
     for (const b of dialog.querySelectorAll(".si-tab")) { const on = b.dataset.tab === name; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; }
     for (const p of dialog.querySelectorAll(".si-panel")) p.hidden = p.dataset.tab !== name;
-    if (name === "stats") loadStats(dialog.querySelector(".si-stats"));
+    if (name === "stats") { loadStats(dialog.querySelector(".si-stats")); if (window.dvPerf) window.dvPerf.speedCard(dialog.querySelector(".si-speed")); }
     try { sessionStorage.setItem(TAB_KEY, name); } catch (_) {}
   }
   // late sections from site-stats.js go into their tabs
