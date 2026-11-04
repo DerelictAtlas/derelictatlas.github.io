@@ -23,6 +23,7 @@
     <a class="brand" href="./#/" aria-label="Derelict Atlas home"><img class="brand-module" src="brand/logo-128.webp" width="44" height="44" alt=""><span><small>NO MAN’S SKY</small>DERELICT ATLAS</span></a>
     <div class="header-tools"><a class="cb-back" href="./#/">← Back to the atlas</a></div>
   </header>
+  <div class="cb-layout">
   <main class="cb-main" id="main">
     <section class="cb-hero">
       <div class="cb-hero-text">
@@ -126,6 +127,23 @@
     </div>
     <p class="cb-facsimile">Unofficial fan project, not affiliated with Hello Games. No game files: every picture here is our own facsimile.</p>
   </main>
+  <aside class="cb-side" aria-label="Atlas scanning stats">
+    <section class="cb-card cb-side-card" aria-labelledby="cs-title">
+      <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h2 id="cs-title">Atlas scanning</h2></div>
+      <dl class="cs-stats">
+        <div><dt>Systems in the atlas</dt><dd id="cs-total">—</dd></div>
+        <div><dt>Added by visitors</dt><dd id="cs-singles">—</dd></div>
+        <div><dt>Waiting to be scanned</dt><dd id="cs-waiting">—</dd></div>
+        <div class="gold"><dt>Your speed now</dt><dd id="cs-rate">—</dd></div>
+      </dl>
+      <h3>Scanner speed</h3>
+      <dl class="cs-stats" id="cs-speed"><div><dt>Loading…</dt><dd></dd></div></dl>
+      <p class="cb-small" id="cs-speed-note"></p>
+      <h3 id="cs-scouts-title" hidden>Top Atlas scouts</h3>
+      <ol class="cs-scouts" id="cs-scouts" hidden></ol>
+    </section>
+  </aside>
+  </div>
   <canvas id="cb-confetti" hidden></canvas><div id="cb-toast" role="status" aria-live="polite"></div>
 </body>
 </html>

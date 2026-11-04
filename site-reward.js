@@ -53,8 +53,8 @@
       `<button type="button" class="reward-art reward-reveal${ask ? " ask" : ""}" data-reveal="${address}" aria-pressed="${ask}" aria-label="${QUESTION}" data-ask="${QUESTION}">` +
       `<img src="reward-icons/hidden.svg" alt=""></button>` +
       `<span class="reward-copy"><span class="reward-label">End reward</span><span class="sr-only">Hidden. </span>` +
-      `<small class="reward-name">Hidden <span class="reward-class-inline">(?)</span></small>` +
-      (compact ? "" : `<small class="reward-prediction">Click the ? to reveal</small>`) + `</span></div>`;
+      // user 2026-11-04: the open system says just "Click to reveal" (no "Hidden (?)" / "Click the ? to reveal")
+      (compact ? `<small class="reward-name">Hidden <span class="reward-class-inline">(?)</span></small>` : `<small class="reward-name reward-click">Click to reveal</small>`) + `</span></div>`;
   }
   window.dvRewardSlot = (r, compact, showAll, real) => {
     const address = String((r && r.address) || "").toUpperCase();
@@ -74,6 +74,9 @@
     if (!t) return null;
     const b = t.closest(".reward-reveal[data-reveal]");
     if (b) return b;
+    // user 2026-11-04: the whole hidden End reward block of the open system (icon or text) hovers / clicks like the "?"
+    const blk = t.closest(".summary-metric.end-reward.reward-hidden");
+    if (blk) { const bb = blk.querySelector(".reward-reveal[data-reveal]"); if (bb) return bb; }
     const x = t.closest('[data-extra-label^="End reward"]');
     if (x && x.matches(HIDDEN_EXTRA)) { x.dataset.reveal = currentAddress(); x.classList.add("reward-reveal"); return x.dataset.reveal ? x : null; }
     return null;

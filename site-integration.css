@@ -647,3 +647,29 @@ body:not(.show-reward):not(.dv-cur-revealed) :is(.atlas-extras, #details-body) [
 .si-speed-table th, .si-speed-table td { padding: 4px 8px; border-bottom: 1px solid var(--line, #7395b340); text-align: right; font-variant-numeric: tabular-nums; }
 .si-speed-table th[scope="row"], .si-speed-table thead th:first-child { text-align: left; font-weight: 600; }
 @media (max-width: 420px) { .si-speed-table th, .si-speed-table td { padding: 4px 4px; } .si-speed-table th[scope="row"] { white-space: normal; } }
+
+/* v143t (user 2026-11-04): Report = its own flag icon beside Copy, not inside the "Open in" row */
+.site-report-slot { display: flex; align-items: flex-start; margin-left: auto; margin-right: 6px; }
+
+a.site-report-icon { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border: 1px solid var(--line, #24394a);
+  border-radius: 8px; color: var(--muted, #94a9bc); font-size: 12px; text-decoration: none; white-space: nowrap; }
+a.site-report-icon:hover, a.site-report-icon:focus-visible { color: #fbbf24; border-color: #fbbf24; }
+a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .45); }
+@media (max-width: 720px) { a.site-report-icon span { display: none; } a.site-report-icon { padding: 0 8px; } }
+
+/* v143t (user 2026-11-04): loot strip + viewer buttons on one line (site-integration.js stripRow) */
+.site-strip-row { flex: none; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 6px; min-width: 0; }
+.site-strip-row > .loot-panel { margin-top: 0; flex: 0 1 auto; min-width: 0; display: flex; }
+.site-strip-row > .loot-panel[hidden] { display: none; }
+.site-strip-row > .loot-panel > .loot-summary { flex: 1; margin: 0; }
+.site-strip-row > .viewer-controls { margin-top: 0; flex: 1 1 340px; min-width: 0; display: flex; align-items: center; }
+.site-strip-row > .viewer-controls > .viewer-control-row { flex: 1; min-width: 0; }
+
+/* v143u (user 2026-11-04): map-list labels internal only; no Finished Run in System details; whole hidden reward clickable */
+#viewer-map-lists { display: none !important; }
+#mark-done { display: none !important; }
+.summary-metric.end-reward.reward-hidden { cursor: pointer; }
+.summary-metric.end-reward.reward-hidden .reward-click { color: var(--accent, #55d9dc); }
+/* Report under Copy, at the bottom of the glyph area */
+.site-strip-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 10px; flex: none; align-self: stretch; }
+.site-strip-actions .site-report-slot { margin: 0; }

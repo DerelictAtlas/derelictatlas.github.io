@@ -133,7 +133,8 @@
     const links = OPEN_IN.filter((e) => !e.slugs || e.slugs[galaxy]).map((e) => `<a href="${esc(e.url.replace("{glyphs}", glyphs)
       .replace("{galaxy}", galaxy).replace("{slug}", (e.slugs || {})[galaxy] || ""))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
       title="External site, not affiliated">${esc(e.name)} ↗</a>`);
-    return links.length ? `<span>Open in</span>${links.join("")}${reportHtml(address, glyphs, galaxy)}` : reportHtml(address, glyphs, galaxy);
+    // user 2026-11-04: the report link no longer shares this row; it is its own flag icon next to Copy (mountReport)
+    return links.length ? `<span>Open in</span>${links.join("")}` : "";
   }
   // clicking the system that is already open in the Systems list shows the home screen again (user 2026-11-03: "select
   // a system twice ... it will display the main menu"). Only where the list and the viewer are side by side; on phones
@@ -179,8 +180,9 @@
   function reportHtml(address) {
     const done = !!reported()[address];
     // href = the GitHub form, so the link still works if this script's click handler is not there
-    return `<a class="site-report${done ? " is-done" : ""}" data-report="${esc(address)}" href="${esc(githubReportUrl(address))}" target="_blank"
-      rel="noopener noreferrer" referrerpolicy="no-referrer" title="Tell the atlas what looks wrong; no account needed">${done ? "Reported ✓" : "Report this system"}</a>`;
+    const label = done ? "Reported ✓ (send another report)" : "Report this system: tell the atlas what looks wrong; no account needed";
+    return `<a class="site-report site-report-icon${done ? " is-done" : ""}" data-report="${esc(address)}" href="${esc(githubReportUrl(address))}" target="_blank"
+      rel="noopener noreferrer" referrerpolicy="no-referrer" title="${esc(label)}" aria-label="${esc(label)}"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Report</span></a>`;
   }
   // the relay endpoint: the upload relay's URL with /submit replaced by /report ("relay-test" on the preview -> relay-test/report)
   const reportUrl = () => { const r = String((window.DV_CONFIG || {}).scanRelay || ""); return r ? (/\/submit$/.test(r) ? r.replace(/\/submit$/, "/report") : r.replace(/\/$/, "") + "/report") : ""; };
@@ -274,7 +276,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
       d.querySelectorAll('input[name="reason"], #site-report-textarea').forEach((el) => { el.disabled = true; });
       d.querySelector("#site-report-cancel").textContent = "Close";
       reportResult(d, msg, "ok");
-      document.querySelectorAll(`a.site-report[data-report="${address}"]`).forEach((a) => { a.textContent = "Reported ✓"; a.classList.add("is-done"); });
+      document.querySelectorAll(`a.site-report[data-report="${address}"]`).forEach((a) => { const t = a.querySelector("span"); if (t) t.textContent = "Reported"; else a.textContent = "Reported ✓"; a.title = "Reported ✓"; a.classList.add("is-done"); });
       d.syncReport();
     };
     const fail = (msg) => { d.dataset.state = ""; reportResult(d, msg, "err"); d.syncReport(); };
@@ -303,10 +305,34 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     e.preventDefault();
     openReport(a.dataset.report);
   });
+  // user 2026-11-04 (2nd): Report sits UNDER Copy, at the bottom of the glyph area: Copy + Report share a right column
+  function mountReport(address) {
+    const copy = document.querySelector("#viewer-content .identity-strip #viewer-copy");
+    if (!copy) return;
+    let col = copy.parentNode.classList.contains("site-strip-actions") ? copy.parentNode : null;
+    if (!col) { col = document.createElement("div"); col.className = "site-strip-actions"; copy.parentNode.insertBefore(col, copy); col.appendChild(copy); }
+    let wrap = col.querySelector(".site-report-slot");
+    if (wrap && wrap.dataset.address === address && wrap.dataset.done === String(!!reported()[address])) return;
+    if (!wrap) { wrap = document.createElement("div"); wrap.className = "site-report-slot"; col.appendChild(wrap); }
+    wrap.dataset.address = address; wrap.dataset.done = String(!!reported()[address]);
+    wrap.innerHTML = reportHtml(address);
+  }
+  // user 2026-11-04: the loot strip (#system-extras) and the viewer buttons (.viewer-controls) share ONE line (separate
+  // boxes) so the 3D / 2D view gets the height back. Ids stay the same, so modern.js still finds both after the move.
+  function stripRow() {
+    const content = document.getElementById("viewer-content");
+    const loot = content && content.querySelector(":scope > #system-extras"), ctl = content && content.querySelector(":scope > .viewer-controls");
+    if (!loot || !ctl || loot.nextElementSibling !== ctl) return;
+    const row = document.createElement("div");
+    row.className = "site-strip-row";
+    content.insertBefore(row, loot);
+    row.append(loot, ctl);
+  }
   function mountOpenIn() {
     const strip = document.querySelector("#viewer-content .identity-strip .glyph-address");
     const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
     if (!strip || !m) return;
+    mountReport(m[1].toUpperCase());
     const html = openInHtml(m[1].toUpperCase());
     let box = strip.querySelector(".site-open-in");
     if (!html) { if (box) box.remove(); return; }
@@ -416,7 +442,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
 
   function watch() {
     const content = document.getElementById("viewer-content"), st = document.getElementById("atlas-status"), results = document.getElementById("results");
-    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); }).observe(content, { childList: true });
+    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); stripRow(); }).observe(content, { childList: true });
     window.addEventListener("hashchange", mountOpenIn);
     if (st) new MutationObserver(syncStatus).observe(st, { childList: true, characterData: true, subtree: true });
     if (results) new MutationObserver(syncStatus).observe(results, { attributes: true, attributeFilter: ["aria-busy"], childList: true });
@@ -425,7 +451,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     if (sortSel) sortSel.addEventListener("change", syncRanks);
     document.addEventListener("click", (e) => { if (e.target instanceof Element && e.target.closest("#toggle-quick")) setTimeout(fitQuickRun, 0); });
     window.addEventListener("resize", fitQuickRun);
-    mountOpenIn();
+    mountOpenIn(); stripRow();
     moveSpacing();
     mountContribute();
     syncStatus();

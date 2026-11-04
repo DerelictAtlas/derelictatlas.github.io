@@ -95,40 +95,47 @@
     }
     const url = base().replace(/^https?:\/\//, "").replace(/\/$/, "");
     const stats = ["total", "modules", "nanites", "value", "spookbox", "rooms", "boxes", "reward"].filter((k) => chosen[k] && available(f, k));
-    // header: glyphs + hex / name (the link sits at the top right)
-    let y = stats.length ? 30 : 74, headRight = W - 32;
+    // header (user 2026-11-04 "glyphs tiny, hex huge, make the glyphs stretch the whole length"): the glyph row takes the
+    // full width; the link and "Atlas scout" move to the right end of the address line under it (top right without glyphs)
+    let y = stats.length ? 30 : 74;
+    const glyphRow = glyphImgs.length > 0;
+    let hexY = 0;
+    if (glyphRow) {
+      const gap = 8, size = Math.min(76, (W - 32 - x0 - gap * 11) / 12);
+      glyphImgs.forEach((im, i) => { if (im) c.drawImage(im, x0 + i * (size + gap), y, size, size); });
+      hexY = y + size + 30;
+    }
+    let rx = W - 32;
     if (chosen.credit) {
       c.font = '600 17px "Barlow", system-ui, sans-serif'; c.fillStyle = "#55d9dc"; c.textAlign = "right";
-      c.fillText(url, W - 32, 50); c.textAlign = "left"; headRight = W - 32 - c.measureText(url).width - 24;
+      c.fillText(url, W - 32, glyphRow ? hexY : 50); c.textAlign = "left"; rx = W - 32 - c.measureText(url).width - 24;
     }
-    // "Atlas scout: NAME" with a radar badge at the top right (under the link when it is shown); canvas text, never HTML
+    // "Atlas scout: NAME" with a radar badge; canvas text, never HTML
     if (chosen.finder && f.finder) {
-      const fy = chosen.credit ? 80 : 50;
+      const fy = glyphRow ? hexY : chosen.credit ? 80 : 50, fx = glyphRow ? rx : W - 32;
       c.textAlign = "right";
       c.font = '700 17px "Barlow", system-ui, sans-serif';
       const name = fit(c, f.finder, 300), nw = c.measureText(name).width;
-      c.fillStyle = "#edf3f4"; c.fillText(name, W - 32, fy);
+      c.fillStyle = "#edf3f4"; c.fillText(name, fx, fy);
       c.font = '600 17px "Barlow", system-ui, sans-serif'; c.fillStyle = "#55d9dc";
       const lw = c.measureText("Atlas scout: ").width;
-      c.fillText("Atlas scout: ", W - 32 - nw, fy);
+      c.fillText("Atlas scout: ", fx - nw, fy);
       c.textAlign = "left";
-      const cx = W - 32 - nw - lw - 12, cy = fy - 6;    // the radar badge
+      const cx = fx - nw - lw - 12, cy = fy - 6;    // the radar badge
       c.strokeStyle = "#55d9dc"; c.lineWidth = 1.6;
       c.beginPath(); c.arc(cx, cy, 8, 0, Math.PI * 2); c.stroke();
       c.beginPath(); c.arc(cx, cy, 4, 0, Math.PI * 2); c.stroke();
       c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + 6.5, cy - 5); c.stroke();
-      headRight = Math.min(headRight, cx - 8 - 24);
+      rx = glyphRow ? cx - 8 - 24 : Math.min(rx, cx - 8 - 24);
     }
-    if (glyphImgs.length) {
-      const gap = 6, size = Math.min(50, (headRight - x0 - gap * 11) / 12);
-      glyphImgs.forEach((im, i) => { if (im) c.drawImage(im, x0 + i * (size + gap), y, size, size); });
-      y += size + 32;
-      c.fillStyle = "#edf3f4"; c.font = '600 24px ui-monospace, "Cascadia Mono", Consolas, monospace';
-      c.fillText(f.glyphs, x0, y);
+    const headRight = rx;
+    if (glyphRow) {
+      c.fillStyle = "#edf3f4"; c.font = '600 18px ui-monospace, "Cascadia Mono", Consolas, monospace';
+      c.fillText(f.glyphs, x0, hexY);
       if (chosen.name && f.name) {
         const w = c.measureText(f.glyphs).width;
-        c.fillStyle = "#94a9bc"; c.font = '500 21px "Barlow", system-ui, sans-serif';
-        c.fillText(fit(c, "· " + f.name + (f.galaxy ? " · " + f.galaxy : ""), W - 32 - x0 - w - 16), x0 + w + 16, y);
+        c.fillStyle = "#94a9bc"; c.font = '500 18px "Barlow", system-ui, sans-serif';
+        c.fillText(fit(c, "· " + f.name + (f.galaxy ? " · " + f.galaxy : ""), headRight - x0 - w - 14), x0 + w + 14, hexY);
       }
     } else if (chosen.name && f.name) {
       c.fillStyle = "#edf3f4"; c.font = '600 42px "Barlow Condensed", "Barlow", sans-serif';

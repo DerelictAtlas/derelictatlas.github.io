@@ -94,6 +94,7 @@
     if (!s) { $("cb-togo").textContent = "Atlas statistics are not available right now."; return; }
     const total = (Number(s.total_systems) || 0) + (Number(s.singles) || 0), cap = Number(s.rules && s.rules.atlas_cap) || CAP, pct = Math.min(100, total / cap * 100);
     $("cb-total").textContent = fmt(total);
+    if ($("cs-total")) { $("cs-total").textContent = fmt(total); $("cs-singles").textContent = fmt(Number(s.singles) || 0); }
     $("cb-bar-fill").style.width = pct.toFixed(2) + "%";
     $("cb-bar").setAttribute("aria-valuenow", pct.toFixed(1));
     $("cb-togo").textContent = s.rules && s.rules.cap_reached
@@ -427,12 +428,16 @@
     for (const it of [...session.feed].reverse()) feedAdd(it);
   }
   function feedReset() { $("cb-feed").innerHTML = `<li class="cb-feed-empty">Press ▶ SCAN and the systems you scan appear here.</li>`; }
-  function feedAdd(it) {
+  function feedAdd(it) { return anchored(() => feedAddNow(it)); }
+  function feedAddNow(it) {
     const ul = $("cb-feed");
     const empty = ul.querySelector(".cb-feed-empty");
     if (empty) empty.remove();
+    // user 2026-11-04: scrolled down in the live list -> new rows must not push the view; keep the reading position
+    const top0 = ul.scrollTop, h0 = ul.scrollHeight;
     ul.insertAdjacentHTML("afterbegin", feedHtml(it));
     while (ul.children.length > FEED_MAX) ul.lastElementChild.remove();
+    if (top0 > 2) { ul.firstElementChild.style.animation = "none"; ul.scrollTop = top0 + (ul.scrollHeight - h0); }
   }
 
   // ---- page ----
@@ -440,9 +445,24 @@
   let waitingAt = 0, waitingVal = 0;
   function waitingCached() { if (Date.now() - waitingAt > 3000) { waitingVal = countWaiting(); waitingAt = Date.now(); } return waitingVal; }
   const STATE = { elsewhere: "Scanning in another tab", loading: "Getting ready…", ready: "Ready", scanning: "Scanning", paused: "Paused", stopped: "Stopped", done: "Finished", nowork: "Nothing to scan right now", error: "The scanner could not start" };
-  function render() {
+  // user 2026-11-04 "while scanning and i scroll below the live list, it pushes me down": keep the card at the top of the
+  // screen still while the page updates (manual anchoring; Safari has none; native anchoring is off in contribute.css)
+  function anchored(fn) {
+    const y = window.scrollY;
+    if (y < 8) return fn();
+    const cards = document.querySelectorAll(".cb-card, .cb-side-card");
+    let a = null;
+    for (const c of cards) { if (c.getBoundingClientRect().bottom > 0) { a = c; break; } }
+    const t0 = a ? a.getBoundingClientRect().top : 0;
+    const r = fn();
+    if (a && a.isConnected) { const d = a.getBoundingClientRect().top - t0; if (Math.abs(d) >= 1) window.scrollBy(0, d); }
+    return r;
+  }
+  function render() { return anchored(renderNow); }
+  function renderNow() {
     const liveMs = running() ? Date.now() - session.startedAt : 0, ms = session.ms + liveMs, rate = session.scanned / Math.max(1, ms) * 60000;
     $("cb-state").textContent = STATE[state] || state;
+    const csr = $("cs-rate"); if (csr) csr.textContent = running() && session.scanned ? `${rate >= 10 ? Math.round(rate) : rate.toFixed(1)} / min` : "—";
     const n = pool.length;
     $("cb-detail").textContent = note || (state === "scanning" ? `${SPEED_NAME[speed]} speed · ${fmt(waitingCached())} systems waiting in ${fmt(work.length)} regions`
       : state === "done" ? "Every system in the work list has been scanned on this device. Thank you! New systems are added with each atlas update."
@@ -527,6 +547,31 @@
     return (text.match(/^[0-9A-Fa-f]{16}(?=[,\s]|$)/gm) || []).map((a) => a.toUpperCase());
   }
 
+  // side panel "Atlas scanning" (user 2026-11-04 "add stats of scanning to the contribute scanner site on the side"):
+  // atlas totals (from showStats), scanner speed by device (stats/speed.json, ms per system -> systems/min), top Atlas scouts
+  // (views/finders.csv through dvFinder.load, which already drops blocked names), and this session's own rate (renderNow)
+  function sideStats() {
+    const devName = { phone: "Phone", tablet: "Tablet", pc: "PC" };
+    const per = (ms) => (Number(ms) > 0 ? 60000 / Number(ms) : null), pm = (v) => (v == null ? "—" : `${v >= 10 ? Math.round(v) : v.toFixed(1)} / min`);
+    fetch("stats/speed.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((s) => {
+      const box = $("cs-speed"); if (!box) return;
+      const rows = Object.keys((s && s.by_dev) || {}).filter((k) => s.by_dev[k] && per(s.by_dev[k].avg ?? s.by_dev[k].p50) !== null)
+        .sort((a, b) => ["phone", "tablet", "pc"].indexOf(a) - ["phone", "tablet", "pc"].indexOf(b))
+        .map((k) => `<div><dt>${esc(devName[k] || k)}</dt><dd>${pm(per(s.by_dev[k].avg ?? s.by_dev[k].p50))}</dd></div>`);
+      box.innerHTML = rows.length ? rows.join("") : `<div><dt>No speed data yet</dt><dd></dd></div>`;
+      const n = s && Number(s.systems), note = $("cs-speed-note");
+      if (note) note.textContent = n ? `Average per device, from ${fmt(n)} timed scans.` : "";
+    });
+    const F = window.dvFinder;
+    if (F && F.on && F.on()) F.load().then((m) => {
+      if (!m || !m.size) return;
+      const c = new Map(); for (const v of m.values()) c.set(v, (c.get(v) || 0) + 1);
+      const top = [...c].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5);
+      $("cs-scouts").innerHTML = top.map(([name, k]) => `<li><span>${esc(name)}</span><b>${fmt(k)}</b></li>`).join("");
+      $("cs-scouts").hidden = $("cs-scouts-title").hidden = false;
+    }).catch(() => {});
+  }
+
   async function init() {
     await (window.dvGateReady || Promise.resolve());
     setup();
@@ -535,6 +580,7 @@
     const singles = fetch("index/singles.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).then((t) => Math.max(0, t.split(/\r?\n/).filter((l) => l && !l.startsWith("#")).length - 1)).catch(() => 0);
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null), singles])
       .then(([s, n]) => { lists = s && s.map_lists || null; if (s) s.singles = n; showStats(s); });
+    sideStats();
     const [text] = await Promise.all([
       fetch("stats/work.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
       manifest().catch((e) => { logFailure({ step: "manifest", error: "downloading the scanner info (scan/w29.json): " + e.message }); note = "The scanner could not start (network problem). Reload the page to try again."; }),
@@ -545,6 +591,7 @@
     let total = 0;
     for (const l of work) for (const i of l.idx) if (!known.has(addressOf(l, i))) total++;
     $("cb-waiting").textContent = work.length ? fmt(total) : "—";
+    const csw = $("cs-waiting"); if (csw) csw.textContent = work.length ? fmt(total) : "—";
     state = !version ? "error" : work.length ? "ready" : "nowork";
     // persistent on this browser: show the last session; resume when it was scanning when the page was left
     const saved = jsonGet(SESSION_KEY, null);

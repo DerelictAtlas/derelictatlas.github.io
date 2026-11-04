@@ -176,3 +176,24 @@
 .cb-finder input[aria-invalid="true"] { border-color: #ff7a7a; }
 .cb-finder .cb-small { margin: 0; }
 .cb-finder .cb-small.bad { color: #ff9a9a; }
+
+/* v143t: manual scroll anchoring in contribute.js (anchored) */
+html, body { overflow-anchor: none; }
+
+/* v143t side panel "Atlas scanning" (contribute.html .cb-layout > main + aside.cb-side) */
+.cb-side { max-width: 880px; margin: 0 auto; padding: 0 16px 48px; }
+.cs-stats { margin: 10px 0 0; display: grid; gap: 6px; }
+.cs-stats > div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #7395b322; }
+.cs-stats dt { color: var(--muted, #94a9bc); font-size: 13px; }
+.cs-stats dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cs-stats .gold dd { color: var(--gold, #f4cd54); }
+.cb-side-card h3 { margin: 16px 0 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #94a9bc); }
+.cs-scouts { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
+.cs-scouts li { padding: 3px 0; }
+.cs-scouts li span { display: inline-block; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.cs-scouts li b { float: right; color: var(--gold, #f4cd54); font-variant-numeric: tabular-nums; }
+@media (min-width: 1240px) {
+  .cb-layout { display: grid; grid-template-columns: minmax(0, 880px) 300px; gap: 8px; justify-content: center; align-items: start; }
+  .cb-layout .cb-main { margin: 0; max-width: none; width: 100%; }
+  .cb-side { margin: 0; padding: 20px 16px 48px 0; position: sticky; top: 0; }
+}
