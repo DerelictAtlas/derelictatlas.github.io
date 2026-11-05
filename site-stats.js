@@ -146,6 +146,7 @@
     s.addEventListener("pointerleave", () => { const tip = s.querySelector(".gc-tip"); if (tip) tip.hidden = true; s.querySelectorAll(".gc-col path").forEach((p) => p.setAttribute("fill", BAR)); });
     const route = () => {
       if (location.hash !== "#/stats") return;
+      if (window.dvOpenInfoTab) { window.dvOpenInfoTab("stats"); return; }
       if (!dialog.open) dialog.showModal();
       open();
       s.scrollIntoView({ block: "start" });

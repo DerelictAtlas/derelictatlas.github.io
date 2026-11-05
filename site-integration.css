@@ -673,3 +673,67 @@ a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .4
 /* Report under Copy, at the bottom of the glyph area */
 .site-strip-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 10px; flex: none; align-self: stretch; }
 .site-strip-actions .site-report-slot { margin: 0; }
+
+/* SITE12 ABOUT-EMBED (2026-11-04): fit the About tab and show the hosted widget beside its credits. */
+.si-about-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 12px; align-items: start; }
+.si-about-main { min-width: 0; display: grid; align-content: start; gap: 7px; }
+.si-about-main > *, .si-about-slot, .si-info #site-about, .si-info #site-about .site-about-cards, .si-info #site-about .site-about-cards > * { min-width: 0; max-width: 100%; }
+.si-info #site-about .site-about-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.si-about-main .si-credits-title { margin: 2px 0 1px; }
+.si-about-main .si-credits { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.si-about-main .si-credit { min-width: 0; padding: 7px 9px; }
+.si-about-main .si-credit small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-about-main .si-credit p { display: none; }
+.si-about-main .si-credit.open p { display: block; -webkit-line-clamp: 3; }
+.si-about-main .si-links { margin-top: 0; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-about-main .si-foot { margin-top: 1px; padding-top: 6px; }
+.si-info #site-about .site-about-cards { gap: 7px; margin-top: 6px; }
+.si-info #site-about .site-facsimile { padding: 7px 9px; }
+.si-info #site-about .site-facsimile p { font-size: 11.5px; line-height: 1.35; margin: 3px 0 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.si-info #site-about > p:not(.site-muted) { font-size: 11.5px; line-height: 1.3; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.si-info #site-about > p.site-muted { font-size: 11px; line-height: 1.2; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-about-embed { min-width: 0; padding: 11px; border: 1px solid #55d9dc55; border-radius: 10px; background: linear-gradient(145deg, #55d9dc0d, #0a1c2a9c); }
+.si-about-embed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.si-about-kicker { color: var(--accent, #55d9dc); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.si-about-embed h4 { margin: 2px 0 0; font-size: 15px; }
+.si-about-embed-head > a { flex: none; color: var(--accent, #55d9dc); font-size: 11px; font-weight: 700; text-decoration: none; }
+.si-about-embed-head > a:hover { text-decoration: underline; }
+.si-about-embed > p { margin: 5px 0 8px; color: var(--muted, #94a9bc); font-size: 11px; line-height: 1.35; }
+.si-about-preview { display: block; width: 100%; height: 146px; border: 1px solid var(--line, #7395b340); border-radius: 8px; background: #07131e; }
+@media (max-width: 700px) {
+  .si-about-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 8px; }
+  .si-panels { padding: 8px 10px; }
+  .si-about-embed { padding: 8px; }
+  .si-about-preview { height: 146px; }
+  .si-info #site-about .site-about-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+  .si-about-layout { grid-template-columns: minmax(0, 1fr); }
+  .si-about-embed { grid-row: 1; }
+  .si-about-preview { height: 146px; }
+  .si-about-main .si-credits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .si-about-main .si-credit { padding: 6px 7px; }
+  .si-about-main .si-credit p { -webkit-line-clamp: 1; }
+}
+
+.si-module-stats { margin-top: 14px; }
+.si-module-stats h3 { margin: 18px 0 6px; font-size: 14px; }
+.si-module-stats p { margin: 6px 0 10px; font-size: 12px; line-height: 1.5; }
+
+/* one module chart (user 2026-11-05): bar, atlas count, per-galaxy estimate, share on the right; predicted rows below the last observed row */
+.si-hist.si-dist > div { grid-template-columns: 30px minmax(36px, 1fr) 62px 62px 112px; gap: 8px; }
+.si-dist em, .si-dist strong { font-style: normal; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.si-dist em { color: var(--muted, #94a9bc); white-space: nowrap; }
+.si-dist-head em { white-space: normal; }
+.si-hist.si-dist > .si-dist-head { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.si-dist-head i { height: 0; background: none; }
+.si-dist-head span, .si-dist-head b, .si-dist-head em, .si-dist-head strong { color: var(--muted, #94a9bc); font-weight: 600; }
+.si-hist.si-dist > .si-dist-sep { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line, #7395b340); }
+.si-dist-sep span { display: block; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #94a9bc); }
+.si-dist .predicted span, .si-dist .predicted b, .si-dist .predicted strong { color: var(--muted, #94a9bc); font-weight: 500; }
+.si-dist .predicted i { width: 6px; height: 7px; border: 1px dashed var(--muted, #94a9bc); border-radius: 2px; background: none; }
+.si-hist.si-dist > .predicted.last b { grid-column: 3 / -1; }
+@media (max-width: 560px) {
+  .si-hist.si-dist > div { grid-template-columns: 24px minmax(20px, 1fr) 50px 50px 92px; gap: 5px; font-size: 11px; }
+  .si-hist.si-dist > .si-dist-head { font-size: 9px; letter-spacing: 0; }
+}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Embed on your site · Derelict Atlas</title>
+<link rel="icon" href="brand/icon-64.png" type="image/png">
+<link rel="stylesheet" href="embed.css">
+</head>
+<body class="ea-setup">
+<main class="es-main">
+  <div><a href="./#/">← Back to the atlas</a></div>
+  <h1>Embed a derelict on your site</h1>
+  <p class="es-note">Show the loot of one No Man's Sky derelict freighter on your own page. The widget scans the system in your visitor's browser with the Derelict Atlas scanner and shows the numbers you choose, plus a button that opens the full atlas. Nothing is uploaded and nothing is installed.</p>
+  <div class="es-cols">
+    <section class="es-panel">
+      <h2>1. Settings</h2>
+      <div class="es-row"><label for="es-glyphs">Portal glyphs (12 hex digits, e.g. 00970A60CCAB)</label><input type="text" id="es-glyphs" value="00970A60CCAB" maxlength="12" spellcheck="false" autocomplete="off"></div>
+      <div class="es-row"><label for="es-galaxy">Galaxy number, from 0 (0 = Euclid, shown as Galaxy N+1 for the others)</label><input type="text" id="es-galaxy" value="0" inputmode="numeric" maxlength="3"></div>
+      <div class="es-row"><span class="lbl">What you get</span><div class="es-choices" id="es-output" role="radiogroup" aria-label="What you get"></div></div>
+      <div class="es-row"><span class="lbl" id="es-fields-lbl">What to show</span><div class="es-checks" id="es-fields"></div></div>
+      <div class="es-row es-look"><span class="lbl">Layout</span><div class="es-choices" id="es-layout" role="radiogroup" aria-label="Layout"></div></div>
+      <div class="es-row es-look"><span class="lbl">Theme</span><div class="es-choices" id="es-theme" role="radiogroup" aria-label="Theme"></div></div>
+      <div class="es-row es-look"><span class="lbl">Wallpaper (the wallpapers are dark, so the widget uses the dark theme with them)</span><div class="es-choices es-walls" id="es-wallpaper" role="radiogroup" aria-label="Wallpaper"></div></div>
+      <div class="es-row es-look"><label for="es-accent">Accent colour (hex, optional, e.g. 55d9dc)</label><input type="text" id="es-accent" maxlength="7" spellcheck="false" autocomplete="off"></div>
+      <div class="es-row es-look"><label for="es-button">Button text (optional)</label><input type="text" id="es-button" maxlength="40" placeholder="Open in Derelict Atlas"></div>
+      <div class="es-row es-look"><label class="es-checks" style="display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="es-showglyphs" checked> Show portal glyphs</label></div>
+      <div class="es-row es-look"><label class="es-checks" style="display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="es-compact"> Compact</label></div>
+    </section>
+    <section class="es-panel">
+      <h2>2. Live preview</h2>
+      <iframe class="es-preview" id="es-preview" title="Widget preview"></iframe>
+      <p class="es-note" id="es-status"></p>
+    </section>
+  </div>
+  <section class="es-panel">
+    <h2>3. Copy this code into your page</h2>
+    <textarea class="es-code" id="es-code" readonly spellcheck="false"></textarea>
+    <p><button type="button" class="es-btn" id="es-copy">Copy code</button> <span class="es-note" id="es-copied"></span></p>
+    <p class="es-note" id="es-code-note">The small script is optional: it makes the frame as tall as its content.</p>
+  </section>
+  <section class="es-panel">
+    <h2>Developer notes</h2>
+    <p class="es-note">Parameters of <code>embed.html</code>: <code>glyphs</code> (12 hex, the first digit is the planet and is ignored) or <code>address</code> (16 hex); <code>galaxy</code> (0-based, default 0); <code>fields</code> (comma list of <code>modules, containers, crates, footlockers, briefcases, tall_lockers, rooms, decks, reward, loot, nanites, galaxy, hex</code>; default all of them); <code>theme</code> (<code>dark</code> by default, <code>light</code>, or <code>auto</code> to follow the visitor); <code>accent</code> (hex colour); <code>compact=1</code>; <code>button</code> (button text).</p>
+    <p class="es-note"><b>Raw data:</b> <code>raw=1</code> shows no widget. Keep the frame hidden and read the numbers from the message below; the result also has <code>url</code> (the system's atlas page) and <code>raw</code> (the scanner's values, including the ship preset, stairs and hangars). The scan still runs in your visitor's browser, so the data arrives a moment after the page loads. Please link back to <code>url</code> wherever you show it. Open the frame's address directly to see the JSON.</p>
+    <p class="es-note">More parameters: <code>layout</code> is feature (the default), tiles, rows, inline or cards; <code>show_glyphs=1</code> shows the portal glyphs; <code>wallpaper</code> is a background id: void, steel, amber, cobalt, aurora, rust, lunar, grid, dust or crimson.</p>
+    <p class="es-note">The end reward stays hidden behind a "Click to reveal" button, and is only included if you add <code>reward</code> to <code>fields</code>.</p>
+    <p class="es-note">The frame posts two messages to your page (<code>event.origin</code> is this site; check it before you trust the data):</p>
+    <pre>{ type: "derelict-atlas:result", v: 1, glyphs, address, galaxy, url,
+  data: { modules, containers, crates, footlockers, briefcases, tall_lockers,
+          rooms, decks, loot, nanites, reward? }, raw?, error? }
+{ type: "derelict-atlas:size", v: 1, height }</pre>
+    <p class="es-note"><b>Attribution:</b> please keep the "Open in Derelict Atlas" button visible (you may change its text). It is always shown and cannot be turned off.</p>
+  </section>
+</main>
+<script src="embed-setup.js"></script>
+</body>
+</html>

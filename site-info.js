@@ -48,7 +48,14 @@ ${card(I.device, "On your device", "Opening a system runs the scanner in your br
 ${card(I.search, "Not in the atlas yet?", "Search its glyphs or hex address and it is scanned on the spot, on your device. If it breaks into a top-100 list it is added to the atlas automatically; otherwise nothing is sent." + (window.dvFinder && window.dvFinder.on() ? " If you add a name, it is published with the systems you find first." : ""))}
 ${card(I.save, "Kept to save space", "The atlas keeps every number of every system for everyone; the 3D and 2D maps are kept only for the top-100 lists.")}</div>`;
     if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">Loading atlas statistics…</p></div><div class="si-speed" aria-live="polite"></div><div class="si-owner-stats"></div>`;
-    return `<div class="si-about-slot"></div>${creditsHtml()}<div class="si-owner-slot"></div><div class="si-foot"><span class="si-version-slot"></span><span class="si-actions-slot"></span></div>`;
+    return `<div class="si-about-layout">
+<div class="si-about-main"><div class="si-about-slot"></div>${creditsHtml()}<div class="si-owner-slot"></div>
+<div class="si-foot"><span class="si-version-slot"></span><span class="si-actions-slot"></span></div></div>
+<aside class="si-about-embed" aria-label="Embed preview">
+<div class="si-about-embed-head"><div><span class="si-about-kicker">LIVE WIDGET</span><h4>What visitors see</h4></div><a href="embed-setup.html" target="_blank" rel="noopener">Customize ↗</a></div>
+<p>It scans in their browser. Nothing is uploaded.</p>
+<iframe class="si-about-preview" data-src="embed.html?glyphs=00970A60CCAB&amp;show_glyphs=1&amp;fields=modules,reward,containers" title="Live Derelict Atlas embed preview" loading="lazy"></iframe>
+</aside></div>`;
   }
 
   // credits out in the open (user 2026-10-31): cards, each description two lines until it is clicked
@@ -64,17 +71,53 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
     if (statsLoaded) return;
     statsLoaded = true;
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      window.dvSinglesCount ? window.dvSinglesCount() : 0]).then(([s, singles]) => {
+      window.dvSinglesCount ? window.dvSinglesCount() : 0,
+      fetch("stats/speed.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)]).then(([s, singles, speed]) => {
       if (!s) { box.innerHTML = `<p class="site-muted">Atlas statistics are not available right now.</p>`; statsLoaded = false; return; }
       const cap = Number(s.rules && s.rules.atlas_cap) || 1e6, total = (Number(s.total_systems) || 0) + (singles || 0), pct = Math.min(100, total / cap * 100);
       const regions = Object.values(s.galaxies || {}).reduce((a, g) => a + (g.regions || 0), 0);
-      const h = (s.modules && s.modules.histogram) || [], max = Math.max(1, ...h);
+      const h = Array.isArray(s.modules && s.modules.histogram) ? s.modules.histogram : [], max = Math.max(1, ...h);
+      // RE W29d sampled 6,116 random regions across 256 galaxy IDs. Scale to one average galaxy only;
+      // the sample does not prove equal galaxy totals. Purple systems follow a separate rule and are excluded.
+      const SAMPLE_VALID = 2897728, SAMPLE_REGIONS = 6116, scaleDenom = SAMPLE_VALID / SAMPLE_REGIONS * 2 ** 32;
+      const sig2 = (v) => { const n = Number(Number(v).toPrecision(2)), unit = (x, suffix) => `${x >= 100 ? Math.round(x) : x.toPrecision(2)}${suffix}`; return n >= 1e12 ? unit(n / 1e12, "T") : n >= 1e9 ? unit(n / 1e9, "B") : n >= 1e6 ? unit(n / 1e6, "M") : n >= 1e4 ? unit(n / 1e3, "K") : fmt(n); };
+      const pctSig = (p) => (p >= 1 ? Number(p.toPrecision(2)).toString() : p.toFixed(Math.ceil(-Math.log10(p)) + 1)) + "%";
+      const moduleDenom = Number(s.total_systems) || h.reduce((a, n) => a + (Number(n) || 0), 0);
+      const moduleMax = h.length - 1, histTotal = h.reduce((a, n) => a + Number(n || 0), 0);
+      const moduleUnknown = s.modules && s.modules.unknown != null ? fmt(s.modules.unknown) : "unavailable";
+      const tailStart = Math.max(0, moduleMax - 3), tailSpan = moduleMax - tailStart;
+      const tailRate = tailSpan > 0 && Number(h[tailStart]) > 0 ? Math.pow(Number(h[moduleMax]) / Number(h[tailStart]), 1 / tailSpan) : 0;
+      const tailWeight = tailRate > 0 && tailRate < 1 ? Number(h[moduleMax]) * tailRate / (1 - tailRate) : 0;
+      const modelWeight = histTotal + tailWeight, modelScale = modelWeight > 0 ? scaleDenom / modelWeight : 0;
+      const distRows = h.map((n, m) => `<div class="${m >= 5 ? "rare" : ""}" title="${fmt(n)} atlas systems with ${m} module${m === 1 ? "" : "s"}"><span>${fmt(m)}</span><i style="width:${Math.max(n ? 0.8 : 0, n / max * 100).toFixed(2)}%"></i><b>${fmt(n)}</b><em>&asymp; ${sig2(Number(n || 0) * modelScale)}</em><strong>${(moduleDenom ? Number(n) / moduleDenom * 100 : 0).toFixed(4)}%</strong></div>`);
+      if (tailRate > 0 && tailRate < 1 && modelWeight > 0) {
+        distRows.push(`<div class="si-dist-sep"><span>Predicted by the model, never observed</span></div>`);
+        let weight = Number(h[moduleMax]) * tailRate;
+        for (let m = moduleMax + 1; m < 100; m++) {
+          if (weight * modelScale < 1) { distRows.push(`<div class="predicted last" title="Where the model runs out, not a maximum"><span>${fmt(m)}+</span><i></i><b>Below 1 expected per galaxy</b></div>`); break; }
+          distRows.push(`<div class="predicted" title="Predicted by the model, not observed"><span>${fmt(m)}</span><i></i><b>&mdash;</b><em>&asymp; ${sig2(weight * modelScale)}</em><strong>${pctSig(weight / modelWeight * 100)}</strong></div>`);
+          weight *= tailRate;
+        }
+      }
+      const lastRate = moduleMax > 0 && Number(h[moduleMax - 1]) > 0 ? Number(h[moduleMax]) / Number(h[moduleMax - 1]) : 0;
+      const lastTailWeight = lastRate > 0 && lastRate < 1 ? Number(h[moduleMax]) * lastRate / (1 - lastRate) : 0;
+      const lastNext = histTotal + lastTailWeight > 0 ? scaleDenom * Number(h[moduleMax]) * lastRate / (histTotal + lastTailWeight) : 0;
+      const speedAvg = Number(speed && speed.overall && speed.overall.avg), speedN = Number(speed && speed.overall && speed.overall.n);
+      const scanYears = speedAvg > 0 ? scaleDenom * speedAvg / 1000 / 31557600 : 0;
+      const scanDuration = scanYears >= 1e6 ? `${Number((scanYears / 1e6).toPrecision(2)).toFixed(1)} million years` : scanYears >= 1000 ? `${fmt(Number((scanYears / 1000).toPrecision(2)) * 1000)} years` : `${fmt(Math.round(scanYears))} years`;
+      const scanText = scanYears ? `<h3>Time to scan one average galaxy</h3><p>At the recorded scanner average of ${fmt(speedAvg)} ms per system, one scanner thread working without a break would need about <b>${scanDuration}</b> for the ~${sig2(scaleDenom)} per-galaxy estimate. That average comes from only ${fmt(speedN)} recorded systems on few devices and times only the scan step, not downloads or uploads, so treat it as a rough scale.</p>` : "";
       box.innerHTML = `<div class="si-tiles4">
 <div><b>${fmt(total)}</b><span>Systems</span></div><div><b>${fmt(regions)}</b><span>Regions</span></div>
 <div><b>${fmt(s.maps && s.maps.total)}</b><span>Systems with a map</span></div><div><b>${fmt(s.tiers && s.tiers.full)}</b><span>With all numbers</span></div></div>
 <div class="si-progress"><div class="si-progress-label"><span>Road to ${fmt(cap)}</span><b>${pct.toFixed(1)} %</b></div><div class="si-bar"><i style="width:${pct.toFixed(2)}%"></i></div></div>
 <div class="si-hist-title">Systems by Salvaged Frigate Modules</div>
-<div class="si-hist">${h.map((n, m) => `<div class="${m >= 5 ? "rare" : ""}" title="${fmt(n)} systems with ${m} module${m === 1 ? "" : "s"}"><span>${m}</span><i style="width:${Math.max(n ? 0.8 : 0, n / max * 100).toFixed(2)}%"></i><b>${fmt(n)}</b></div>`).join("")}</div>`;
+<div class="si-hist si-dist"><div class="si-dist-head"><span>Mod.</span><i></i><b>Atlas</b><em>Per galaxy</em><strong>Share</strong></div>${distRows.join("")}</div>
+<section class="si-module-stats"><p>Atlas: the systems actually in the Galaxy 0 atlas snapshot (<code>stats/systems.json</code>, ${fmt(moduleDenom)} systems; module counts unknown: ${moduleUnknown}). Per galaxy: the model's estimate for one average galaxy. Share: of the atlas for 0&ndash;${fmt(moduleMax)}, of the model for predicted rows.</p>
+<p>The highest counts seen so far are ${fmt(moduleMax)} definite and 5 ambiguous modules. The true maximum is not established; nothing here says higher counts are impossible.</p>
+<h3>Per-galaxy system estimate</h3><p>The reverse-engineered sample covered ${fmt(SAMPLE_REGIONS)} random regions across 256 galaxy IDs, with ${fmt(SAMPLE_VALID)} normal valid system indices after excluding index 000. Scaling its average of ${(SAMPLE_VALID / SAMPLE_REGIONS).toFixed(1)} per region to 2<sup>32</sup> regions gives about <b>${sig2(scaleDenom)} normal systems per galaxy on average</b>. This does not verify that galaxies have equal totals; the all-galaxy total remains unknown. Purple systems are separate and excluded.</p>
+<h3>How the module model works</h3><p>These are model values, not counts. Modules 0&ndash;${fmt(moduleMax)} scale the Galaxy 0 atlas shares. Above ${fmt(moduleMax)} nothing has been measured, so the tail continues the decline over modules ${fmt(tailStart)}&ndash;${fmt(moduleMax)}: each extra module keeps r = (${fmt(h[moduleMax])} / ${fmt(h[tailStart])})<sup>1/${fmt(tailSpan)}</sup> = ${(tailRate * 100).toFixed(1)}% of the previous count. The fit uses the latest four observed bins, so a new 8-module bin updates r and all tail values on the next stats refresh. Values are rounded to 2 significant figures.</p>
+<p>Limits: Galaxy 0 module shares are extrapolated to an average-per-galaxy denominator, an unverified assumption. The atlas is not a random sample of regions, and the sampled valid indices are not each confirmed to hold a derelict. &ldquo;Below 1 expected&rdquo; is where the model runs out, not a maximum. Sensitivity: using only the last observed step (${(lastRate * 100).toFixed(1)}%) gives about ${sig2(lastNext)} systems at ${fmt(moduleMax + 1)} modules per average galaxy.</p>
+${scanText}</section>`;
     });
   }
 
@@ -83,9 +126,21 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
     if (!dialog) return;
     for (const b of dialog.querySelectorAll(".si-tab")) { const on = b.dataset.tab === name; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; }
     for (const p of dialog.querySelectorAll(".si-panel")) p.hidden = p.dataset.tab !== name;
+    if (name === "about") {
+      const preview = dialog.querySelector(".si-about-preview");
+      if (preview && !preview.dataset.loaded) { preview.src = preview.dataset.src; preview.dataset.loaded = "true"; }
+    }
     if (name === "stats") { loadStats(dialog.querySelector(".si-stats")); if (window.dvPerf) window.dvPerf.speedCard(dialog.querySelector(".si-speed")); }
     try { sessionStorage.setItem(TAB_KEY, name); } catch (_) {}
   }
+  function openInfoTab(name) {
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+    show(name);
+    dialog.querySelector(".si-panels")?.scrollTo({ top: 0 });
+  }
+  window.dvOpenInfoTab = openInfoTab;
+  window.addEventListener("hashchange", () => { if (location.hash === "#/stats") openInfoTab("stats"); });
   // late sections from site-stats.js go into their tabs
   function place(el) {
     if (!dialog || !el || el.parentElement !== dialog) return;
@@ -137,6 +192,11 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
       if (si.dataset.si === "welcome") { dialog.close(); if (globalThis.dvShowWelcome) globalThis.dvShowWelcome(); }
       else if (si.dataset.si === "coffee") { const c = $("support-link"); if (c && !c.hidden && c.href) window.open(c.href, "_blank", "noopener"); }
     });
+    window.addEventListener("message", (e) => {
+      const f = dialog && dialog.querySelector(".si-about-preview");
+      if (!f || e.origin !== location.origin || e.source !== f.contentWindow || !e.data || e.data.type !== "derelict-atlas:size") return;
+      f.style.height = Math.max(106, Math.min(760, (Number(e.data.height) || 0) + 2)) + "px";
+    });
     body.querySelector(".si-tabs").addEventListener("keydown", (e) => {
       const keys = TABS.map(([k]) => k), cur = keys.indexOf((dialog.querySelector(".si-tab.on") || {}).dataset?.tab);
       const next = e.key === "ArrowDown" || e.key === "ArrowRight" ? cur + 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? cur - 1 : null;
@@ -149,6 +209,7 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
     let first = "overview";
     try { first = sessionStorage.getItem(TAB_KEY) || first; } catch (_) {}
     show(TABS.some(([k]) => k === first) ? first : "overview");
+    if (location.hash === "#/stats") openInfoTab("stats");
     // the coffee tile says when the support link is not connected yet
     new MutationObserver(syncCoffee).observe(dialog, { attributes: true, attributeFilter: ["open"] });
     syncCoffee();
