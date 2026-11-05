@@ -330,7 +330,9 @@ reason, closed; reasons name columns, never echo issue text):
   `items_all` (when filled) parses, is sorted by value then label, and sums to `items_value` (as
   `build_top_bundle.items_all_cells`). Integer ranges (max = ceil(1.5 x the largest value published on 2026-11-02):
   rooms 0-20, crates 0-116, footlockers 0-59, floors 0-6, stairs 0-14, hangars 0-17, briefcases 0-93, tall_lockers
-  0-303, frigate_modules 0-7, frigate_modules_ambiguous 0-7 (a count), reward_ambiguous 0-1, map 0, galaxy 0-255;
+  0-303, frigate_modules and frigate_modules_ambiguous are canonical nonnegative decimal counts matching the exact
+  cardinality of frigate_module_ids and frigate_module_alt_ids respectively (no fixed upper bound; row max 4,000
+  characters), reward_ambiguous 0-1, map 0, galaxy 0-255;
   items_value* 0-17,324,091, items_nanites* 0-6,995, items_ambiguous 0-189, end_reward_value 0-18,000, spookbox_value
   0-840,000, items_units* 0-591,935, spookbox_ambiguous 0-1; reward_class S/A/B/C/empty;
 - (c) scanner: every record's `fp` must be the tables fingerprint of the live `scan/w29.json` version

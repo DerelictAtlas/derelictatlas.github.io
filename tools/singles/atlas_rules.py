@@ -458,21 +458,22 @@ V3_EXTRAS_COLS = V3_EXTRAS_HEADER.split(",")
 V3_MAX_LINE = 4000              # characters per row / extras line
 # Integer cells: (lowest, highest, required). highest = ceil(1.5 x the largest value published on 2026-11-02 (index:
 # 324,874 rows; extras: the 971 rows of views/extras.csv.gz + 4 singles); for a value group (value/min/max) the group's
-# largest); fixed: galaxy 0-255, map 0 (no maps are uploaded), 0/1 flags, frigate modules 0-7 (the most the game has).
+# largest); fixed: galaxy 0-255, map 0 (no maps are uploaded), 0/1 flags. Module counts are canonical nonnegative decimals matched to ID-list cardinality.
 # Published maxima: rooms 13, crates 77, footlockers 39, floors 4, stairs 9, hangars 11, briefcases 62, tall_lockers
 # 202, frigate_modules_ambiguous 5; items_value* 11,549,394, items_nanites* 4,663, items_ambiguous 126,
 # end_reward_value 12,000, spookbox_value 560,000, items_units* 394,623.
 V3_ROW_INTS = {"galaxy": (0, 255, True), "rooms": (0, 20, True), "crates": (0, 116, True),
                "footlockers": (0, 59, True), "floors": (0, 6, True), "stairs": (0, 14, True), "hangars": (0, 17, True),
                "map": (0, 0, True), "briefcases": (0, 93, False), "tall_lockers": (0, 303, False),
-               "reward_ambiguous": (0, 1, False), "frigate_modules": (0, 7, True),
-               "frigate_modules_ambiguous": (0, 7, True)}
+               "reward_ambiguous": (0, 1, False)}
+V3_ROW_COUNTS = ("frigate_modules", "frigate_modules_ambiguous")
 V3_EXTRAS_INTS = {"spookbox_ambiguous": (0, 1), "items_value": (0, 17324091), "items_value_min": (0, 17324091),
                   "items_value_max": (0, 17324091), "items_nanites": (0, 6995), "items_nanites_direct": (0, 6995),
                   "items_nanites_refiner": (0, 6995), "items_nanites_min": (0, 6995), "items_nanites_max": (0, 6995),
                   "items_ambiguous": (0, 189), "end_reward_value": (0, 18000), "spookbox_value": (0, 840000),
                   "items_units": (0, 591935), "items_units_min": (0, 591935), "items_units_max": (0, 591935)}
 _V3_INT = re.compile(r"0|[1-9][0-9]{0,8}")
+_V3_COUNT = re.compile(r"(?:0|[1-9][0-9]*)")  # canonical nonnegative count; row-size bound limits its representation
 _V3_DOTS = re.compile(r"(?:[0-9]{1,3}(?:\.[0-9]{1,3})*)?")
 _V3_BOX = r"[0-9]{1,2}x[0-9]{1,2}"
 V3_ROW_TEXT = {"glyphs": re.compile(r"0[0-9A-F]{11}"), "preset": re.compile(r"[A-Z0-9_]{1,40}"),
@@ -521,6 +522,14 @@ def _v3_int(r, col, lo, hi, required, what):
     if not _V3_INT.fullmatch(v) or not lo <= int(v) <= hi:
         raise ValueError("%s %s is not an integer %d-%d" % (what, col, lo, hi))
     return int(v)
+
+
+def _v3_count(r, col, what):
+    """Canonical nonnegative decimal count, returned as text to avoid integer-size limits."""
+    v = r[col]
+    if not _V3_COUNT.fullmatch(v):
+        raise ValueError("%s %s is not a nonnegative canonical integer" % (what, col))
+    return v
 
 
 def v3_items(cell, what):
@@ -610,9 +619,15 @@ def v3_check_row(line):
     if r["glyphs"][1:4] == "000":
         raise ValueError("row glyphs: system index 000 is not a system")
     ints = {c: _v3_int(r, c, lo, hi, req, "row") for c, (lo, hi, req) in V3_ROW_INTS.items()}
+    counts = {c: _v3_count(r, c, "row") for c in V3_ROW_COUNTS}
     ids = r["frigate_module_ids"]
-    if (len(ids.split(".")) if ids else 0) != ints["frigate_modules"]:
+    nids = len(ids.split(".")) if ids else 0
+    if counts["frigate_modules"] != str(nids):
         raise ValueError("row frigate_module_ids does not list frigate_modules modules")
+    alt_ids = r["frigate_module_alt_ids"]
+    nalt = len(alt_ids.split(".")) if alt_ids else 0
+    if counts["frigate_modules_ambiguous"] != str(nalt):
+        raise ValueError("row frigate_module_alt_ids does not list frigate_modules_ambiguous modules")
     g = r["glyphs"]
     return "000%s%02X%s" % (g[1:4], ints["galaxy"], g[4:]), r
 
