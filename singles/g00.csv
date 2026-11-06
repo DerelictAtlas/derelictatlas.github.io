@@ -1,5 +1,5 @@
 # nms-derelict-atlas singles format 1: galaxy 0
-# generator singles-action 1 (w29g scan wasm, tables 179082 bytes, map 83742 bytes, tables fingerprint b93f4648ae1ce158); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-04T03:20:01Z
+# generator singles-action 1 (w29g scan wasm, tables 179082 bytes, map 83742 bytes, tables fingerprint b93f4648ae1ce158); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-06T01:06:47Z
 # inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
 glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
 000100000008,CARGO_BUGS,11,25,10,3,3,0,34,18,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,R_S_CARG:6/3|B_BUG_BARR:0/0|R_BUG_CARG:7/0|R_S_BUG_BARR:0/1|B_BUG_BARR:0/0|R_BUG_CARG:5/0|B_BUG_CARG:1/0|R_BUG_CARG:4/0|B_BUG_CARG:0/0|R_BUG_BARR:1/2|R_END:1/4,147179f093865767
@@ -5022,6 +5022,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01DC02608CA6,CARGO_TURRETS,7,15,14,3,4,3,15,20,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,4aece02050e265bb
 01DC04609CA5,MEDI_BUGS,10,7,5,2,3,0,21,26,Salvaged Fleet Beacon,C,0,,0,0,,,,,246daefec2d21997
 01DC05602CAA,CARGO_MAZE,7,17,19,1,0,0,20,67,Salvaged Fleet Exploration Unit,C,0,,2,0,2,11.20,,,fe227deb61625f80
+01DC05602CAC,CARGO_TURRETS,9,30,18,2,3,4,20,16,A-Class Reactor,A,0,,8,0,1.3.4,7.10.15.20.25.28.29.30,,R_S_BARR:0/2|R_CARG:9/3|B_BARR:0/0|R_S_CARG:6/1|R_CARG:9/4|B_CARG:2/0|R_BARR:2/4|R_HANG:1/1|R_END:1/3,139d2eddf23f31b6
 01DC0560CCA9,MEDI_BUGS,12,8,6,4,3,0,24,6,C-Class Reactor,C,1,Salvaged Fleet Mining Unit C,0,0,,,,,5ea8ae2d2eae6e02
 01DC0560CCAC,CARGO_TURRETS,10,33,7,4,3,3,28,27,Salvaged Fleet Exploration Unit,C,0,,2,0,5.6,15.25,,,4b6baeda75706c71
 01DC08602CA9,CARGO_BUGS,11,17,15,3,2,0,28,30,Salvaged Fleet Mining Unit,A,0,,1,0,7,17,,,2bc05db73afddc40
