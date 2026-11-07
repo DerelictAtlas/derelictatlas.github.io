@@ -104,7 +104,10 @@
     $("cb-regions").textContent = fmt(g.reduce((a, x) => a + (x.regions || 0), 0));
     $("cb-full").textContent = s.tiers ? fmt(s.tiers.full) : "—";
     $("cb-maps").textContent = s.maps && s.maps.total != null ? fmt(s.maps.total) : "—";
-    const h = (s.modules && s.modules.histogram) || [], max = Math.max(1, ...h);
+    // snapshot histogram + the published singles (stats/systems.json counts none of them), as the Statistics tab shows it
+    const h = ((s.modules && Array.isArray(s.modules.histogram)) ? s.modules.histogram : []).map(Number);
+    (s.singlesHist || []).forEach((n, m) => { while (h.length <= m) h.push(0); h[m] += Number(n) || 0; });
+    const max = Math.max(1, ...h);
     $("cb-hist").innerHTML = h.map((n, m) => `<div class="cb-hrow${m >= 5 ? " rare" : ""}" role="row" title="${fmt(n)} systems with ${m} Salvaged Frigate Module${m === 1 ? "" : "s"}">`
       + `<span role="rowheader">${m}</span><span class="cb-htrack" role="cell"><i style="width:${Math.max(n ? 0.8 : 0, n / max * 100).toFixed(2)}%"></i></span><b role="cell">${fmt(n)}</b></div>`).join("");
   }
@@ -205,7 +208,7 @@
         dev.found++; session.found++; session.mods += Number(m) || 0;
         if (relay()) {
           if (d.v3 && d.v3.row && d.v3.extras) outbox.push({ a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras, ms: d.ms, p: r.preset || "", sp: speed });
-          else logFailure({ address: a, mode: "contribute", step: "upload", error: "not sent: " + (d.v3err || "no upload lines") });
+          else { logFailure({ address: a, mode: "contribute", step: "upload", error: "not sent: " + (d.v3err || "no upload lines") }); upMark([a], CODE.notSent); upEvent("notsent", 1, "the scanner gave no upload lines"); }
         }
         const entry = { a, m, amb: r.frigate_modules_ambiguous ? 1 : 0, t, v: r.items_value == null || r.items_value === "" ? null : Number(r.items_value),
           rw: r.reward_class ? `${r.reward_class} · ${r.reward_name || ""}` : "", p: r.preset || "" };
@@ -213,7 +216,7 @@
         item = { a, m, amb: entry.amb, t, rw: entry.rw, p: entry.p, rooms: r.rooms, floors: r.floors };
         const top = globalThis.dvTopLists ? globalThis.dvTopLists.breaks(r, r, lists) : [];
         item.top = top.map((x) => x.label);
-        if (top.length) { dev.top++; celebrate(`★ Top 100! ${item.top.join(", ")}`, true); }
+        if (top.length) { dev.top++; keepTop(a, item.top); celebrate(`★ Top 100! ${item.top.join(", ")}`, true); }
         else if (m != null && m > prevBest && m >= 2) celebrate(`New best: ${m}${entry.amb ? "?" : ""} Salvaged Frigate Module${m === 1 ? "" : "s"}!`, m >= 5);
       } else {
         // status 4 never happens for a real system (RE W31): logged as unexpected; still reported to the atlas
@@ -328,9 +331,8 @@
     const F = globalThis.dvFinder, box = $("cb-finder"), input = $("cb-finder-name"), msg = $("cb-finder-msg");
     if (!F || !F.on() || !relay() || !box) return;
     box.hidden = false;
-    const sent = $("cb-finder-sent"); if (sent) sent.hidden = false;
     input.value = F.saved();
-    const note = "Leave it empty to stay anonymous. Saved on this device.";
+    const note = "Optional. Shown publicly as “Atlas scout” on the systems you find first.";
     msg.textContent = note;
     input.addEventListener("input", () => {
       const v = F.check(input.value);
@@ -345,8 +347,10 @@
     while (outbox.length && !fpOf(outbox[0].ver)) {
       const ver = outbox[0].ver;
       let n = 0;
-      while (outbox.length && outbox[0].ver === ver) { outbox.shift(); n++; }
+      const gone = [];
+      while (outbox.length && outbox[0].ver === ver) { gone.push(outbox.shift()); n++; }
       logFailure({ what: "relay", error: `not sent: scanner version "${ver.slice(0, 80)}" has no tables fingerprint`, n });
+      upMark(gone, CODE.notSent); upEvent("notsent", n, "this scanner version cannot be verified");
     }
   }
   function flush() {
@@ -358,13 +362,14 @@
     fetch(url, { method: "POST", body, keepalive: body.length < KEEPALIVE_MAX, mode: "cors", headers: { "Content-Type": "text/plain" } })
       .then((r) => {
         inFlight = null;
-        if (r.ok) { dev.sent += n; save(); render(); flush(); return; }
-        if (r.status === 429 || r.status === 503) { retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
+        if (r.ok) { dev.sent += n; upMark(b, CODE.sent); upEvent("sent", n); save(); render(); flush(); return; }
+        if (r.status === 429 || r.status === 503) { upEvent("retry", n, "the relay is busy, HTTP " + r.status); retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
         if (r.status === 413 && maxBytes > 16384) { maxBytes = Math.max(16384, maxBytes >> 1); putBack(b); setTimeout(flush, 50); return; }
         // a body the relay refuses would be refused again: dropped, with the relay's reason in the log
-        r.text().catch(() => "").then((why) => logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }));
+        upMark(b, CODE.refused);
+        r.text().catch(() => "").then((why) => { logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }); upEvent("refused", n, "HTTP " + r.status + (why ? ": " + String(why).slice(0, 120) : "")); });
       })
-      .catch((err) => { inFlight = null; retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); });
+      .catch((err) => { inFlight = null; retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); upEvent("retry", n, "no connection to the relay"); });
   }
   // leaving the page: whatever is not sent yet (and the batch in flight; a duplicate answers 200) goes by sendBeacon
   function lastChance() {
@@ -374,11 +379,279 @@
     dropUnsendable();
     while (outbox.length) {
       const b = takeBatch(KEEPALIVE_MAX - 2000);
-      try { navigator.sendBeacon && navigator.sendBeacon(url, new Blob([bodyOf(b)], { type: "text/plain" })); } catch (_) {}
+      let handed = false;
+      try { handed = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([bodyOf(b)], { type: "text/plain" })); } catch (_) {}
+      upMark(b, handed ? CODE.handed : CODE.notSent);
+      upEvent(handed ? "handed" : "notsent", b.length, handed ? "" : "the browser would not send them as the page closed");
       dropUnsendable();
     }
   }
   setInterval(flush, FLUSH_MS);
+
+  // ---- "Your uploads" (user 2026-11-06: "it needs a log in it where it shows the state of uploads and state of published maps") ----
+  // What was published is read from the atlas's own lists (index/singles.csv, singles/none.csv, views/map-lists.txt,
+  // views/top100.json; the index shards for addresses that are not on the work list). What was sent is recorded per address
+  // from 2026-11-06 on (dv.contrib.pending). Older scans have no such record, and none is made up for them: they count as
+  // "no send record" until they appear in the atlas. Pruned rows after the 1,000,000 cap are not in index/singles.csv.
+  const PEND_KEY = "dv.contrib.pending", UPLOG_KEY = "dv.contrib.uplog", TOPS_KEY = "dv.contrib.tops", ATLAS_KEY = "dv.contrib.inatlas", LOOK_KEY = "dv.scan.sent";
+  const MAX_PEND = 20000, MAX_UPLOG = 200, MAX_TOPS = 200, MAX_ROWS = 50, FRESH_MIN = 360, CLASSIFY_MS = 30000;
+  const CODE = { sent: 1, handed: 2, refused: 3, notSent: 4 };
+  const minuteNow = () => Math.floor(Date.now() / 60000);
+  const keyOf = (a) => "000" + String(a).slice(3).toUpperCase();
+  // one ADDRESS16 from a line of a published list: "ADDRESS16..." or "GLYPHS12,GALAXY,..." (galaxy in decimal)
+  function listAddresses(text) {
+    const out = [];
+    for (const m of String(text || "").matchAll(/^(?:([0-9A-Fa-f]{16})(?=[,\s]|$)|([0-9A-Fa-f]{12}),(\d{1,3})(?=,))/gm)) {
+      if (m[1]) out.push(m[1].toUpperCase());
+      else out.push(("000" + m[2].slice(1, 4) + Number(m[3]).toString(16).padStart(2, "0") + m[2].slice(4)).toUpperCase());
+    }
+    return out;
+  }
+  function upMark(list, code) {
+    if (!list.length) return;
+    const pend = jsonGet(PEND_KEY, {}), now = minuteNow();
+    for (const x of list) {
+      const a = typeof x === "string" ? x : x.a, had = pend[a];
+      if (code === CODE.handed && had && had[1] === CODE.sent) continue;   // already confirmed: the page close only re-sent it
+      pend[a] = [now, code];
+    }
+    let keys = Object.keys(pend);
+    if (keys.length > MAX_PEND) {
+      keys = keys.sort((x, y) => pend[x][0] - pend[y][0]).slice(0, keys.length - MAX_PEND);
+      for (const a of keys) delete pend[a];
+    }
+    jsonSet(PEND_KEY, pend);
+  }
+  function upEvent(k, n, why) {
+    const all = jsonGet(UPLOG_KEY, []), last = all[all.length - 1];
+    if (last && (k === "retry" || k === "notsent") && last.k === k && last.why === (why || "")) { last.n += n; last.c = (last.c || 1) + 1; last.t = Date.now(); }
+    else all.push({ t: Date.now(), k, n, why: why || "" });
+    jsonSet(UPLOG_KEY, all.slice(-MAX_UPLOG));
+    upLogShow();
+    upSoon();
+  }
+  function keepTop(a, labels) {
+    const all = jsonGet(TOPS_KEY, []).filter((x) => x.a !== a);
+    all.push({ a, l: labels });
+    jsonSet(TOPS_KEY, all.slice(-MAX_TOPS));
+  }
+  const when = (t) => new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const plural = (n, one, many) => `${fmt(n)} ${n === 1 ? one : many || one + "s"}`;
+  function upLine(e) {
+    const n = plural(e.n, "system"), why = e.why ? ` (${e.why})` : "";
+    const text = { sent: `Sent ${n}. The relay confirmed them.`,
+      retry: `Could not send ${n}${why}. They stay in the queue and are tried again${e.c > 1 ? `; happened ${fmt(e.c)} times` : ""}.`,
+      refused: `The relay refused ${n}${why}. They were dropped.`,
+      notsent: `${n[0].toUpperCase() + n.slice(1)} not sent${why}.`,
+      handed: `Page closed: ${n} handed to the browser to send. Whether they arrived is not confirmed.`,
+      published: `${fmt(e.n)} more of your ${e.n === 1 ? "systems is" : "systems are"} now in the atlas.`,
+      baseline: `First check: ${fmt(e.n)} of your systems ${e.n === 1 ? "is" : "are"} in the atlas. Uploads before this log started were not recorded.` }[e.k] || `${e.k} ${n}`;
+    return `${when(e.t)}  ${text}`;
+  }
+  const upLogText = () => jsonGet(UPLOG_KEY, []).slice().reverse().map(upLine).join("\n");
+  function upLogShow() {
+    const box = $("cu-log"); if (!box) return;
+    const all = jsonGet(UPLOG_KEY, []);
+    box.querySelector("summary").textContent = `Upload log (${fmt(all.length)})`;
+    box.querySelector("pre").textContent = upLogText() || "Nothing logged yet.";
+  }
+
+  // where each system stands: is it on the work list?
+  let workIdx = null, siteUpdated = "", listsFailed = false, classifying = false, classifyAgain = false, lastClassify = 0, classifyTimer = 0;
+  function onWork(a) {
+    if (!workIdx) { workIdx = new Map(); for (const l of work) workIdx.set(l.prefix, new Set(l.idx)); }
+    const s = workIdx.get(a.slice(6));
+    return !!s && s.has(parseInt(a.slice(3, 6), 16));
+  }
+  // the main index is 16 shards: crc32("<galaxy>:<REGION>") % 16 (build_atlas_index.py IDX7). Only the shards needed are read.
+  let crcTable = null;
+  function crc32(text) {
+    if (!crcTable) { crcTable = new Int32Array(256); for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[i] = c; } }
+    let crc = -1;
+    for (let i = 0; i < text.length; i++) crc = crcTable[(crc ^ text.charCodeAt(i)) & 255] ^ (crc >>> 8);
+    return (crc ^ -1) >>> 0;
+  }
+  const mainIn = new Set(), mainNo = new Set();
+  async function lookupMain(list) {
+    const m = await fetch("index/manifest.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (!m || !Array.isArray(m.shards)) return;
+    const by = new Map();
+    for (const a of list) {
+      const n = (crc32(parseInt(a.slice(6, 8), 16) + ":" + a.slice(8)) % 16).toString(16).padStart(2, "0");
+      if (!by.has(n)) by.set(n, []);
+      by.get(n).push(a);
+    }
+    for (const [n, want] of by) {
+      const s = m.shards.find((x) => x && typeof x.path === "string" && x.path.endsWith("/" + n + ".csv"));
+      if (!s) continue;
+      const url = s.path + (s.sha256 ? "?v=" + String(s.sha256).slice(0, 8) : "");
+      const text = await fetch(url).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+      if (text == null) continue;
+      const rows = new Set(listAddresses(text));
+      for (const a of want) { (rows.has(a) ? mainIn : mainNo).add(a); }
+    }
+  }
+  let mapLists = null, mapKeys = null, mapKeysFailed = false, mapKeysAsked = false;
+  async function loadMapLists() {
+    const text = await fetch("views/map-lists.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+    if (text == null) return;
+    const out = new Map();
+    for (const m of text.matchAll(/^([0-9A-Fa-f]{16})\s+(\d+)/gm)) out.set(m[1].toUpperCase(), Number(m[2]));
+    mapLists = out;
+  }
+  async function loadMapKeys() {
+    mapKeysAsked = true;
+    const d = await fetch("views/top100.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (d && d.k) { mapKeys = new Set(Object.keys(d.k).map((a) => a.toUpperCase())); mapKeysFailed = false; } else mapKeysFailed = !mapKeys;
+    upMaps();
+  }
+  async function refreshLists() {
+    const sources = await Promise.all([addressList("index/singles.csv"), addressList("singles/none.csv"), loadMapLists()]);
+    listsFailed = !sources[0].length;
+    for (const list of sources.slice(0, 2)) for (const a of list) known.add(a);
+  }
+  // A session left open for hours (user 2026-11-07, Near me uploads): the published lists are read again every hour (the same two files, the same
+  // loader, "no-cache" so an unchanged file costs a 304 from GitHub Pages; nothing touches the relay). A failed or empty answer changes nothing and
+  // says nothing; the scan is not restarted, a system already handed to a worker just finishes, and only new addresses are added to the known set.
+  const KNOWN_MS = (() => { try { const n = Number(sessionStorage.getItem("dv.contrib.knownms")); if (n >= 1000) return n; } catch (_) {} return 3600000; })();
+  async function refreshKnownQuiet() {
+    try {
+      const [a, b] = await Promise.all([addressList("index/singles.csv"), addressList("singles/none.csv")]);
+      if (!a.length) return;   // the main list did not come: keep what is known
+      let added = 0;
+      for (const list of [a, b]) for (const x of list) if (!known.has(x)) { known.add(x); added++; }
+      if (added) { waitingAt = 0; upSoon(); }
+    } catch (_) {}
+  }
+  setInterval(() => { if (workReady) refreshKnownQuiet(); }, KNOWN_MS);
+  window.dvContribKnown = (x) => known.has(String(x).toUpperCase());   // test hook
+  function upSoon() {
+    if (!$("cu-scanned") || !workReady) return;
+    const wait = lastClassify + CLASSIFY_MS - Date.now();
+    if (wait <= 0) { classify(); return; }
+    if (!classifyTimer) classifyTimer = setTimeout(() => { classifyTimer = 0; classify(); }, wait);
+  }
+  let workReady = false, upLast = null;
+  async function classify() {
+    if (classifying) { classifyAgain = true; return; }
+    classifying = true; lastClassify = Date.now();
+    try {
+      const looks = jsonGet(LOOK_KEY, []).map(keyOf);
+      const needs = [];
+      if (work.length) for (const a of new Set([...done, ...looks])) if (!known.has(a) && !mainIn.has(a) && !mainNo.has(a) && !onWork(a)) needs.push(a);
+      if (needs.length) {
+        if ($("cu-note")) $("cu-note").textContent = `Checking ${plural(needs.length, "older system")} against the full atlas…`;
+        await lookupMain(needs);
+      }
+      const inAtlas = (a) => known.has(a) || mainIn.has(a);
+      const queued = new Set(outbox.map((e) => e.a));
+      if (inFlight) for (const e of inFlight) queued.add(e.a);
+      const pend = jsonGet(PEND_KEY, {}), now = minuteNow();
+      const c = { scanned: 0, atlas: 0, waiting: 0, queue: 0, noRecord: 0, stale: 0, refused: 0, notSent: 0, odd: 0, unchecked: 0 };
+      let changed = false;
+      for (const a of done) {
+        c.scanned++;
+        const p = pend[a];
+        if (inAtlas(a)) { c.atlas++; if (p) { delete pend[a]; changed = true; } continue; }
+        if (queued.has(a)) { c.queue++; continue; }
+        if (p) {
+          if (p[1] === CODE.refused) c.refused++;
+          else if (p[1] === CODE.notSent) c.notSent++;
+          else if (now - p[0] < FRESH_MIN) c.waiting++;
+          else c.stale++;
+          continue;
+        }
+        if (!work.length) c.unchecked++;
+        else if (onWork(a)) c.noRecord++;
+        else if (mainNo.has(a)) c.odd++;
+        else c.unchecked++;
+      }
+      if (changed) jsonSet(PEND_KEY, pend);
+      // the log line: how many more are in the atlas than at the last check
+      const seen = jsonGet(ATLAS_KEY, null), before = seen ? seen.n : null;
+      if (!listsFailed && c.scanned) {
+        if (before == null) upEventQuiet("baseline", c.atlas);
+        else if (c.atlas > before) upEventQuiet("published", c.atlas - before);
+        jsonSet(ATLAS_KEY, { n: c.atlas });
+      }
+      upLast = { c, looks };
+      upShow();
+    } finally {
+      classifying = false;
+      if (classifyAgain) { classifyAgain = false; upSoon(); }
+    }
+  }
+  function upEventQuiet(k, n) { const all = jsonGet(UPLOG_KEY, []); all.push({ t: Date.now(), k, n, why: "" }); jsonSet(UPLOG_KEY, all.slice(-MAX_UPLOG)); upLogShow(); }
+  function upShow() {
+    if (!upLast) return;
+    const { c, looks } = upLast, missing = c.noRecord + c.stale + c.refused + c.notSent + c.odd + c.unchecked;
+    const put = (id, v) => { const e = $(id); if (e) e.textContent = fmt(v); };
+    put("cu-scanned", c.scanned); put("cu-atlas", c.atlas); put("cu-waiting", c.waiting); put("cu-queue", c.queue); put("cu-missing", missing); put("cu-sent", dev.sent);
+    const parts = [[c.noRecord, "with no send record (older scans, or the page closed before sending)"], [c.stale, "sent 6 or more hours ago and still not listed"], [c.refused, "refused by the relay"],
+      [c.notSent, "not sent"], [c.odd, "neither on the work list nor in the atlas"], [c.unchecked, "could not be checked just now"]].filter((p) => p[0]);
+    $("cu-why").textContent = parts.length ? "Not in the atlas: " + parts.map((p) => `${fmt(p[0])} ${p[1]}`).join(" · ") + "."
+      : c.scanned ? "Nothing is missing: everything scanned here is in the atlas or on its way." : "Nothing scanned on this browser yet.";
+    const inLook = looks.filter((a) => known.has(a) || mainIn.has(a)).length;
+    $("cu-look").textContent = looks.length ? `Looked-up systems sent because they broke into a top 100: ${fmt(looks.length)}, ${fmt(inLook)} in the atlas now.` : "";
+    $("cu-look").hidden = !looks.length;
+    $("cu-note").textContent = (listsFailed ? "The atlas's lists could not be loaded, so these counts may be too low. " : "")
+      + "Counted for this browser only, by comparing your scans with the atlas's published lists. The atlas publishes about hourly."
+      + (siteUpdated ? ` Site last updated ${when(siteUpdated)}.` : "");
+    upMaps();
+    upLogShow();
+  }
+  function upMaps() {
+    if (!$("cu-lists") || !upLast) return;
+    const known2 = (a) => known.has(a) || mainIn.has(a);
+    const put = (id, v) => { const e = $(id); if (e) e.textContent = v == null ? "—" : fmt(v); };
+    put("cu-lists", mapLists ? mapLists.size : null);
+    put("cu-maps", mapKeys ? mapKeys.size : null);
+    let wait = null, gone = 0;
+    if (mapLists && mapKeys) { wait = 0; for (const a of mapLists.keys()) if (!mapKeys.has(a)) wait++; for (const a of mapKeys) if (!mapLists.has(a)) gone++; }
+    put("cu-mapwait", wait);
+    $("cu-mapnote").textContent = mapKeysFailed ? "The list of published maps could not be loaded." : gone ? `${plural(gone, "published map")} ${gone === 1 ? "belongs to a system that has" : "belong to systems that have"} since left the top-100 lists.` : "";
+    const tops = jsonGet(TOPS_KEY, []), labels = new Map(tops.map((x) => [x.a, x.l]));
+    const rows = new Set(tops.map((x) => x.a));
+    for (const a of upLast.looks) rows.add(a);
+    if (mapLists) for (const a of mapLists.keys()) if (done.has(a)) rows.add(a);
+    const STATE = ["Waiting to publish", "In a top-100 list, map comes with the next atlas publish, drawn on your device until then", "Map published", "In the atlas, not in a top-100 list now", "Checking…", "In a top-100 list, map not checked"];
+    const stateOf = (a) => {
+      if (mapLists && mapLists.has(a)) return mapKeys ? (mapKeys.has(a) ? 2 : 1) : mapKeysFailed ? 5 : 4;
+      if (!mapLists) return 4;
+      return known2(a) ? 3 : 0;
+    };
+    const nameOf = (a) => {
+      const l = labels.get(a);
+      if (l && l.length) return l.join(", ");
+      const bits = mapLists ? mapLists.get(a) : 0;
+      return bits && Array.isArray(lists) ? lists.filter((x) => bits & x.bit).map((x) => String(x.label || x.name)).join(", ") : "";
+    };
+    const list = [...rows].map((a) => ({ a, s: stateOf(a) })).sort((x, y) => x.s - y.s || (x.a < y.a ? -1 : 1));
+    const box = $("cu-finds");
+    const html = !list.length ? `<p class="cb-muted">None of your systems has reached a top-100 list yet. Maps are kept only for the top-100 lists.</p>`
+      : `<table><thead><tr><th>Address</th><th>State</th><th class="cb-hide-s">Lists</th><th></th></tr></thead><tbody>${list.slice(0, MAX_ROWS).map((r) =>
+        `<tr data-a="${esc(r.a)}"><td class="cb-addr">${esc(r.a)}</td><td class="cu-state">${esc(STATE[r.s])}</td><td class="cb-hide-s cu-lists-cell">${esc(nameOf(r.a))}</td><td><a href="./#/d/${esc(r.a)}" data-open="${esc(r.a)}">Open</a></td></tr>`).join("")}</tbody></table>`
+        + (list.length > MAX_ROWS ? `<p class="cb-small">and ${fmt(list.length - MAX_ROWS)} more</p>` : "");
+    if (box.innerHTML !== html) box.innerHTML = html;
+    $("cu-topnote").textContent = dev.top !== list.length && (dev.top || list.length) ? `Top 100 finds counted when they were scanned: ${fmt(dev.top)}. The lists change as others scan, so this table shows where each system stands now.` : "";
+  }
+  function upSetup() {
+    const check = $("cu-check"); if (!check) return;
+    upLogShow();
+    check.addEventListener("click", async () => {
+      check.disabled = true; check.textContent = "Checking…";
+      mainNo.clear();
+      await refreshLists();
+      await Promise.all([classify(), mapKeysAsked ? loadMapKeys() : null]);
+      check.disabled = false; check.textContent = "Check now";
+    });
+    $("cu-copy").addEventListener("click", (e) => { try { navigator.clipboard.writeText(upLogText()).then(() => { e.target.textContent = "Copied"; }); } catch (_) {} });
+    const card = $("cb-uploads");
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((list) => { if (list.some((x) => x.isIntersecting)) { io.disconnect(); loadMapKeys(); } });
+      io.observe(card);
+    } else loadMapKeys();
+  }
 
   function save() {
     dirty = 0;
@@ -491,6 +764,7 @@
     $("cb-found").textContent = fmt(dev.found);
     $("cb-top").textContent = fmt(dev.top || 0);
     $("cb-sent").textContent = fmt(dev.sent);
+    const cuSent = $("cu-sent"); if (cuSent) cuSent.textContent = fmt(dev.sent);
     const top = Math.max(-1, ...dev.best.map((b) => b.m ?? -1));
     $("cb-best").textContent = top >= 0 ? String(top) : "—";
     $("cb-time").textContent = dur(dev.ms + liveMs);
@@ -512,10 +786,12 @@
     $("cb-consent").innerHTML = url
       ? `Scanning here adds the systems you scan to the atlas with all their numbers (maps only for the top 100). Your device sends what it found (numbers and loot values, no map); the atlas checks it before publishing. <a href="#cb-what">What is sent</a>`
       : `Sending to the atlas switches on soon. Until then your scans stay on this device. <a href="#cb-what">What is sent</a>`;
-    $("cb-relay-note").textContent = url ? cfg().scanRelayNote || "" : "Sending is not switched on yet: right now nothing leaves your device.";
+    $("cb-relay-note").textContent = url ? "" : "Sending is not switched on yet: right now nothing leaves your device.";
+    $("cb-relay-note").hidden = !!url;
     // the preview's stand-in relay keeps nothing: say so on the page (user 2026-11-03)
     if (url === "relay-test" && $("cb-preview")) $("cb-preview").hidden = false;
     finderSetup();
+    upSetup();
     $("cb-scan").addEventListener("click", () => scan());
     $("cb-pause").addEventListener("click", () => halt("paused"));
     $("cb-takeover").addEventListener("click", () => { if (channel) channel.postMessage({ type: "takeover" }); state = "ready"; setTimeout(() => scan(), 400); });
@@ -536,7 +812,7 @@
     setInterval(() => { if (running()) render(); }, 1000);
   }
 
-  // ADDRESS16 at the start of each line (header and comment lines are skipped); .csv, else .csv.gz
+  // the addresses of a published list (listAddresses: ADDRESS16 or GLYPHS12,GALAXY at the start of each line; header and comment lines are skipped); .csv, else .csv.gz
   async function addressList(path) {
     const get = (p) => fetch(p, { cache: "no-cache" }).then((r) => (r.ok ? r : null)).catch(() => null);
     let r = await get(path), text = "";
@@ -544,7 +820,8 @@
     else if ((r = await get(path + ".gz"))) {
       try { text = await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).text(); } catch (_) { text = ""; }
     }
-    return (text.match(/^[0-9A-Fa-f]{16}(?=[,\s]|$)/gm) || []).map((a) => a.toUpperCase());
+    if (r && path.endsWith("singles.csv")) siteUpdated = r.headers.get("Last-Modified") || siteUpdated;
+    return listAddresses(text);
   }
 
   // side panel "Atlas scanning" (user 2026-11-04 "add stats of scanning to the contribute scanner site on the side"):
@@ -577,17 +854,23 @@
     setup();
     render();
     // + the visitor-scanned singles (index/singles.csv data rows), as on the main page
-    const singles = fetch("index/singles.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).then((t) => Math.max(0, t.split(/\r?\n/).filter((l) => l && !l.startsWith("#")).length - 1)).catch(() => 0);
+    const singles = fetch("index/singles.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => "").then((t) => {
+      const rows = t.split(/\r?\n/).filter((l) => l && !l.startsWith("#")), hist = [];
+      const col = rows.length ? rows[0].split(",").indexOf("frigate_modules") : -1;
+      if (col >= 0) for (const line of rows.slice(1)) { const v = line.split(",")[col]; if (/^\d+$/.test(v)) { const m = Number(v); while (hist.length <= m) hist.push(0); hist[m]++; } }
+      return { n: Math.max(0, rows.length - 1), hist };
+    }).catch(() => ({ n: 0, hist: [] }));
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null), singles])
-      .then(([s, n]) => { lists = s && s.map_lists || null; if (s) s.singles = n; showStats(s); });
+      .then(([s, g]) => { lists = s && s.map_lists || null; if (s) { s.singles = g.n; s.singlesHist = g.hist; } showStats(s); });
     sideStats();
     const [text] = await Promise.all([
       fetch("stats/work.txt", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => ""),
       manifest().catch((e) => { logFailure({ step: "manifest", error: "downloading the scanner info (scan/w29.json): " + e.message }); note = "The scanner could not start (network problem). Reload the page to try again."; }),
     ]);
     work = version ? parseWork(text) : [];
-    const sources = await Promise.all([addressList("index/singles.csv"), addressList("singles/none.csv")]);
-    for (const list of sources) for (const a of list) known.add(a);
+    await refreshLists();
+    workReady = true;
+    classify();
     let total = 0;
     for (const l of work) for (const i of l.idx) if (!known.has(addressOf(l, i))) total++;
     $("cb-waiting").textContent = work.length ? fmt(total) : "—";

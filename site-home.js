@@ -90,10 +90,10 @@
   // the first and the last possible system address (W29d region rules, site agent 2026-11-01); atlas address =
   // "000" + system + galaxy + YY ZZZ XXX (the planet glyph is not part of it)
   const TRIVIA = [
-    { tag: "First possible system", glyphs: "000100000008", address: "0000010000000008", short: "System 001, first region outside the core",
-      text: "System 001 in the first region outside the galaxy core, 8 regions from the centre (the core reaches 7 regions out; system 000 never exists)." },
-    { tag: "Last possible system", glyphs: "04287F7FF7FF", address: "000428007F7FF7FF", short: "Purple system 428, the galaxy's far corner",
-      text: "Purple system 428, the last of the purple systems 3E8–428 every region has, in the far corner of the galaxy (X +2047, Y +127, Z +2047)." },
+    { tag: "First possible system in Euclid", glyphs: "000100000008", address: "0000010000000008", short: "System 001, first region outside the core",
+      text: "In Euclid: system 001 in the first region outside the galaxy core, 8 regions from the centre (the core reaches 7 regions out; system 000 never exists)." },
+    { tag: "Last possible system in Euclid", glyphs: "04287F7FF7FF", address: "000428007F7FF7FF", short: "Purple system 428, the galaxy's far corner",
+      text: "In Euclid: purple system 428, the last of the purple systems 3E8–428 every region has, in the far corner of the galaxy (X +2047, Y +127, Z +2047)." },
   ];
 
   // top k under cmp, one pass (no full sort of 300k rows)

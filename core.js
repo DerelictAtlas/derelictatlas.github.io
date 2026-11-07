@@ -1,6 +1,6 @@
 import {hasBit,mapListBit} from './atlas-features.js';
 import {matchesReward} from './reward-types.js';
-export const VERSION = '1.0.41';
+export const VERSION = '144 (2026-11-07)';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const known = n => n == null ? '—' : n;
 export const glyphsOf = address => '0' + address.slice(3,6) + address.slice(8);
@@ -56,6 +56,7 @@ export function systemQuery(f) {
   const totals=new WeakMap(),total=r=>{let n=totals.get(r);if(n===undefined){n=totalOf(r,f.groups).n;totals.set(r,n);}return n;};
   const normalize=value=>String(value||'').normalize('NFKC').toUpperCase().replace(/\s/g,'');
   const q=normalize(f.q);
+  const sbKey=f.spookbox===''||f.spookbox==null?null:Number(f.spookbox);  // SITE integration: SpookBox filter
   const rank={C:1,B:2,A:3,S:4};
   const byAddress=(a,b)=>a.address<b.address?-1:a.address>b.address?1:0;
   const num=(k,v)=>f[k]==='' || f[k]==null || (v!=null && v>=Number(f[k]));
@@ -66,6 +67,7 @@ export function systemQuery(f) {
     if (f.hasMap && !r.map) return false;
     if (mapListBit(f.mapList)&&!hasBit(r.map,mapListBit(f.mapList)))return false;
     if (f.region && r.region!==f.region || f.preset && r.preset!==f.preset) return false;
+    if (sbKey!==null && r.spookbox!==sbKey && !(r.spookbox_alts && r.spookbox_alts.includes(sbKey))) return false;
     if (!matchesReward(r,f.rewardModule,f.reward)) return false;
     if (f.maxRooms && (r.rooms==null || r.rooms>Number(f.maxRooms)) || f.maxFloors && (r.floors==null || r.floors>Number(f.maxFloors))) return false;
     if (f.noStairs && r.stair_pieces || f.noHangar && r.hangar_pieces) return false;

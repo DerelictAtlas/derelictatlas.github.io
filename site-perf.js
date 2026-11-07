@@ -81,7 +81,7 @@
       // systems per minute: from the batches' own throughput when the Action gives it (workers × 60000 / ms), else per scanner
       const spm = s.spm && num(s.spm.avg) !== null ? s.spm : { avg: spmOf(avgOf(o)), max: spmOf(o.min), min: spmOf(o.max) };
       box.innerHTML = `<div class="si-hist-title">Scanner speed</div>
-<p class="site-muted si-speed-note">Measured on the devices that scan: ${fmt(num(s.systems) || 0)} systems in ${fmt(num(s.batches) || 0)} uploads${s.updated ? `, updated ${esc(String(s.updated).slice(0, 10))}` : ""}. Only the scan itself is timed; nothing about the device is kept but its type.</p>
+<p class="site-muted si-speed-note">Measured on the devices that scan: ${fmt(num(s.systems) || 0)} systems in ${fmt(num(s.batches) || 0)} uploads${s.updated ? `, updated ${esc(String(s.updated).slice(0, 10))}` : ""}. Only the scan itself is timed.</p>
 <div class="si-tiles4 si-speed-tiles">
 <div><b>${spmText(spm.avg)}</b><span>Systems / min, average</span></div><div><b>${spmText(spm.max)}</b><span>Fastest</span></div><div><b>${spmText(spm.min)}</b><span>Slowest</span></div><div><b>${msText(avgOf(o))}</b><span>Per system, average</span></div></div>
 <p class="site-muted si-speed-note">Per system: fastest ${msText(o.min)}, slowest ${msText(o.max)}${num(o.p10) !== null ? ` · 10 % of scans under ${msText(o.p10)}, 90 % under ${msText(o.p90)}` : ""}.</p>

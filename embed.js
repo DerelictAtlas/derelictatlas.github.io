@@ -84,7 +84,7 @@
       size();
     });
   }
-  const galaxyName = () => galaxy === 0 ? "Euclid" : "Galaxy " + (galaxy + 1); // the game counts from 1; only Euclid has a name here
+  const galaxyName = () => window.dvGalaxy ? window.dvGalaxy.label(galaxy) : galaxy === 0 ? "Euclid" : "Galaxy " + (galaxy + 1); // the game counts from 1; names from site-galaxy.js (byte 255 unnamed)
   const value = (d, f) => f === "galaxy" ? galaxyName() : f === "hex" ? glyphs : d[f] == null ? "–" : (f === "modules" && d.modules_ambiguous ? "≈ " : "") + fmt(d[f]);
   // layout=feature: modules and reward up top, the other numbers in two lists
   function showFeature(d) {

@@ -74,6 +74,33 @@
     return { count: h.count, name: name || a, html: `<a href="#/d/${esc(a)}" data-gc-system>${esc(name || a)}</a> <small class="site-muted">${esc(a.slice(4))}</small>` };
   }
 
+  // Test passwords (gate.testers): paths /tester/<id>/first-use and /load[-contribute]. Hour precision from the API; exact seconds need the CSV export.
+  async function testersBox(grid, p) {
+    const box = document.createElement("div");
+    box.innerHTML = `<h4>Testers</h4><p class="site-muted">Loading…</p>`;
+    grid.appendChild(box);
+    const at = (h, first) => {  // first or last nonzero hour of a path, "YYYY-MM-DD HH:00"
+      let best = null;
+      for (const d of h.stats || []) (d.hourly || []).forEach((v, i) => { if (v > 0) { const k = `${d.day} ${String(i).padStart(2, "0")}:00`; if (best === null || (first ? k < best : k > best)) best = k; } });
+      return best;
+    };
+    try {
+      const d = await api("stats/hits", { ...p, filter: "/tester/", limit: 100 });
+      const by = {};
+      for (const h of d.hits || []) {
+        const m = /^\/tester\/([^/]+)\/(first-use|load[a-z-]*)$/.exec(h.path || "");
+        if (!m) continue;
+        const o = by[m[1]] || (by[m[1]] = { loads: 0, first: null, last: null });
+        if (m[2] === "first-use") o.first = at(h, true);
+        else { o.loads += h.count || 0; const l = at(h, false); if (l && (!o.last || l > o.last)) o.last = l; }
+      }
+      const ids = Object.keys(by).sort();
+      box.innerHTML = `<h4>Testers</h4>` + (ids.length ? `<ul class="gc-list">${ids.map((id) => `<li><span class="gc-name">${esc(id)}</span>`
+        + `<span class="gc-val">${fmt(by[id].loads)} loads</span></li><li class="site-muted"><small>First use ${esc(by[id].first || "-")} · last load ${esc(by[id].last || "-")} (UTC, hour)</small></li>`).join("")}</ul>`
+        : `<p class="site-muted">No tester use in this range.</p>`);
+    } catch (e) { box.innerHTML = `<h4>Testers</h4><p class="site-muted">Not available.</p>`; }
+  }
+
   async function render(section) {
     if (busy) { again = true; return; }  // a range clicked while loading: render it when this one is done
     busy = true;
@@ -92,7 +119,7 @@
         + `${tile(fmt(systems.length), "Systems viewed", hits.more ? "top 100 pages" : "")}${tile(busiest && busiest.daily ? fmt(busiest.daily) : "—", "Busiest day", busiest && busiest.daily ? esc(busiest.day) : "")}</div>`
         + `<h4>Visitors per day</h4>${dayChart(days)}`
         + `<h4>Most viewed systems</h4>${barList(systems.slice(0, 10).map(systemRow), total.total, "Most viewed systems")}`
-        + `<div class="gc-grid"></div><p class="site-muted gc-note">Unique visitors per day, counted anonymously by GoatCounter (no cookies). Updated live; cached here for 10 minutes.</p>`;
+        + `<div class="gc-grid"></div><p class="site-muted gc-note">Unique visitors per day, from GoatCounter. Updated live; cached here for 10 minutes.</p>`;
       const grid = body.querySelector(".gc-grid");
       for (const [page, title] of LISTS) {
         const box = document.createElement("div");
@@ -103,6 +130,7 @@
           box.innerHTML = `<h4>${esc(title)}</h4>${barList((d.stats || []).map((s) => ({ name: s.name || "(direct / unknown)", count: s.count })), total.total, title)}`;
         } catch (e) { box.innerHTML = `<h4>${esc(title)}</h4><p class="site-muted">Not available.</p>`; }
       }
+      await testersBox(grid, p);
     } catch (e) {
       body.innerHTML = e.message === "blocked"
         ? `<p class="site-muted">Could not reach GoatCounter (goatcounter.com). An ad blocker or a privacy setting in this browser is probably blocking it: allow goatcounter.com on this site, then reload.</p>`

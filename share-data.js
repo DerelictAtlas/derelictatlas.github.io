@@ -12,7 +12,7 @@ export function sharePlan(row,groups,showReward,base=SHARE_SITE,layoutData={}){
   const freighterName=derelictName(row,layoutData),identity=systemIdentity(row),systemName=identity.name==='system_name'?'':identity.name;
   const address=row.address.toUpperCase(),glyphs=glyphsOf(address),url=systemShareLink(address,showReward,base),total=totalOf(row,groups).text;
   const modules=String(known(row.frigate_modules))+(row.frigate_modules_ambiguous?'?':'');
-  const galaxy=row.galaxy===0?'Euclid':Number.isInteger(row.galaxy)?'Galaxy '+(row.galaxy+1):'Galaxy unknown';
+  const galaxy=globalThis.dvGalaxy?globalThis.dvGalaxy.label(row.galaxy):row.galaxy===0?'Euclid':Number.isInteger(row.galaxy)?'Galaxy '+(row.galaxy+1):'Galaxy unknown';
   const groupLabels=groups.frigate&&groups.briefcases&&groups.tall?'All containers':[groups.frigate?'Crates + footlockers':'',groups.briefcases?'briefcases':'',groups.tall?'tall lockers':''].filter(Boolean).join(' + ')||'No container groups selected';
   let reward=null;
   if(showReward){const cls=/^[CBAS]$/.test(row.reward_class)?row.reward_class:'unknown',type=rewardType(row.reward_name);reward={computed:Boolean(row.reward_name),name:row.reward_name||'Not computed',cls,ambiguous:Boolean(row.reward_ambiguous),icon:'reward-icons/'+type+(cls!=='unknown'&&type!=='unknown'?'-'+cls:'')+'.svg'};}
@@ -28,6 +28,13 @@ function xDraft(plan){
   const names=[plan.derelictName,plan.systemName].filter(Boolean).join(' · '),budget=Math.max(0,280-'NMS Derelict\n'.length-facts.length-3);
   const identity=names.length>budget?names.slice(0,Math.max(0,budget-1))+'…':names;
   return 'NMS Derelict'+(identity&&budget>1?' · '+identity:'')+'\n'+facts;
+}
+const SPOOK_ITEMS=['','Preserved Brain','Preserved Grub','Preserved Sample','Preserved Eyeball','Preserved Egg','Preserved Horror'];
+const spookText=c=>{const s=String(c||'').trim(),m=/^(\d+)x(\d+)$/i.exec(s);return m?(Number(m[1])?(SPOOK_ITEMS[Number(m[1])]||'Package '+m[1])+' ×'+m[2]:'Hazard refresh only'):s==='0'?'Hazard refresh only':null;};
+const numOrNull=v=>v===undefined||v===null||v===''||!Number.isFinite(Number(v))?null:Number(v);
+export function lootInfo(row,extras){
+  const e=extras||{},text=spookText(e.spookbox),unsure=text!==null&&(e.spookbox_ambiguous==='1'||e.spookbox_ambiguous==='true');
+  return {value:numOrNull(e.items_value??row?.items_value),nanites:numOrNull(e.items_nanites??row?.items_nanites),spook:text===null?null:{text,unsure,alts:unsure?String(e.spookbox_alt||'').split('|').map(spookText).filter(Boolean):[]}};
 }
 export function socialDrafts(plan){
   return [

@@ -1,0 +1,46 @@
+/* site-tour.css: interactive spotlight tour */
+#dvt-root { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; }
+#dvt-root[hidden] { display: none; }
+#dvt-root .dvt-b, #dvt-root .dvt-shield, #dvt-root .dvt-hole, #dvt-root .dvt-pop { position: fixed; }
+#dvt-root .dvt-b, #dvt-root .dvt-shield { pointer-events: auto; background: transparent; }
+#dvt-root .dvt-dim { position: fixed; inset: 0; pointer-events: none; display: none; background: rgba(3, 6, 10, .74); }
+#dvt-root.dvt-multi .dvt-dim { display: block; }
+#dvt-root.dvt-multi .dvt-hole { box-shadow: 0 0 0 2px var(--accent, #3fd0c9), 0 0 16px 3px rgba(63, 208, 201, .45); }
+#dvt-root .dvt-hole {
+  pointer-events: none; border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--accent, #3fd0c9), 0 0 16px 3px rgba(63, 208, 201, .45), 0 0 0 100vmax rgba(3, 6, 10, .74);
+}
+#dvt-root .dvt-pop {
+  pointer-events: auto; box-sizing: border-box; width: min(320px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto;
+  padding: 12px 14px; border-radius: 12px; background: linear-gradient(var(--panel, #161b22), var(--panel, #161b22)), #0a1a28; color: var(--text, #e6edf3);
+  border: 1px solid var(--accent, #3fd0c9); box-shadow: 0 8px 28px rgba(0, 0, 0, .55); font-size: 14px; line-height: 1.4; outline: none;
+}
+#dvt-root .dvt-count { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent, #3fd0c9); }
+#dvt-root .dvt-title { margin: 2px 0 4px; font-size: 16px; }
+#dvt-root .dvt-text { margin: 0 0 10px; }
+#dvt-root .dvt-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+#dvt-root .dvt-gap { flex: 1 1 auto; }
+#dvt-root .dvt-btns button {
+  font: inherit; font-size: 13px; padding: 6px 12px; min-height: 32px; border-radius: 8px; cursor: pointer;
+  background: var(--panel-2, #1c232c); color: var(--text, #e6edf3); border: 1px solid var(--line, #2a3340);
+}
+#dvt-root .dvt-btns button:hover { border-color: var(--accent, #3fd0c9); }
+#dvt-root .dvt-btns button:focus-visible { outline: 2px solid var(--accent, #3fd0c9); outline-offset: 2px; }
+#dvt-root .dvt-btns .dvt-primary { background: var(--accent, #3fd0c9); color: #04100f; border-color: transparent; font-weight: 600; }
+#dvt-root .dvt-btns .dvt-skip { background: transparent; color: var(--muted, #8b98a8); }
+#dvt-root .dvt-btns button[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  #dvt-root .dvt-hole { transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease; }
+  /* the popover jumps (no glide): a glide moved the Next button out from under a quick second click */
+}
+/* phones and short screens: a smaller card with one row of buttons, so it covers less of what the step describes */
+@media (max-width: 480px), (max-height: 480px) {
+  #dvt-root .dvt-pop { padding: 7px 10px; font-size: 13px; line-height: 1.3; }
+  #dvt-root .dvt-count { font-size: 10px; }
+  #dvt-root .dvt-title { margin: 1px 0 3px; font-size: 15px; }
+  #dvt-root .dvt-text { margin: 0 0 6px; }
+  #dvt-root .dvt-btns { gap: 4px; }
+  #dvt-root .dvt-btns button { font-size: 12px; padding: 4px 6px; white-space: nowrap; }
+}
+@media (max-width: 480px) { #dvt-root .dvt-pop { width: calc(100vw - 16px); } }
+@media (max-height: 480px) and (min-width: 481px) { #dvt-root .dvt-pop { width: min(272px, calc(100vw - 16px)); } }

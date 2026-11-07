@@ -197,3 +197,15 @@ html, body { overflow-anchor: none; }
   .cb-layout .cb-main { margin: 0; max-width: none; width: 100%; }
   .cb-side { margin: 0; padding: 20px 16px 48px 0; position: sticky; top: 0; }
 }
+
+/* "Your uploads" (user 2026-11-06) */
+.cu-check { margin-left: auto; min-height: 36px; padding: 6px 14px; border-radius: 8px; font-size: 14px; white-space: nowrap; }
+.cu-check:disabled { opacity: .6; cursor: default; }
+.cu-sub { margin: 18px 0 10px; font-size: 14px; letter-spacing: .02em; }
+.cb-main > * { min-width: 0; }
+.cb-uploads .cb-finds { overflow-x: auto; }
+.cu-state { white-space: normal !important; min-width: 110px; }
+.cu-lists-cell { white-space: normal !important; min-width: 140px; color: var(--muted, #94a9bc); }
+.cb-uploads .cb-stats span { display: block; line-height: 1.35; }
+#cu-log pre { max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; }
+

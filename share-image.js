@@ -37,7 +37,7 @@ function fittedLabel(ctx,text,x,y,width,size=34,color='#eef3f4'){
 }
 function panel(ctx,x,y,w,h){ctx.fillStyle='#0a1c2a';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#416174';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);}
 export async function createShareImage(plan,selection){
-  const hasMap=Boolean(selection.model),panelY=490,H=hasMap?panelY+650:panelY+180;
+  const hasMap=Boolean(selection.model),strip=Boolean(plan.loot||plan.spook),stripH=!strip?0:plan.spook&&plan.spook.unsure&&plan.spook.alts.length?92:62,panelY=490+stripH,H=hasMap?panelY+650:panelY+180;
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   if(!ctx)throw new Error('Image export is unavailable in this browser.');
   const glyphImages=await Promise.all([...plan.glyphs].map(g=>loadImage('glyphs-svg/'+g.toLowerCase()+'.svg')));
@@ -62,6 +62,19 @@ export async function createShareImage(plan,selection){
   ctx.strokeStyle='#416174';ctx.beginPath();ctx.moveTo(88,431);ctx.lineTo(1512,431);ctx.stroke();
   label(ctx,`${known(selection.row.salvage_crates)} crates · ${known(selection.row.footlockers)} footlockers · ${known(selection.row.briefcases)} briefcases · ${known(selection.row.tall_lockers)} tall lockers`,88,454,20);
   ctx.textAlign='right';label(ctx,plan.rooms+' rooms · '+plan.decks+' decks',1512,454,22);ctx.textAlign='left';
+  if(strip){
+    const sy=481,n=v=>Number(v).toLocaleString('en-US');let xs=88;panel(ctx,64,sy,1472,stripH-12);
+    if(plan.loot){
+      const text=[plan.loot.value!==null?n(plan.loot.value)+' Units':'',plan.loot.nanites!==null?n(plan.loot.nanites)+' nanites':''].filter(Boolean).join(' · ');
+      ctx.font='500 28px Arial,sans-serif';const tw=Math.min(ctx.measureText(text).width,700);
+      label(ctx,'LOOT',88,sy+35,19,'#9bb4c5');fittedLabel(ctx,text,148,sy+36,tw,28,'#f6b24a');xs=148+tw+56;
+    }
+    if(plan.spook){
+      const tag=plan.spook.unsure?'SPOOKBOX · UNCERTAIN':'SPOOKBOX';ctx.font='400 19px Arial,sans-serif';const lw=ctx.measureText(tag).width;
+      label(ctx,tag,xs,sy+35,19,'#9bb4c5');fittedLabel(ctx,(plan.spook.unsure?'≈ ':'')+plan.spook.text,xs+lw+16,sy+36,1512-(xs+lw+16),28,'#b98cff');
+      if(plan.spook.unsure&&plan.spook.alts.length)fittedLabel(ctx,'Could also be: '+plan.spook.alts.join(' or '),88,sy+70,1424,22,'#b9a7d9');
+    }
+  }
   if(layouts){
     for(const [x,title,image] of [[64,'3D DERELICT',layouts.scene],[812,'2D MAP · ALL DECKS',layouts.map]]){panel(ctx,x,panelY,724,552);label(ctx,title,x+22,panelY+38,21,'#c6d6e0');ctx.fillStyle='#09131d';ctx.fillRect(x+2,panelY+54,720,496);fit(ctx,image,x+14,panelY+66,696,472);}
   }else{label(ctx,'SUMMARY ONLY · No published layout available',64,panelY+49,25);}

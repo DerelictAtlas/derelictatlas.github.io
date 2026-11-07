@@ -1,5 +1,5 @@
 import {lootPanelHtml,lootBadgeHtml,lootDetailsHtml} from './loot-ui.js';
-import {atlasSlim,atlasDeferred,regionText,atlasStats,atlasStatsHtml,atlasMapLists,mapRows,mapBitsOf,mapChips,mapListName,mapBitInfo,mapListBit,atlasExtras,applyExtras,extrasCardsHtml,resetAtlasFeatures,slimMessage as slimText} from './atlas-features.js';
+import {atlasSlim,atlasDeferred,regionText,atlasStats,atlasStatsHtml,atlasMapLists,mapRows,mapBitsOf,mapChips,mapListName,mapBitInfo,mapListBit,atlasExtras,applyExtras,spookboxText,extrasCardsHtml,resetAtlasFeatures,slimMessage as slimText} from './atlas-features.js';
 import {VIEW_PRESETS} from './view-framing.js';
 import {VERSION,nextSystemLimit,esc,known,glyphsOf,addressOf,totalOf,totalSortIncludes,family,COLORS,LINK_COLORS,parseCsv} from './core.js';
 import {filterSortAtlas} from './atlas-processing.js';
@@ -38,7 +38,7 @@ function setBackground(id){
   for(const [key,value] of Object.entries({fill:option.fill,texture:option.texture,size:option.size,opacity:option.opacity}))root.style.setProperty('--atlas-background-'+key,value);
 }
 setBackground(nextBackground(read('background',null)).id);save('background',background);
-const defaults={mapList:'',q:'',galaxy:'',hasMap:false,hideDone:false,region:'',preset:'',reward:'',rewardModule:'',maxRooms:'',maxFloors:'',noStairs:false,noHangar:false,minTotal:'',minModules:'',minCrates:'',minBriefcases:'',minTall:'',sort:'modules',groups:{frigate:true,briefcases:true,tall:true}};  // SITE integration (user 2026-10-31): totals count every container
+const defaults={mapList:'',q:'',galaxy:'',hasMap:false,hideDone:false,region:'',preset:'',reward:'',rewardModule:'',spookbox:'',maxRooms:'',maxFloors:'',noStairs:false,noHangar:false,minTotal:'',minModules:'',minCrates:'',minBriefcases:'',minTall:'',sort:'modules',groups:{frigate:true,briefcases:true,tall:true}};  // SITE integration (user 2026-10-31): totals count every container
 const filters={...defaults,...read('filters',{}),groups:{...defaults.groups}};
 filters.region='';filters.galaxy='';filters.mapList=mapListBit(filters.mapList)||'';
 // Retire the old Best Derelicts shortcut's coupled map/sort preference once.
@@ -135,7 +135,7 @@ function scheduleList(){
   });
 }
 $('results').addEventListener('scroll',scheduleList,{passive:true});
-const filterKeys=['mapList','hasMap','hideDone','preset','reward','rewardModule','maxRooms','maxFloors','noStairs','noHangar','minTotal','minModules','minCrates','minBriefcases','minTall'];
+const filterKeys=['mapList','hasMap','hideDone','preset','reward','rewardModule','spookbox','maxRooms','maxFloors','noStairs','noHangar','minTotal','minModules','minCrates','minBriefcases','minTall'];
 // SITE integration (user 2026-10-31): systems scanned on this device (site-scan.js) that are not in the atlas join the
 // Systems list like any other row, tagged Local only / Not uploaded yet / Uploaded (this browser only)
 let firstMode=false;  // SITE integration (fast first page): rows = index/first.csv while the full index loads
@@ -160,8 +160,8 @@ async function renderSystems(reset=false){
   if(reset){$('results').scrollTop=0;listLimit=0;}
   listLimit=nextSystemLimit(listLimit,shown.partial||shown.length);
   renderRows();
-  if($('address-dialog').open)$('search-matches').textContent=shown.length.toLocaleString()+' matches · current filters';
-  const names={mapList:mapBitInfo(mapListBit(filters.mapList)).label,hasMap:'Has map',hideDone:'Hide done systems',region:filters.region,preset:filters.preset,reward:filters.reward+'-class reward',rewardModule:REWARD_TYPES[filters.rewardModule]||filters.rewardModule,maxRooms:'≤ '+filters.maxRooms+' rooms',maxFloors:'≤ '+filters.maxFloors+' decks',noStairs:'No ladders',noHangar:'No hangar',minTotal:'Total ≥ '+filters.minTotal,minModules:'Modules ≥ '+filters.minModules,minCrates:'Crates ≥ '+filters.minCrates,minBriefcases:'Briefcases ≥ '+filters.minBriefcases,minTall:'Tall lockers ≥ '+filters.minTall};
+  if($('address-dialog').open){$('search-matches').textContent=shown.length.toLocaleString()+' matches · current filters';syncOpenBtn();}
+  const names={mapList:mapBitInfo(mapListBit(filters.mapList)).label,hasMap:'Has map',hideDone:'Hide done systems',region:filters.region,preset:filters.preset,reward:filters.reward+'-class reward',rewardModule:REWARD_TYPES[filters.rewardModule]||filters.rewardModule,spookbox:'SpookBox: '+spookLabel(filters.spookbox),maxRooms:'≤ '+filters.maxRooms+' rooms',maxFloors:'≤ '+filters.maxFloors+' decks',noStairs:'No ladders',noHangar:'No hangar',minTotal:'Total ≥ '+filters.minTotal,minModules:'Modules ≥ '+filters.minModules,minCrates:'Crates ≥ '+filters.minCrates,minBriefcases:'Briefcases ≥ '+filters.minBriefcases,minTall:'Tall lockers ≥ '+filters.minTall};
   const active=filterKeys.filter(k=>Boolean(filters[k]));
   $('filter-count').hidden=!active.length;$('filter-count').textContent=active.length;
   const visibleChips=matchMedia('(min-width:701px)').matches?active.slice(0,2):active;
@@ -188,12 +188,18 @@ $('clear-search').onclick=()=>{clearTimeout(searchTimer);filters.q='';$('address
 $('sort').onchange=e=>{filters.sort=e.target.value;renderSystems(true);};
 function resetFilters(){Object.assign(filters,structuredClone(defaults));syncSearchLabel();$('sort').value='modules';renderSystems(true);if(current)updateSummary();if($('filter-dialog').open)buildFilterFields();}
 $('reset-filters').onclick=resetFilters;
+const spookLabel=k=>spookboxText(Number(k)===0?'0':`${Number(k)%100}x${Math.floor(Number(k)/100)}`);
+function spookField(){
+  const n=new Map();for(const r of rows)if(r.spookbox!=null)n.set(r.spookbox,(n.get(r.spookbox)||0)+1);
+  const opts=[...n].sort((a,b)=>a[0]-b[0]).map(([k,c])=>`<option value="${k}"${String(filters.spookbox)===String(k)?' selected':''}>${esc(spookLabel(k))} (${c.toLocaleString()})</option>`).join('');
+  return `<label>SpookBox contents<select name="spookbox" aria-label="SpookBox contents"><option value="">All</option>${opts}</select><small class="field-note">Only top-100 and newly found systems have this. Picking one hides systems with no value.</small></label>`;
+}
 function buildFilterFields(){
   const select=(k,label,options)=>`<label>${label}<select name="${k}" aria-label="${esc(label)}"><option value="">All</option>${options.map(option=>{const [v,label]=Array.isArray(option)?option:[option,option];return `<option value="${esc(v)}"${String(filters[k])===String(v)?' selected':''}>${esc(label)}</option>`;}).join('')}</select></label>`;
   const number=(k,label)=>`<label>${label}<input type="number" min="0" name="${k}" value="${esc(filters[k])}" placeholder="Any"></label>`;
   const checkbox=(k,label)=>`<label class="check"><input name="${k}" type="checkbox"${filters[k]?' checked':''}>${label}</label>`;
   const listBits=[...new Set(rows.filter(r=>r.map).flatMap(r=>mapBitsOf(r.map)))].sort((a,b)=>a-b);
-  $('filter-fields').innerHTML=select('mapList','Map list',listBits.map(b=>[b,mapBitInfo(b).label]))+select('preset','Derelict type',[...new Set(rows.map(r=>r.preset))].sort())+select('reward','End reward class',['S','A','B','C'])+select('rewardModule','End reward module',Object.entries(REWARD_TYPES))+number('maxRooms','Maximum rooms')+number('maxFloors','Maximum decks')+number('minTotal','Minimum total')+number('minModules','Minimum predicted modules')+number('minCrates','Minimum salvage crates')+number('minBriefcases','Minimum briefcases')+number('minTall','Minimum tall lockers')+checkbox('hideDone','Hide done systems')+checkbox('hasMap','Published map available')+checkbox('noStairs','No ladders')+checkbox('noHangar','No hangar');
+  $('filter-fields').innerHTML=select('mapList','Map list',listBits.map(b=>[b,mapBitInfo(b).label]))+select('preset','Derelict type',[...new Set(rows.map(r=>r.preset))].sort())+select('reward','End reward class',['S','A','B','C'])+select('rewardModule','End reward module',Object.entries(REWARD_TYPES))+(extrasAvailable?spookField():'')+number('maxRooms','Maximum rooms')+number('maxFloors','Maximum decks')+number('minTotal','Minimum total')+number('minModules','Minimum predicted modules')+number('minCrates','Minimum salvage crates')+number('minBriefcases','Minimum briefcases')+number('minTall','Minimum tall lockers')+checkbox('hideDone','Hide done systems')+checkbox('hasMap','Published map available')+checkbox('noStairs','No ladders')+checkbox('noHangar','No hangar');
   if(extrasAvailable){$('filter-fields').insertAdjacentHTML('beforeend',`<label class="check"><input id="loot-badges" type="checkbox"${showLootBadges?' checked':''}>Show loot badges</label>`);$('loot-badges').onchange=e=>{showLootBadges=e.target.checked;save('lootBadges',showLootBadges);listRevision++;renderRows();};}
   function example(){const names=[['frigate','31 crates + 4 footlockers',35],['briefcases','3 briefcases',3],['tall','2 tall lockers',2]],enabled=names.filter(([k])=>$('filters-form').elements['group-'+k].checked);$('total-example').textContent='Example: '+(enabled.length?enabled.map(x=>x[1]).join(' + ')+' = '+enabled.reduce((n,x)=>n+x[2],0)+' total.':'no groups selected = 0 total.')+' Unknown counts display a lower bound, such as 35+.';}
   
@@ -202,7 +208,7 @@ $('filters-button').onclick=()=>{buildFilterFields();openDialog('filter-dialog')
 $('filters-form').onsubmit=e=>{e.preventDefault();const values=new FormData(e.target);for(const k of filterKeys)filters[k]=typeof defaults[k]==='boolean'?values.has(k):String(values.get(k)||'');renderSystems(true);if(current)updateSummary();$('filter-dialog').close();};
 let searchTimer;
 function applySearch(){
-  clearTimeout(searchTimer);const value=searchInput($('address-input').value,'auto'),format=detectSearchFormat(value);filters.q=(format==='text'?value:searchInput(value,format)).trim();syncSearchLabel();return renderSystems(true);
+  clearTimeout(searchTimer);const value=searchInput($('address-input').value,'auto'),format=detectSearchFormat(value);if(format!=='text'&&globalThis.dvGalaxy?.selected()){$('search-matches').textContent='';return Promise.resolve();}filters.q=(format==='text'?value:searchInput(value,format)).trim();syncSearchLabel();return renderSystems(true);
 }
 function updateSearchEntry(search=true){
   const input=$('address-input');input.value=searchInput(input.value,'auto');
@@ -214,7 +220,7 @@ function updateSearchEntry(search=true){
   const full=format==='glyphs'&&length===12;
   $('glyph-keypad').querySelectorAll('button').forEach(b=>b.disabled=full);
   $('address-hint').textContent=full?'All 12 glyphs entered.':format==='glyphs'?'Choose glyphs or type any search.':format==='address'?'Universe address detected.':'Searching all available text fields.';
-  $('open-search-viewer').disabled=!((format==='glyphs'&&length===12)||(format==='address'&&length===16));
+  syncOpenBtn();
   $('address-error').textContent='';
   if(search){clearTimeout(searchTimer);$('search-matches').textContent='Searching…';searchTimer=setTimeout(applySearch,250);}
 }
@@ -225,8 +231,8 @@ $('glyph-keypad').innerHTML=glyphNames.map((name,i)=>`<button type="button" data
 $('glyph-keypad').querySelectorAll('[data-glyph]').forEach(b=>b.onclick=()=>{$('address-input').value=appendGlyph($('address-input').value,b.dataset.glyph);updateSearchEntry();});
 $('address-input').oninput=()=>updateSearchEntry();
 $('clear-address').onclick=()=>{$('address-input').value='';updateSearchEntry();if(!matchMedia('(pointer: coarse)').matches)$('address-input').focus();};
-$('address-form').onsubmit=e=>{e.preventDefault();if(!$('open-search-viewer').disabled){try{const address=addressOf($('address-input').value,filters.galaxy||0);if(!rows.some(r=>r.address===address)){$('open-search-viewer').click();return;}}catch(_){}}applySearch();$('address-dialog').close();history.replaceState(null,'','#/');setTab('systems');};
-$('open-search-viewer').onclick=()=>{clearTimeout(searchTimer);try{const address=addressOf($('address-input').value,filters.galaxy||0);$('address-dialog').close();globalThis.dvSearchedAddress=address;navigate(address);}catch(error){$('address-error').textContent=error.message;}};
+$('address-form').onsubmit=e=>{e.preventDefault();$('open-search-viewer').click();};
+function syncOpenBtn(){const input=$('address-input'),format=detectSearchFormat(input.value),hex=format==='text'?'':searchInput(input.value,format==='address'?'address':'glyphs'),full=(format==='glyphs'&&hex.length===12)||(format==='address'&&hex.length===16);$('open-search-viewer').disabled=!(full||(shown.length>0&&!(format!=='text'&&globalThis.dvGalaxy?.selected())));} $('open-search-viewer').onclick=async()=>{clearTimeout(searchTimer);const input=$('address-input'),format=detectSearchFormat(searchInput(input.value,'auto')),hex=format==='text'?'':searchInput(input.value,format==='address'?'address':'glyphs'); if((format==='glyphs'&&hex.length===12)||(format==='address'&&hex.length===16)){try{const address=addressOf(input.value,globalThis.dvGalaxy?dvGalaxy.selected():0);$('address-dialog').close();globalThis.dvSearchedAddress=address;navigate(address);}catch(error){$('address-error').textContent=error.message;}return;} if(format!=='text'&&globalThis.dvGalaxy?.selected()){$('address-error').textContent='Enter all 12 glyphs to open a system in another galaxy.';return;} if(await applySearch()===false)return; const first=shown[0];if(!first){$('address-error').textContent='No matching systems.';syncOpenBtn();return;} $('address-dialog').close();navigate(first.address);};
 
 function navigate(address){if(location.hash===`#/d/${address}`)openViewer(address);else location.hash=`#/d/${address}`;setTab('viewer');}
 // SITE integration (user 2026-10-31): show a system scanned in this browser (site-scan.js): the scanner's row has the
@@ -287,7 +293,7 @@ async function openViewer(address){
 const sharing=createSharing({getSelection:()=>{
   if(!current)return null;
   const engine=view3d;
-  return {row:{...summaryData()},groups:{...filters.groups},showReward,model:current.layout?.m,layoutData:current.layout?.d,
+  const sr=summaryData();return {row:{...sr},extras:sr.extras||current.row.extras||null,groups:{...filters.groups},showReward,model:current.layout?.m,layoutData:current.layout?.d,
     moduleIds:ids(current.row.frigate_module_ids),possibleIds:ids(current.row.frigate_module_alt_ids),layers:{...layers},spread:read('spread',1.6),framing,
     capture3D:engine?.captureDefault&&!engine.firstPerson?.().active?(w,h)=>engine.captureDefault(w,h):null};
 },onRewardChange:setRewardVisibility,onFramingChange:value=>{framing=value;save('framing',framing);map?.setFraming(framing);view3d?.setOptions({framing});record('Default + photo framing: '+framing);},onLog:record});
@@ -459,6 +465,7 @@ async function loadFeatureUI(refresh=false){
   for(const [value,label] of [['items_value','Loot value (Units / credits) ↓'],['items_nanites','Nanites ↓'],['spookbox','SpookBox (7.10+) ↓']]){
     let option=$('sort').querySelector(`option[value="${value}"]`);if(extrasAvailable&&!option){option=document.createElement('option');option.value=value;option.textContent=label;$('sort').append(option);}if(option)option.hidden=!extrasAvailable;
   }
+  if(!extrasAvailable&&filters.spookbox)filters.spookbox='';
   if(!extrasAvailable&&['items_value','items_nanites','spookbox'].includes(filters.sort)){filters.sort='modules';$('sort').value='modules';}
   $('atlas-stats-body').innerHTML=atlasStatsHtml(stats);$('atlas-stats').hidden=!$('atlas-stats-body').innerHTML;
   computedRows=null;await renderSystems();if(current){const r=rows.find(r=>r.address===current.row.address);if(r)current.row=keepDeviceLoot(r);updateSummary();}

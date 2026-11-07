@@ -1,19 +1,27 @@
 import {esc} from './core.js';
-import {sharePlan,socialDrafts,sharePayload} from './share-data.js';
+import {sharePlan,socialDrafts,sharePayload,lootInfo} from './share-data.js';
 import {createShareImage} from './share-image.js';
 import {createPhotoCache} from './photo-cache.js';
 import {VIEW_PRESETS} from './view-framing.js';
 export function createSharing({getSelection,onRewardChange=()=>{},onFramingChange=()=>{},onLog=()=>{},renderImage=createShareImage}){
   const dialog=document.createElement('dialog');dialog.id='share-dialog';dialog.className='sheet share-sheet';dialog.setAttribute('aria-labelledby','share-title');
-  dialog.innerHTML=`<div class="dialog-heading"><h2 id="share-title">Photo &amp; share</h2><button id="share-close" type="button" class="icon-button" aria-label="Close photo and share">×</button></div><button id="share-toggle-reward" class="share-reward-toggle" type="button" aria-pressed="false" aria-controls="share-preview">Show End Reward</button><div id="share-views" class="share-views" role="group" aria-label="Photo and viewer angle">${Object.entries(VIEW_PRESETS).map(([id,p])=>`<button type="button" data-framing="${id}" aria-pressed="false">${p.label}</button>`).join('')}</div><p id="share-status" class="share-status" role="status">Preparing image…</p><div class="share-preview-frame"><img id="share-preview" class="share-preview" alt="Share card with portal glyphs, loot totals, predicted modules and available maps" hidden></div><div class="share-primary"><button id="share-save" class="primary" disabled>Save image</button><button id="share-native" disabled>Share image + link</button></div><div><details id="share-copy-menu" class="share-copy-menu"><summary>Copy…</summary><div class="share-copy-buttons"><button id="share-copy-link" type="button">Link</button><button id="share-copy-code" type="button">Glyph code (hex)</button><button id="share-copy-text" type="button">Post text</button><button id="share-copy-image" type="button" disabled>Image (PNG)</button></div></details><label for="share-copy-field" class="sr-only">Link or text to copy</label><textarea id="share-copy-field" class="share-copy-field" rows="2" readonly></textarea><div id="share-socials" class="share-socials" aria-label="Open a social sharing draft"></div><p class="share-help">Social shortcuts open a link draft. Attach the saved PNG in the composer. Device sharing can attach the image and link together where supported.</p><p class="share-help">This site is private. Link recipients need access; sharing a link does not grant it.</p></div><p id="share-local-note" class="share-help">Image generation happens entirely in your browser.</p>`;
+  dialog.innerHTML=`<div class="dialog-heading"><h2 id="share-title">Photo &amp; share</h2><button id="share-close" type="button" class="icon-button" aria-label="Close photo and share">×</button></div><button id="share-toggle-reward" class="share-reward-toggle" type="button" aria-pressed="false" aria-controls="share-preview">Show End Reward</button><div id="share-views" class="share-views" role="group" aria-label="Photo and viewer angle">${Object.entries(VIEW_PRESETS).map(([id,p])=>`<button type="button" data-framing="${id}" aria-pressed="false">${p.label}</button>`).join('')}</div><fieldset id="share-opts" class="dvb-options share-opts"><legend>Show in the photo</legend><label data-opt="loot"><input type="checkbox" data-opt="loot"><span>Loot (value, nanites)</span><small class="dvb-na">not known</small></label><label data-opt="spook"><input type="checkbox" data-opt="spook"><span>SpookBox contents</span><small class="dvb-na">not known</small></label></fieldset><p id="share-status" class="share-status" role="status">Preparing image…</p><div class="share-preview-frame"><img id="share-preview" class="share-preview" alt="Share card with portal glyphs, loot totals, predicted modules and available maps" hidden></div><div class="share-primary"><button id="share-save" class="primary" disabled>Save image</button><button id="share-native" disabled>Share image + link</button></div><div><details id="share-copy-menu" class="share-copy-menu"><summary>Copy…</summary><div class="share-copy-buttons"><button id="share-copy-link" type="button">Link</button><button id="share-copy-code" type="button">Glyph code (hex)</button><button id="share-copy-text" type="button">Post text</button><button id="share-copy-image" type="button" disabled>Image (PNG)</button></div></details><label for="share-copy-field" class="sr-only">Link or text to copy</label><textarea id="share-copy-field" class="share-copy-field" rows="2" readonly></textarea><div id="share-socials" class="share-socials" aria-label="Open a social sharing draft"></div><p class="share-help">Social shortcuts open a link draft. Attach the saved PNG in the composer. Device sharing can attach the image and link together where supported.</p><p class="share-help">This site is private. Link recipients need access; sharing a link does not grant it.</p></div><p id="share-local-note" class="share-help">Image generation happens entirely in your browser.</p>`;
   document.body.append(dialog);
   const $=id=>dialog.querySelector('#'+id);
   const images=createPhotoCache();
   window.addEventListener('pagehide',event=>{if(!event.persisted)images.clear();});
   let generation=0,previewUrl=null,file=null,plan=null;
+  const OPT_KEY='dv.photo.v1',opts={loot:true,spook:true};
+  try{const s=JSON.parse(localStorage.getItem(OPT_KEY)||'null');if(s&&typeof s==='object')for(const k of Object.keys(opts))if(typeof s[k]==='boolean')opts[k]=s[k];}catch{}
+  function photoOptions(selection){
+    const info=lootInfo(selection.row,selection.extras),has={loot:info.value!==null||info.nanites!==null,spook:Boolean(info.spook)};
+    dialog.querySelectorAll('#share-opts input[data-opt]').forEach(box=>{const k=box.dataset.opt;box.disabled=!has[k];box.checked=has[k]&&opts[k];box.closest('label').classList.toggle('is-na',!has[k]);});
+    return {loot:opts.loot&&has.loot?{value:info.value,nanites:info.nanites}:null,spook:opts.spook&&has.spook?info.spook:null};
+  }
+  dialog.querySelectorAll('#share-opts input[data-opt]').forEach(box=>box.addEventListener('change',()=>{opts[box.dataset.opt]=box.checked;try{localStorage.setItem(OPT_KEY,JSON.stringify(opts));}catch{}open(dialog.dataset.mode||'share');}));
   function status(text){$('share-status').textContent=text;}
   function release(){generation++;previewUrl=null;file=null;$('share-preview').removeAttribute('src');$('share-preview').hidden=true;}
-  dialog.addEventListener('close',release);$('share-close').onclick=()=>dialog.close();
+  const endHint=()=>$('share-copy-menu').classList.remove('copy-hint');dialog.addEventListener('pointerdown',endHint);dialog.addEventListener('keydown',endHint);dialog.addEventListener('close',endHint);dialog.addEventListener('close',release);$('share-close').onclick=()=>dialog.close();
   dialog.addEventListener('click',e=>{if(e.target!==dialog)return;const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();});
   function copy(text){
     $('share-copy-field').value=text;
@@ -34,7 +42,7 @@ export function createSharing({getSelection,onRewardChange=()=>{},onFramingChang
   $('share-views').querySelectorAll('[data-framing]').forEach(button=>button.onclick=()=>{onFramingChange(button.dataset.framing);return open(dialog.dataset.mode||'share');});
   async function open(mode='share'){
     const selection=getSelection();if(!selection)return;
-    release();const ticket=generation,currentPlan=sharePlan(selection.row,selection.groups,selection.showReward,undefined,selection.layoutData);plan=currentPlan;dialog.dataset.mode='share';
+    release();const ticket=generation,currentPlan=sharePlan(selection.row,selection.groups,selection.showReward,undefined,selection.layoutData);Object.assign(currentPlan,photoOptions(selection));plan=currentPlan;dialog.dataset.mode='share';
     const key=images.key(currentPlan,selection),cached=images.peek(key);dialog.dataset.imageCache=cached?'hit':images.has(key)?'pending':'miss';
     $('share-views').querySelectorAll('[data-framing]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.framing===(selection.framing||'photo'))));
     $('share-toggle-reward').textContent=selection.showReward?'Hide End Reward':'Show End Reward';$('share-toggle-reward').setAttribute('aria-pressed',String(selection.showReward));
@@ -45,7 +53,7 @@ export function createSharing({getSelection,onRewardChange=()=>{},onFramingChang
     $('share-local-note').textContent='Image generation happens entirely in your browser.'+(selection.imported?' Your imported file is not included in the link.':'');
     for(const id of ['share-save','share-copy-image','share-native'])$(id).disabled=true;
     if(!dialog.open)dialog.showModal();
-    if(mode==='copy')$('share-copy-link').focus();
+    const copyBar=$('share-copy-menu');copyBar.classList.remove('copy-hint');if(mode==='copy'){copyBar.classList.add('copy-hint');copyBar.scrollIntoView({block:'nearest'});$('share-copy-link').focus();}
     try{
       const result=cached||await images.get(key,()=>renderImage(currentPlan,selection));if(ticket!==generation||!dialog.open)return;
       file=new File([result.blob],plan.filename,{type:'image/png'});previewUrl=result.url;$('share-preview').src=previewUrl;$('share-preview').hidden=false;

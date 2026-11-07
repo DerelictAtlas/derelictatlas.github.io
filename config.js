@@ -8,10 +8,12 @@ window.DV_CONFIG = {
   "scanRelay": "https://raspberrypi.tail9a10b2.ts.net/submit",
   "relayFinder": true,
   "relayPerf": true,
-  "scanRelayNote": "Scan results go to a small relay run by the atlas, reached through Tailscale Funnel. It keeps no IP logs, stores only the scan results (system numbers and loot values) and publishes them on GitHub. Tailscale's servers pass the connection on and see your IP address under Tailscale's own privacy policy.",
   "gate": {
     "enabled": true,
     "salt": "5c582c687eaa21f67cc523ec",
-    "hash": "6cc0b9c624ca22a92cc4e783dc043b547f785d6df0175e2593f4400cdd96849b"
+    "hash": "6cc0b9c624ca22a92cc4e783dc043b547f785d6df0175e2593f4400cdd96849b",
+    "testers": [
+      {"id": "tester1", "hash": "1abec618ba3c3f63f7a871d4e29b4458644aec631246ac4e670487a74787a444"}
+    ]
   }
 };

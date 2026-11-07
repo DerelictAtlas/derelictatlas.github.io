@@ -23,9 +23,18 @@
 
   // the atlas count includes the visitor-scanned singles (scanner -cc 2026-11-01: stats/systems.json does not count them,
   // the Action writes them hourly): the data rows of index/singles.csv, fetched once
-  let singlesCountP = null;
-  window.dvSinglesCount = () => singlesCountP || (singlesCountP = fetch(base + "index/singles.csv", { cache: "no-cache" })
-    .then((r) => (r.ok ? r.text() : "")).then((t) => Math.max(0, t.split(/\r?\n/).filter(isRow).length - 1)).catch(() => 0));
+  let singlesCountP = null, singlesTextP = null;
+  const singlesRaw = () => singlesTextP || (singlesTextP = fetch(base + "index/singles.csv", { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => ""));
+  window.dvSinglesCount = () => singlesCountP || (singlesCountP = singlesRaw().then((t) => Math.max(0, t.split(/\r?\n/).filter(isRow).length - 1)));
+  // the singles by definite module count: [n0, n1, ...] (rows with an unknown count are left out, like stats/systems.json does).
+  // The Statistics tab adds this to the snapshot histogram, so a module count seen only in a single (8) is an observed row.
+  window.dvSinglesHist = () => singlesRaw().then((t) => {
+    const rows = t.split(/\r?\n/).filter(isRow), h = [];
+    const col = rows.length ? rows[0].split(",").indexOf("frigate_modules") : -1;
+    if (col < 0) return h;
+    for (const line of rows.slice(1)) { const v = line.split(",")[col]; if (/^\d+$/.test(v)) { const m = Number(v); while (h.length <= m) h.push(0); h[m]++; } }
+    return h;
+  }).catch(() => []);
 
   // key of an index row: "GLYPHS,GALAXY" (the first two columns)
   const rowKey = (line) => { const i = line.indexOf(","), j = i < 0 ? -1 : line.indexOf(",", i + 1); return j < 0 ? line : line.slice(0, j); };

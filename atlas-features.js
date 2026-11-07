@@ -189,6 +189,7 @@ function applyExtras(r, e) {
   r.items_value = extraNum(e, "items_value");
   r.items_nanites = extraNum(e, "items_nanites");
   r.spookbox = e ? spookboxSortKey(e.spookbox) : null;
+  r.spookbox_alts = e && spookboxAmbiguous(e) && e.spookbox_alt ? String(e.spookbox_alt).split("|").map((x) => spookboxSortKey(x.trim())).filter((k) => k !== null) : null;
 }
 // System page: the extras as cards after the "Predicted end reward" card (only the values that are present)
 function extrasCardsHtml(e) {
@@ -226,6 +227,6 @@ export function atlasStatsHtml(s){
  const capText=ru.cap_reached?`${ru.demo_cap?'DEMO cap: ':''}The atlas reached ${fmt(cap)} systems: ${ru.post_cap_rule==='top_lists'?'only systems that break into a top-100 list in any category are still added in full':`only systems with ${esc(ru.post_cap_min_modules??7)}+ Salvaged Frigate Modules (or in a top list) are still added in full`}; the others keep only their module count.`:`${ru.demo_cap?'DEMO cap: ':''}Atlas: ${fmt(s.total_systems)} of ${fmt(cap)} systems`;
  return `<p><b>${capText}</b></p><p>${fmt(s.total_systems)} systems: ${fmt(s.tiers.full)} full, ${fmt(s.tiers.slim)} slim, ${fmt(s.tiers.pruned)} pruned.</p><p>New systems with fewer than ${esc(ru.detail_min_modules??5)} Salvaged Frigate Modules keep only their module count unless they are in a top list. Slim and pruned systems are counted here but do not appear as table rows.</p>${mp.total!==undefined?`<p>${fmt(mp.total)} full maps. Lists: ${esc((s.map_lists||[]).map(l=>l.label).filter(Boolean).join(', '))||'Not listed'}. ${fmt(mp.kept_old)} kept old maps; ${fmt(mp.kept_s_reward)} S-class reward maps.</p>`:''}<div class="stats-table"><table><thead><tr><th>Modules</th><th>Systems</th></tr></thead><tbody>${Object.entries(h).map(([m,n])=>`<tr><td>${esc(m)}</td><td>${fmt(n)}</td></tr>`).join('')}</tbody></table></div>${Object.keys(s.galaxies||{}).length>1?`<div class="stats-table"><table><thead><tr><th>Galaxy</th><th>Systems</th><th>Regions</th></tr></thead><tbody>${Object.entries(s.galaxies).map(([g,v])=>`<tr><td>${esc(g)}</td><td>${fmt(v.systems)}</td><td>${fmt(v.regions)}</td></tr>`).join('')}</tbody></table></div>`:''}`;
 }
-export {MAP_BITS,setMapLists,hasBit,mapBitsOf,mapBitInfo,mapListName,mapChips,regionText,atlasSlim,atlasDeferred,atlasStats,atlasMapLists,mapBitsFor,atlasExtras,parseExtrasCsv,applyExtras,itemValueCell,nanitesCell,spookboxCell,extrasCardsHtml,extraNum,spookboxSortKey};
+export {MAP_BITS,setMapLists,hasBit,mapBitsOf,mapBitInfo,mapListName,mapChips,regionText,atlasSlim,atlasDeferred,atlasStats,atlasMapLists,mapBitsFor,atlasExtras,parseExtrasCsv,applyExtras,itemValueCell,nanitesCell,spookboxCell,spookboxText,extrasCardsHtml,extraNum,spookboxSortKey};
 // Compatibility entry points for data hooks used by the original classic-script viewer.
-if(typeof window!=='undefined')Object.assign(window,{atlasSlim,regionText,atlasDeferred,atlasStats,atlasMapLists,setMapLists,mapBitsOf,mapBitsFor,mapListName,hasBit,atlasExtras,parseExtrasCsv,applyExtras,itemValueCell,nanitesCell,spookboxCell,extrasCardsHtml,fillExtras});
+if(typeof window!=='undefined')Object.assign(window,{atlasSlim,regionText,atlasDeferred,atlasStats,atlasMapLists,setMapLists,mapBitsOf,mapBitsFor,mapListName,hasBit,atlasExtras,parseExtrasCsv,applyExtras,itemValueCell,nanitesCell,spookboxCell,spookboxText,extrasCardsHtml,fillExtras});

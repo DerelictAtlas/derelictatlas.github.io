@@ -1,0 +1,106 @@
+/* site-near.css (SITE integration 2026-11-06): the "Near me" dialog (#/near). Colours come from the site's own variables. */
+dialog.sheet.nr-dialog { width: min(760px, calc(100vw - 24px)); height: min(820px, 94dvh); max-height: 94dvh; padding: 0; overflow: hidden; display: none; flex-direction: column;
+  background: radial-gradient(ellipse at 100% 0, #55d9dc18, transparent 50%), linear-gradient(145deg, #102b3c, #101c2b 55%, #291a2c); border-radius: 12px; }
+dialog.sheet.nr-dialog[open] { display: flex; }
+.nr-dialog .si-head [data-nr-close] { margin-left: auto; }
+.nr-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 16px 18px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain; }
+.nr-body * { min-width: 0; }
+.nr-lead { margin: 0; font-size: 13px; color: var(--muted, #94a9bc); line-height: 1.45; }
+.nr-card, .nr-trip { border: 1px solid var(--line, #7395b340); border-radius: 10px; background: #0a1c2a80; padding: 12px 14px; }
+.nr-trip { border-color: #d6b34b88; background: #2a220f55; }
+.nr-card h3, .nr-trip h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: .04em; }
+.nr-card label, .nr-trip label { display: block; font-size: 12px; color: var(--muted, #94a9bc); margin: 6px 0 6px; }
+.nr-card input:focus-visible, .nr-trip input:focus-visible { outline-offset: 2px; }
+.nr-card input[type=text], .nr-card input[type=number], .nr-card select, .nr-trip input[type=text] { width: 100%; font-size: 14px; min-height: 40px; }
+.nr-row { display: flex; align-items: center; gap: 8px; }
+.nr-row label { flex: none; margin: 0; }
+.nr-row select { flex: 1 1 auto; }
+.nr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.nr-f { min-width: 0; }
+.nr-check { display: flex !important; align-items: flex-start; gap: 8px; color: var(--text, #edf3f4) !important; font-size: 13px !important; margin: 8px 0 0 !important; }
+.nr-check input { width: auto !important; min-height: 0 !important; margin-top: 3px; flex: none; }
+.nr-note { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted, #94a9bc); }
+.nr-note.ok, .nr-note .ok { color: #8be0a6; }
+.nr-note.bad, .nr-note .bad, .bad { color: #ff9a8a; }
+.nr-note code, .nr-card code, .nr-trip code { font-family: ui-monospace, Consolas, monospace; color: var(--text, #edf3f4); overflow-wrap: anywhere; }
+.nr-help, .nr-more { margin-top: 8px; font-size: 12px; }
+.nr-help summary, .nr-more summary { cursor: pointer; color: var(--accent, #55d9dc); font-size: 13px; padding: 4px 0; }
+.nr-help ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted, #94a9bc); line-height: 1.45; }
+.nr-help li { margin: 4px 0; }
+.nr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.nr-actions button { min-height: 40px; }
+.nr-out { display: flex; flex-direction: column; gap: 12px; }
+.nr-scan p { margin: 6px 0 0; font-size: 12px; line-height: 1.45; }
+.nr-scan .warn, .warn { color: var(--gold, #f4cd54); }
+.nr-prog { color: var(--text, #edf3f4); }
+.nr-bar { height: 6px; border-radius: 3px; background: #ffffff14; overflow: hidden; margin-top: 8px; }
+.nr-bar span { display: block; height: 100%; background: var(--accent, #55d9dc); }
+.nr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.nr-head { font-size: 12px; color: var(--muted, #94a9bc); line-height: 1.45; }
+.nr-res { border: 1px solid var(--line, #7395b340); border-radius: 10px; background: #0a1c2a99; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.nr-res-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.nr-dist { font-size: 17px; color: var(--gold, #f4cd54); }
+.nr-jumps, .nr-src { font-size: 12px; color: var(--muted, #94a9bc); }
+.nr-src { margin-left: auto; border: 1px solid var(--line, #7395b340); border-radius: 8px; padding: 0 6px; }
+.nr-line { font-size: 13px; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; overflow-wrap: anywhere; }
+.nr-glyphs { font-size: 14px; letter-spacing: .04em; }
+.nr-name { color: var(--text, #edf3f4); font-weight: 600; }
+.nr-gal { color: var(--muted, #94a9bc); }
+.nr-tag { border: 1px solid #b990d9; border-radius: 8px; color: #d9b8f2; font-size: 11px; padding: 0 6px; }
+.nr-facts { color: var(--muted, #94a9bc); }
+.nr-facts b { color: var(--text, #edf3f4); }
+.nr-reward { color: #d9b8f2; }
+.nr-hubnote { font-size: 11px; color: var(--muted, #94a9bc); }
+.nr-btn, .nr-mini, .nr-link { font: inherit; cursor: pointer; border: 1px solid var(--line, #7395b340); border-radius: 6px; background: #0a1c2aba; color: var(--text, #edf3f4); text-decoration: none; display: inline-flex; align-items: center; }
+.nr-btn { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.nr-btn:hover, .nr-mini:hover { background: #55d9dc22; }
+.nr-mini { min-height: 28px; padding: 2px 9px; font-size: 12px; width: auto; }
+.nr-link { border: 0; background: none; color: var(--accent, #55d9dc); padding: 0; min-height: 0; text-decoration: underline; }
+.nr-mini[disabled] { opacity: .45; cursor: default; }
+.nr-trip-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; }
+.nr-trip-head .nr-actions { margin: 0; }
+.nr-target { margin: 4px 0 8px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.nr-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0; }
+.nr-stats div { border: 1px solid var(--line, #7395b340); border-radius: 8px; padding: 6px 8px; background: #0a1c2a80; }
+.nr-stats small { display: block; font-size: 11px; color: var(--muted, #94a9bc); }
+.nr-stats b { font-size: 15px; color: var(--gold, #f4cd54); overflow-wrap: anywhere; }
+.nr-dir, .nr-region, .nr-arrived { margin: 6px 0 0; font-size: 13px; line-height: 1.45; }
+.nr-arrived { color: #8be0a6; font-size: 15px; }
+.nr-region { color: #8be0a6; }
+.nr-inline { display: flex; gap: 8px; align-items: stretch; }
+.nr-inline input { flex: 1 1 auto; }
+.nr-inline button { flex: none; min-height: 40px; }
+.nr-picks { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.nr-picks li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; }
+.nr-ci { margin-top: 10px; }
+#near-open { margin-left: 0; display: inline-flex; align-items: center; gap: 6px; }
+#near-open svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+/* the Near me button beside the main search bar (user 2026-11-07) */
+.near-main { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line, #7395b380); border-radius: 10px;
+  background: #55d9dc14; color: var(--accent, #55d9dc); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.near-main:hover { background: #55d9dc26; border-color: var(--accent, #55d9dc); }
+.near-main:focus-visible { outline: 2px solid var(--accent, #55d9dc); outline-offset: 2px; }
+.near-main svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+@media (max-width: 360px) { .near-main { padding: 0 10px; } .near-main span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+@media (max-width: 560px) {
+  .nr-grid { grid-template-columns: minmax(0, 1fr); }
+  .nr-stats { grid-template-columns: minmax(0, 1fr); }
+  .nr-body { padding: 10px 12px 16px; }
+  .nr-inline { flex-wrap: wrap; }
+  .nr-inline button { flex: 1 1 100%; }
+  dialog.sheet.nr-dialog { width: calc(100vw - 12px); }
+}
+@media (max-height: 480px) {  /* landscape phone */
+  dialog.sheet.nr-dialog { height: 100dvh; max-height: 100dvh; width: 100vw; border-radius: 0; }
+  .nr-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* glyph selector (same keypad and preview as the main search) */
+.nr-glyphs { margin: 8px 0 4px; }
+.nr-glyphs .glyph-preview { margin: 0 0 8px; }
+.nr-glyphs .glyph-keypad button { min-height: 44px; touch-action: manipulation; }
+.nr-glyphs .glyph-keypad button:disabled { opacity: .35; }
+.nr-kact { display: flex; gap: 8px; margin-top: 8px; }
+.nr-kact button { flex: 1 1 0; min-height: 40px; }
+@media (min-width: 600px) { .nr-glyphs .glyph-keypad { grid-template-columns: repeat(16, 1fr); } .nr-glyphs .glyph-keypad button { min-height: 40px; } }
+/* 320 px phones: the page's list column has a 310 px minimum that is wider than the screen, which cut the right edge of the search bar row (and so the Near me button) by a few px: the page grid column may now shrink */
+@media (max-width: 340px) { body[data-tab] { grid-template-columns: minmax(0, 1fr); } body[data-tab] .workspace { min-width: 0; } }

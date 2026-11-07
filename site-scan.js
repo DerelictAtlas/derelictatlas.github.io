@@ -136,24 +136,155 @@
     for (const a of Object.keys(all)) if (all[a] && all[a].status === 0 && all[a].valid === undefined) verdictOf(a).then((v) => markChecked(a, v));
   }
   const savedInvalid = (address) => { const c = cached(address); return !!(c && c.valid === false); };
+  // galaxy search (user 2026-11-06): the atlas, its top-100 lists and the counts are Galaxy 0 only (address digits 7-8 = 00).
+  // A system of another galaxy is scanned and shown here but never sent, never a top-100 break and never in the Systems list.
+  const isEuclid = (a) => String(a || "").slice(6, 8) === "00";
 
   // ---- systems scanned on this device in the Systems list (user 2026-10-31) ----
   // tag: "Uploaded" once the address was sent, "Not uploaded yet" while a top-100 system waits to be sent, otherwise
   // "Local only" (only top-100 lookups are sent). modern.js turns the cached rows into list cards (withDeviceRows).
   function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.top || []).length ? "Not uploaded yet" : "Local only"; }
   const changed = () => { try { if (globalThis.dvDeviceChanged) globalThis.dvDeviceChanged(); } catch (_) {} };
-  globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([, c]) => c && c.status === 0 && c.row && c.valid !== false)
+  globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([a, c]) => isEuclid(a) && c && c.status === 0 && c.row && c.valid !== false)
     .map(([address, c]) => ({ address, row: c.row, extras: lootShown(address, c) ? c.extras : null, tag: tagOf(address, c) }));
   // loot on request (user 2026-10-31): a top-100 system shows it by default, any other after "Scan loot" (site-loot.js)
   function lootShown(address, c) { return (c.top || []).length > 0 || !!(globalThis.dvLootSaved && globalThis.dvLootSaved(address)); }
   globalThis.dvScannedHere = (address) => { const c = cached(address); return !!(c && c.status === 0 && c.valid !== false); };
+  // Near me: the addresses this device already sent, or holds as a top-100 find waiting to be sent (Near me does not scan them again)
+  // Near me, every finished Galaxy 0 scan (user 2026-11-07, "the systems get marked ... thusly not wasting a contributors time"): the same
+  // upload as Contribute. Queue item {a, ver, row, ext, ms, p, w, sp} (a found system) or {a, ver, ms, w, sp} (no derelict). Batches of
+  // up to 200 / 200 KB, one POST at a time, every 60 s and when the scan stops, 429/503 wait Retry-After, 413 halves the batch,
+  // the page closing hands the rest to sendBeacon: all as in contribute.js. Without a relay nothing is queued.
+  const NB = { out: [], inFlight: null, retryAt: 0, maxBytes: 200 * 1024, timer: 0 };
+  const NB_BATCH = 200, NB_MAXQ = 5000, NB_KEEPALIVE = 60000;
+  const fpOf = (ver) => (/tables fingerprint ([0-9a-f]{16})\b/.exec(ver) || [])[1] || "";
+  function nbLog(list, code, kind, why) {
+    const pend = jsonGet(PEND_KEY, {}), now = Math.floor(Date.now() / 60000);
+    if (code) { for (const e of list) { const had = pend[e.a]; if (code === 2 && had && had[1] === 1) continue; pend[e.a] = [now, code]; } jsonSet(PEND_KEY, pend); }
+    const log = jsonGet(UPLOG_KEY, []), last = log[log.length - 1];
+    if (last && kind === "retry" && last.k === kind && last.why === (why || "")) { last.n += list.length; last.c = (last.c || 1) + 1; last.t = Date.now(); }
+    else log.push({ t: Date.now(), k: kind, n: list.length, why: why || "" });
+    jsonSet(UPLOG_KEY, log.slice(-200));
+  }
+  function nbTake(limit) {
+    const ver = NB.out[0].ver, out = [];
+    let bytes = 400 + ver.length + (globalThis.dvPerf && globalThis.dvPerf.on() ? 2048 : 0);
+    while (out.length < NB_BATCH && NB.out.length && NB.out[0].ver === ver) {
+      const e = NB.out[0], add = e.row ? e.row.length + e.ext.length + 8 : 21;
+      if (out.length && bytes + add > limit) break;
+      out.push(NB.out.shift()); bytes += add;
+    }
+    return out;
+  }
+  function nbBody(b) {
+    const ver = b[0].ver, rows = [], extras = [], none = [];
+    for (const e of b) if (e.row) { rows.push(e.row); extras.push(e.ext); } else none.push(e.a);
+    let body = JSON.stringify({ v: 3, scanner: ver, fp: fpOf(ver), rows, extras, none });
+    const P = globalThis.dvPerf, last = b[b.length - 1];
+    if (P && P.on()) body = P.add(body, P.summary(b.map((e) => ({ ms: e.ms, p: e.p })), { workers: last.w || 1, speed: last.sp, src: "contribute" }));
+    return body;   // user 2026-11-07 "leave the names out of it": Near me uploads carry no scout name
+  }
+  function nbDropUnsendable() {
+    while (NB.out.length && !fpOf(NB.out[0].ver)) {
+      const ver = NB.out[0].ver, gone = [];
+      while (NB.out.length && NB.out[0].ver === ver) gone.push(NB.out.shift());
+      logFailure({ what: "relay", error: `not sent: scanner version "${ver.slice(0, 80)}" has no tables fingerprint`, n: gone.length });
+      nbLog(gone, 4, "notsent", "this scanner version cannot be verified");
+    }
+  }
+  function nbFlush() {
+    const url = relay();
+    nbDropUnsendable();
+    if (!url || NB.inFlight || Date.now() < NB.retryAt || !NB.out.length) return;
+    const b = NB.inFlight = nbTake(NB.maxBytes), n = b.length, body = nbBody(b);
+    const retry = (sec) => { NB.out.unshift(...b); NB.retryAt = Date.now() + sec * 1000; setTimeout(nbFlush, sec * 1000 + 50); };
+    fetch(url, { method: "POST", body, keepalive: body.length < NB_KEEPALIVE, mode: "cors", headers: { "Content-Type": "text/plain" } })
+      .then((r) => {
+        NB.inFlight = null;
+        if (r.ok) { nbLog(b, 1, "sent"); changed(); nbFlush(); return; }
+        if (r.status === 429 || r.status === 503) { nbLog(b, 0, "retry", "the relay is busy, HTTP " + r.status); retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
+        if (r.status === 413 && NB.maxBytes > 16384) { NB.maxBytes = Math.max(16384, NB.maxBytes >> 1); NB.out.unshift(...b); setTimeout(nbFlush, 50); return; }
+        nbLog(b, 3, "refused", "HTTP " + r.status);
+        r.text().catch(() => "").then((why) => logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }));
+      })
+      .catch((err) => { NB.inFlight = null; nbLog(b, 0, "retry", "no connection to the relay"); retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); });
+  }
+  function nbLast() {
+    const url = relay();
+    if (!url) return;
+    if (NB.inFlight) { NB.out.unshift(...NB.inFlight); NB.inFlight = null; }
+    nbDropUnsendable();
+    while (NB.out.length) {
+      const b = nbTake(NB_KEEPALIVE - 2000);
+      let handed = false;
+      try { handed = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([nbBody(b)], { type: "text/plain" })); } catch (_) {}
+      nbLog(b, handed ? 2 : 4, handed ? "handed" : "notsent", handed ? "" : "the browser would not send them as the page closed");
+      nbDropUnsendable();
+    }
+  }
+  addEventListener("pagehide", nbLast);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") nbLast(); });
+  globalThis.dvNearQueue = (item) => {
+    if (!relay() || !isEuclid(item && item.a) || !item.ver) return false;
+    if (NB.out.length >= NB_MAXQ) NB.out.shift();
+    NB.out.push(item);
+    if (!NB.timer) NB.timer = setInterval(nbFlush, 60000);
+    if (NB.out.length >= NB_BATCH) nbFlush();
+    return true;
+  };
+  globalThis.dvNearFlush = () => nbFlush();
+  globalThis.dvNearPending = () => NB.out.length + (NB.inFlight ? NB.inFlight.length : 0);
+  globalThis.dvFindRecord = () => {
+    const out = new Set(jsonGet(SENT_KEY, []));
+    for (const [a, c] of Object.entries(jsonGet(CACHE_KEY, {}))) if (isEuclid(a) && c && c.status === 0 && c.valid !== false && (c.top || []).length) out.add(a);
+    return out;
+  };
+  // Near me: data = the full scan of one system (scan/scan-worker.js, loot included, like a lookup). Returns {top: [labels], queued: bool}.
+  // Galaxy 0 only; a system that breaks no list, or was sent already, is neither saved nor sent. Needs the relay, else nothing happens.
+  globalThis.dvUploadFind = async (address, data) => {
+    address = String(address || "").toUpperCase();
+    if (!relay() || !isEuclid(address) || !data || data.status !== 0 || !data.row) return { top: [], queued: false };
+    if (wasSent(address)) return { top: [], queued: false, sent: true };
+    const T = globalThis.dvTopLists, lists = T ? await T.load().catch(() => null) : null;
+    const top = lists ? T.breaks(data.row, data.extras, lists) : [];
+    if (!top.length) return { top: [], queued: false };
+    const v = await verdictOf(address);
+    if (isBad(v)) return { top: [], queued: false };
+    const entry = { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, ms: Math.round(Number(data.ms)) || null, at: Date.now(), valid: true, asked: true };
+    remember(address, entry);
+    changed();
+    NEAR_UP.add(address);
+    states.set(address, Object.assign(states.get(address) || { phase: "done" }, { send: true }));
+    schedule(address);
+    return { top: top.map((t) => t.label), queued: true };
+  };
 
   // ---- sending (address only, once, at once; user 2026-11-01 "i'd like this to be instant") ----
   // a CORS fetch (text/plain = no preflight) so the relay's answer is readable: "Sent" only after a 2xx
-  function markSent(address) {
+  function markSent(address, handed) {
     const sent = jsonGet(SENT_KEY, []);
     if (!sent.includes(address)) { sent.push(address); jsonSet(SENT_KEY, sent.slice(-500)); }
+    if (NEAR_UP.has(address)) nearRecord(address, handed);
     changed();
+  }
+  // ---- Near me finds (site-near.js, user 2026-11-07: "i want the top 100 to be uploaded and every system that is uploaded to be marked
+  // as scanned so its not rescanned") ----
+  // A system the Near me scan finds in a top-100 list is saved and sent exactly like a lookup that breaks a top 100: same rule
+  // (site-toplists.js), same saved scan (dv.scan.v1), same sent record (dv.scan.sent), same body (upload format v3) and same retry.
+  // No name prompt and no scout name (user 2026-11-07 "leave the names out of it"); the saved name is left alone and the viewer still uses it for lookups.
+  // Once the relay has answered, the address also goes into Contribute's records (done, send record, upload log) so Contribute
+  // does not scan it again and its "Your uploads" card counts it. No source label: the upload log has none.
+  const NEAR_UP = new Set(), DONE_KEY = "dv.contrib.done", PEND_KEY = "dv.contrib.pending", UPLOG_KEY = "dv.contrib.uplog";
+  function nearRecord(address, handed) {
+    NEAR_UP.delete(address);
+    const done = jsonGet(DONE_KEY, []);
+    if (!done.includes(address)) { done.push(address); jsonSet(DONE_KEY, done.slice(-40000)); }
+    const pend = jsonGet(PEND_KEY, {});
+    pend[address] = [Math.floor(Date.now() / 60000), handed ? 2 : 1];   // Contribute's codes: 1 sent (relay answered), 2 handed to the browser
+    jsonSet(PEND_KEY, pend);
+    const log = jsonGet(UPLOG_KEY, []);
+    log.push({ t: Date.now(), k: handed ? "handed" : "sent", n: 1, why: "" });
+    jsonSet(UPLOG_KEY, log.slice(-200));
   }
   // v3 upload (2026-11-02): scan/v3-lines.js builds the lines; the body names the scanner version the scan was made with
   let v3lib = null;
@@ -187,7 +318,7 @@
   const finderOn = () => !!(globalThis.dvFinder && globalThis.dvFinder.on() && relay());
   function ask(address) {
     const st = states.get(address);
-    if (!st || wasSent(address) || asks.has(address)) return;
+    if (!st || wasSent(address) || asks.has(address) || !isEuclid(address)) return;
     v3Load().catch(() => {});
     st.askName = true;
     asks.set(address, setTimeout(() => release(address, ""), ASK_MS));
@@ -206,7 +337,7 @@
     clearTimeout(pending.get(address));
     pending.delete(address);
     const url = relay(), st = states.get(address);
-    if (!url || !(st && st.send) || wasSent(address) || st.sending || savedInvalid(address)) return;
+    if (!url || !isEuclid(address) || !(st && st.send) || wasSent(address) || st.sending || savedInvalid(address)) return;
     st.sending = true; st.sendError = "";
     v3Load().then(() => v3Body(address)).catch((e) => {
       st.sending = false; st.sendError = "could not prepare the upload";
@@ -224,7 +355,7 @@
     render();
   }
   function schedule(address) {
-    if (!relay() || wasSent(address) || pending.has(address) || asks.has(address) || savedInvalid(address)) return;
+    if (!relay() || !isEuclid(address) || wasSent(address) || pending.has(address) || asks.has(address) || savedInvalid(address)) return;
     v3Load().catch(() => {});   // ready for a last-chance sendBeacon too
     verdictOf(address).then((v) => { if (!isBad(v)) send(address); else markChecked(address, v); });
   }
@@ -235,10 +366,10 @@
     for (const a of [...asks.keys()]) { clearTimeout(asks.get(a)); asks.delete(a); const s = states.get(a); if (s) s.askName = false; if (!wasSent(a)) pending.set(a, 0); }
     for (const a of [...pending.keys()]) {
       clearTimeout(pending.get(a)); pending.delete(a);
-      if (savedInvalid(a)) continue;
+      if (savedInvalid(a) || !isEuclid(a)) continue;
       let body = null;
       try { body = v3Body(a); } catch (e) { logFailure({ what: "relay", address: a, step: "upload", error: String(e && e.message || e) }); continue; }
-      try { if (url && navigator.sendBeacon(url, new Blob([body], { type: "text/plain" }))) markSent(a); } catch (_) {}
+      try { if (url && navigator.sendBeacon(url, new Blob([body], { type: "text/plain" }))) markSent(a, true); } catch (_) {}
     }
   }
   addEventListener("pagehide", flushAll);
@@ -323,7 +454,7 @@
     if (data.derelict) maps.set(address, data.derelict);
     // the top-100 rule (site-toplists.js, the same as the Action): only a system that breaks into a list is sent
     const T = globalThis.dvTopLists, lists = T ? await T.load().catch(() => null) : null;
-    let top = lists ? T.breaks(data.row, data.extras, lists) : [];
+    let top = lists && isEuclid(address) ? T.breaks(data.row, data.extras, lists) : [];
     if (top.length && T.rank) try { top = T.rank(data.row, data.extras, lists, top, globalThis.dvHome && globalThis.dvHome.rows ? globalThis.dvHome.rows() : null); } catch (_) {}
     if (states.get(address) !== st) return;
     remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, ms: Math.round(Number(data.ms)) || null, at: Date.now(), valid: true });

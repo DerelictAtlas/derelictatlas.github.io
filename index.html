@@ -11,12 +11,13 @@
   <meta property="og:url" content="https://derelictatlas.github.io/"><meta property="og:image" content="https://derelictatlas.github.io/preview.png">
   <meta property="og:image:width" content="800"><meta property="og:image:height" content="420">
   <meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://derelictatlas.github.io/preview.png">
-  <link rel="stylesheet" href="site-integration.css">
+  <link rel="stylesheet" href="site-integration.css"><link rel="stylesheet" href="site-guide.css"><link rel="stylesheet" href="site-tour.css">
   <script src="config.js"></script>
   <script src="site-index.js"></script>
   <script src="gate.js"></script>
   <script src="names.js"></script>
   <script src="credits.js"></script>
+  <script src="site-galaxy.js"></script>
   <script src="site-integration.js"></script>
   <script src="site-stats.js"></script>
   <script src="site-toplists.js"></script>
@@ -25,7 +26,8 @@
   <script src="site-perf.js"></script>
   <script src="site-scan.js"></script>
   <script src="site-welcome.js"></script><script src="site-loot.js"></script><script src="site-quickloot.js"></script><script src="site-home.js"></script>
-  <script src="site-info.js"></script><script src="site-reward.js"></script><script src="site-banner.js"></script>
+  <script src="site-info.js"></script><script src="site-guide.js"></script><script src="site-tour.js"></script><script src="site-reward.js"></script><script src="site-banner.js"></script>
+  <link rel="stylesheet" href="site-near.css"><script src="site-near.js"></script>
   <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
 </head>
 <body data-tab="systems">
@@ -41,14 +43,14 @@
     </section>
     <section id="systems" class="systems-panel" aria-labelledby="systems-title">
       <div class="section-heading"><div><div class="eyebrow">THE DERELICT ATLAS</div><h1 id="systems-title">Systems</h1></div></div>
-      <div class="search-control"><button id="search" class="search-box search-trigger" type="button" aria-haspopup="dialog" aria-controls="address-dialog"><span id="search-icon" aria-hidden="true"></span><span id="search-label">Search names, glyphs or address</span></button><button id="clear-search" class="icon-button" type="button" title="Clear search" aria-label="Clear search" hidden>×</button></div>
+      <div class="search-control"><button id="search" class="search-box search-trigger" type="button" aria-haspopup="dialog" aria-controls="address-dialog"><span id="search-icon" aria-hidden="true"></span><span id="search-label">Search names, glyphs or address</span></button><button id="clear-search" class="icon-button" type="button" title="Clear search" aria-label="Clear search" hidden>×</button><button type="button" id="near-main" class="near-main" title="Find a derelict close to where you are" aria-label="Near me"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></svg><span>Near me</span></button></div>
       <div class="filter-toolbar"><button id="filters-button">Filters <span id="filter-count" class="counter" hidden></span><span class="filter-symbol">☷</span></button><label class="sr-only" for="sort">Sort systems</label><span id="sort-control" class="sort-control" data-total="false"><select id="sort"><option value="modules">Most modules ↓</option><option value="overall" title="Modules first, then the total, then loot value, then nanites, then fewer rooms, then fewer decks">Best overall #1 #2 #3 ↓</option><option value="total">Highest total (all containers) ↓</option><option value="rooms">Fewest rooms ↑</option></select><span class="sort-total-display" aria-hidden="true"><span>Highest total ↓</span><small id="sort-total-detail">(all containers)</small></span></span></div>
       <div class="quick-toggles" aria-label="System shortcuts"><button id="toggle-reward" type="button" aria-pressed="false" aria-controls="results view-summary" title="Show or hide the predicted end reward beside Salvaged Frigate Modules"><span class="toggle-dot" aria-hidden="true"></span><span id="reward-toggle-label">Show End Reward</span></button></div>
       <div id="filter-chips" class="chips"></div>
       <div id="results" class="results" tabindex="0" aria-label="Matching systems; scroll to browse"><div class="loading"><span></span>Loading atlas…</div></div>
     </section>
   </main>
-  <nav class="bottom-nav" aria-label="Main navigation"><button id="nav-viewer" data-tab="viewer"><span class="nav-icon" id="viewer-icon"></span>Viewer</button><button id="nav-systems" data-tab="systems" class="active"><span class="nav-icon" id="systems-icon"></span>Systems</button></nav>
+  <nav class="bottom-nav" aria-label="Main navigation"><button id="nav-systems" data-tab="systems" class="active"><span class="nav-icon" id="systems-icon"></span>Systems</button><button id="nav-viewer" data-tab="viewer"><span class="nav-icon" id="viewer-icon"></span>Viewer</button></nav>
   <div id="toast" class="toast" role="status" hidden></div>
   <dialog id="info-dialog" class="sheet"><div class="dialog-heading"><h2>Viewer information</h2><button data-close class="icon-button" aria-label="Close information">×</button></div>
     <div class="atlas-info"><p id="page-info" role="status">Loading atlas…</p><p id="source-status">Published atlas</p><p id="refresh-info">Updates on each visit and manual refresh.</p><button id="refresh-atlas" type="button" disabled>Refresh atlas</button></div>
@@ -64,10 +66,10 @@
     <p>Totals count every lootable container: salvage crates, crew footlockers, briefcases and tall lockers. Hover a total for the breakdown. “?” marks an uncertain prediction, “—” means unknown, and “+” is a lower-bound total (some counts are not known yet).</p>
     <p>Both 3D and all-floor 2D are available in Viewer. Drag or pinch to inspect, expand either view, and tap a ladder marker to follow its connection.</p>
     <div class="info-actions"><button id="diagnostics">Developer mode</button></div>
-    <p class="info-version">Derelict Atlas <span id="info-version">v1.0.40</span></p>
+    <p class="info-version">Derelict Atlas <span id="info-version">v144 (2026-11-07)</span></p>
   </dialog>
   <dialog id="filter-dialog" class="sheet"><form id="filters-form"><div class="dialog-heading"><div><div class="eyebrow">REFINE YOUR EXPEDITION</div><h2>Filters</h2></div><button type="button" data-close class="icon-button" aria-label="Close filters">×</button></div><div id="filter-fields" class="field-grid"></div><div class="sheet-actions"><button type="button" id="reset-filters" class="quiet">Reset filters</button><button class="primary" type="submit">Show systems →</button></div></form></dialog>
-  <dialog id="address-dialog" class="sheet search-sheet" aria-labelledby="search-title"><form id="address-form"><div class="dialog-heading"><h2 id="search-title">Search systems</h2><button type="button" data-close class="icon-button" aria-label="Close search">×</button></div><input id="address-format" type="hidden" value="auto"><label for="address-input" id="address-label">Name, glyphs, address or preset</label><div class="search-entry"><input id="address-input" placeholder="Name, glyphs or hex address" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="80"><button type="button" id="clear-address">Clear</button></div><div class="search-progress"><span id="address-count">0 / 12</span><span id="address-hint">Choose glyphs below or type hex.</span></div><p id="search-matches" class="search-matches" role="status"></p><div id="glyph-preview" class="glyph-preview" aria-label="Entered portal glyphs"></div><div id="glyph-keypad" class="glyph-keypad"></div><p id="address-error" class="error" role="alert"></p><div class="sheet-actions search-actions"><button class="primary" type="submit">Show matches</button><button type="button" id="open-search-viewer" disabled>Open viewer ↗</button></div></form></dialog>
+  <dialog id="address-dialog" class="sheet search-sheet" aria-labelledby="search-title"><form id="address-form"><div class="dialog-heading"><h2 id="search-title">Search systems</h2><button type="button" data-close class="icon-button" aria-label="Close search">×</button></div><input id="address-format" type="hidden" value="auto"><label for="address-input" id="address-label">Name, glyphs, address or preset</label><div class="search-entry"><input id="address-input" placeholder="Name, glyphs or hex address" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="80"><button type="button" id="clear-address">Clear</button></div><div class="search-galaxy"><label for="gal-select">Galaxy</label><select id="gal-select" aria-label="Galaxy to search"><option value="0">Euclid</option></select></div><p id="gal-note" class="gal-note" role="status" hidden></p><div class="search-progress"><span id="address-count">0 / 12</span><span id="address-hint">Choose glyphs below or type hex.</span></div><p id="search-matches" class="search-matches" role="status"></p><div id="glyph-preview" class="glyph-preview" aria-label="Entered portal glyphs"></div><div id="glyph-keypad" class="glyph-keypad"></div><p id="address-error" class="error" role="alert"></p><div class="sheet-actions search-actions"><button type="button" id="near-open" class="near-open" title="Find a derelict close to where you are"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></svg><span>Near me</span></button><button type="button" class="primary" id="open-search-viewer" disabled>Open viewer</button></div></form></dialog>
   <dialog id="details-dialog" class="sheet wide"><div class="dialog-heading"><h2 id="details-title">Details</h2><button data-close class="icon-button" aria-label="Close details">×</button></div><div id="details-body"></div></dialog>
   <dialog id="expand-dialog" class="expanded"><div class="dialog-heading"><h2 id="expand-title">All decks</h2><button data-close>Close ×</button></div><div id="expanded-summary"></div><div id="expanded-host"></div><div id="expanded-tools"></div></dialog>
   <aside id="dev-panel" class="dev-panel" aria-label="Developer controls" hidden></aside>

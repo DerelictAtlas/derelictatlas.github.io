@@ -69,6 +69,32 @@
       <p class="cb-consent" id="cb-consent"></p>
     </section>
 
+    <section class="cb-card cb-uploads" id="cb-uploads" aria-labelledby="cb-uploads-title">
+      <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><h2 id="cb-uploads-title">Your uploads</h2><button id="cu-check" class="cu-check" type="button">Check now</button></div>
+      <div class="cb-stats">
+        <div><strong id="cu-scanned">—</strong><span>Scanned here</span></div>
+        <div class="gold"><strong id="cu-atlas">—</strong><span>In the atlas</span></div>
+        <div><strong id="cu-waiting">—</strong><span>Sent, waiting to publish</span></div>
+        <div><strong id="cu-queue">—</strong><span>Waiting to send</span></div>
+        <div><strong id="cu-missing">—</strong><span>Not in the atlas</span></div>
+        <div><strong id="cu-sent">—</strong><span>Confirmed sent</span></div>
+      </div>
+      <p class="cb-small" id="cu-why"></p>
+      <p class="cb-small" id="cu-look" hidden></p>
+      <p class="cb-small" id="cu-note">Comparing your scans with the atlas…</p>
+      <h3 class="cu-sub">Published maps</h3>
+      <div class="cb-stats">
+        <div><strong id="cu-lists">—</strong><span>Systems in top-100 lists</span></div>
+        <div class="gold"><strong id="cu-maps">—</strong><span>Maps published</span></div>
+        <div><strong id="cu-mapwait">—</strong><span>In a list, waiting for the next full atlas publish</span></div>
+      </div>
+      <p class="cb-small" id="cu-mapnote"></p>
+      <h3 class="cu-sub">Your top-100 finds</h3>
+      <div id="cu-finds" class="cb-finds"></div>
+      <p class="cb-small" id="cu-topnote"></p>
+      <details id="cu-log" class="site-scan-log"><summary>Upload log</summary><pre></pre><button id="cu-copy" type="button">Copy log</button></details>
+    </section>
+
     <section class="cb-card" aria-labelledby="cb-live-title">
       <div class="cb-card-head"><span class="cb-live-dot" id="cb-live-dot" aria-hidden="true"></span><h2 id="cb-live-title">Live · this session</h2><span class="cb-head-extra" id="cb-rate"></span></div>
       <div class="cb-counters">
@@ -90,7 +116,7 @@
       <div class="cb-stats">
         <div><strong id="cb-scanned">0</strong><span>Systems scanned</span></div>
         <div><strong id="cb-found">0</strong><span>Derelicts found</span></div>
-        <div><strong id="cb-sent">0</strong><span>Added to the atlas</span></div>
+        <div><strong id="cb-sent">0</strong><span>Confirmed sent</span></div>
         <div class="gold"><strong id="cb-best">—</strong><span>Most modules found</span></div>
         <div class="gold"><strong id="cb-top">0</strong><span>Top 100 finds</span></div>
         <div><strong id="cb-time">—</strong><span>Time scanning</span></div>
@@ -121,7 +147,7 @@
       <section class="cb-card" aria-labelledby="cb-sent-title" id="cb-what">
         <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5Z M8.5 12l2.5 2.5 4.5-5"/></svg><h2 id="cb-sent-title">What is sent</h2></div>
         <p>Scanning on this page adds the systems you scan to the atlas, with every number: rooms, containers, Salvaged Frigate Modules, end reward and loot. Only the 3D and 2D map is not kept (a map takes about 24 times the space), unless the system is in a top-100 list. Any system can still be opened in the viewer, which draws its map on your device.</p>
-        <p>Your device sends what it found for each system (its numbers and loot values, no map); the atlas checks every result before publishing it, and anyone can report a wrong one. Nothing about you is sent<span id="cb-finder-sent" hidden>, except the name you add: it is published with the systems you find first</span>.</p>
+        <p>Your device sends what it found for each system (its numbers and loot values, no map); the atlas checks every result before publishing it, and anyone can report a wrong one. <a href="index.html#/privacy" target="_blank" rel="noopener">Privacy</a> Near me on the main page sends the Galaxy 0 systems it scans the same way, never your position.</p>
         <p id="cb-relay-note" class="cb-muted"></p>
       </section>
     </div>

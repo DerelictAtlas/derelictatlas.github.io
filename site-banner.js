@@ -15,7 +15,7 @@
     ["modules", "Salvaged Frigate Modules", true],
     ["nanites", "Nanites", true],
     ["value", "Loot value (Units)", true],
-    ["spookbox", "SpookBox", false],
+    ["spookbox", "SpookBox contents", true],   // sharespook 2026-11-06: contents shown by default (the viewer shows them without a click)
     ["rooms", "Rooms · decks", false],
     ["reward", "End reward", false],
     ["finder", "Atlas scout", true],       // SITE12 2026-11-03: the published scout (views/finders.csv, site-finder.js); never "Found by"
@@ -33,16 +33,20 @@
   const base = () => String((window.DV_CONFIG || {}).siteBase || "https://derelictatlas.github.io/");
   const SPOOK = ["", "Preserved Brain", "Preserved Grub", "Preserved Sample", "Preserved Eyeball", "Preserved Egg", "Preserved Horror"];
 
+  // the galaxy text: its byte from the row, else from the address (digits 7-8); same names as the viewer (dvGalaxy.label)
+  const galaxyText = (b) => (b === null ? "" : window.dvGalaxy ? window.dvGalaxy.label(b) : b === 0 ? "Euclid" : "Galaxy " + (b + 1));
   // what the open system has; null = not computed (that checkbox is disabled)
   function facts() {
     const cur = typeof window.dvShareCurrent === "function" ? window.dvShareCurrent() : null;
     if (!cur || !cur.row) return null;
     const r = cur.row, e = cur.extras || {}, address = String(r.address || "").toUpperCase();
-    const sm = /^(\d+)x(\d+)$/i.exec(String(e.spookbox || "").trim());
-    const spook = sm ? { n: Number(sm[2]), what: SPOOK[Number(sm[1])] || "packages" } : String(e.spookbox || "").trim() === "0" ? { n: 0, what: "hazard refresh only" } : null;
+    // same wording as the viewer (atlas-features spookboxText): "Preserved Grub ×3", "Hazard refresh only", ambiguous = "≈" + could-also-be list; unknown text = null (never an empty box)
+    const spookText = (c) => { const s = String(c || "").trim(), m = /^(\d+)x(\d+)$/i.exec(s); return m ? (Number(m[1]) ? (SPOOK[Number(m[1])] || "Package " + m[1]) + " ×" + m[2] : "Hazard refresh only") : s === "0" ? "Hazard refresh only" : null; };
+    const spookTxt = spookText(e.spookbox), spookUnsure = spookTxt !== null && (e.spookbox_ambiguous === "1" || e.spookbox_ambiguous === "true");
+    const spook = spookTxt === null ? null : { text: spookTxt, unsure: spookUnsure, alts: spookUnsure ? String(e.spookbox_alt || "").split("|").map(spookText).filter(Boolean) : [] };
     const reward = r.reward_name ? { name: r.reward_name, cls: /^[CBAS]$/.test(r.reward_class) ? r.reward_class : "", icon: cur.rewardIcon || "reward-icons/unknown.svg", hidden: !cur.showReward } : null;
     return {
-      address, glyphs: cur.glyphs || "", name: cur.name && cur.name !== "system_name" ? cur.name : "", galaxy: r.galaxy === 0 ? "Euclid" : Number.isInteger(r.galaxy) ? "Galaxy " + (r.galaxy + 1) : "",
+      address, glyphs: cur.glyphs || "", name: cur.name && cur.name !== "system_name" ? cur.name : "", galaxy: galaxyText(Number.isInteger(r.galaxy) ? r.galaxy : /^[0-9A-F]{16}$/.test(address) ? parseInt(address.slice(6, 8), 16) : null),
       total: cur.total && cur.total !== "—" ? cur.total : null,
       boxes: [r.salvage_crates, r.footlockers, r.briefcases, r.tall_lockers].some((v) => num(v) !== null) ? [r.salvage_crates, r.footlockers, r.briefcases, r.tall_lockers].map(num) : null,
       modules: num(r.frigate_modules) === null ? null : { n: num(r.frigate_modules), unsure: !!Number(r.frigate_modules_ambiguous) },
@@ -129,19 +133,28 @@
       rx = glyphRow ? cx - 8 - 24 : Math.min(rx, cx - 8 - 24);
     }
     const headRight = rx;
+    // the galaxy is on every banner (user 2026-11-06 "banner is missing galaxy"): after the glyphs, or under the name when there is
+    // no glyph row, whether or not the name is ticked. The name gives way first when a line is long, never the galaxy.
+    const SMALL = '500 18px "Barlow", system-ui, sans-serif';
     if (glyphRow) {
       c.fillStyle = "#edf3f4"; c.font = '600 18px ui-monospace, "Cascadia Mono", Consolas, monospace';
       c.fillText(f.glyphs, x0, hexY);
+      let px = x0 + c.measureText(f.glyphs).width + 14;
+      c.font = SMALL; c.fillStyle = "#94a9bc";
+      const gal = f.galaxy ? "· " + f.galaxy : "", galW = gal ? c.measureText(gal).width : 0;
       if (chosen.name && f.name) {
-        const w = c.measureText(f.glyphs).width;
-        c.fillStyle = "#94a9bc"; c.font = '500 18px "Barlow", system-ui, sans-serif';
-        c.fillText(fit(c, "· " + f.name + (f.galaxy ? " · " + f.galaxy : ""), headRight - x0 - w - 14), x0 + w + 14, hexY);
+        const nm = fit(c, "· " + f.name, Math.max(60, headRight - px - galW - 14));
+        c.fillText(nm, px, hexY); px += c.measureText(nm).width + 14;
       }
+      if (gal) c.fillText(gal, px, hexY);
     } else if (chosen.name && f.name) {
       c.fillStyle = "#edf3f4"; c.font = '600 42px "Barlow Condensed", "Barlow", sans-serif';
       c.fillText(fit(c, f.name, headRight - x0), x0, y + 42);
-      c.fillStyle = "#94a9bc"; c.font = '500 18px "Barlow", system-ui, sans-serif';
+      c.fillStyle = "#94a9bc"; c.font = SMALL;
       c.fillText((f.galaxy ? f.galaxy + " · " : "") + f.glyphs, x0, y + 74);
+    } else if (f.galaxy) {
+      c.fillStyle = "#94a9bc"; c.font = SMALL;
+      c.fillText(f.galaxy, x0, y + 42);
     }
     // stat tiles: each as wide as its content; when many are ticked the type gets smaller (down to 58 %)
     if (stats.length) {
@@ -157,7 +170,7 @@
         if (k === "modules") { t.big = f.modules.n + (f.modules.unsure ? "?" : ""); t.label = stats.length > 5 ? "frigate modules" : "Salvaged Frigate Modules"; }
         if (k === "nanites") { t.big = fmt(f.nanites); t.label = "nanites"; }
         if (k === "value") { t.big = short(f.value); t.unit = "Units"; t.label = "loot value"; }
-        if (k === "spookbox") { t.big = "×" + f.spookbox.n; t.label = stats.length > 5 ? "SpookBox" : "SpookBox · " + f.spookbox.what; }
+        if (k === "spookbox") { t.name = (f.spookbox.unsure ? "≈ " : "") + f.spookbox.text; t.sub = f.spookbox.unsure ? "SpookBox · uncertain" : "SpookBox"; }
         if (k === "rooms") { t.big = f.rooms.rooms + " · " + (f.rooms.decks ?? "—"); t.label = "rooms · decks"; }
         if (k === "boxes") { const [cr, fo, br, tl] = f.boxes, part = (v, n) => (v === null ? "—" : v) + " " + n; t.lines = [part(cr, "crates"), part(fo, "footlockers"), part(br, "briefcases"), part(tl, "tall lockers")]; }
         if (k === "reward") {
@@ -168,7 +181,7 @@
       });
       const natural = (t, z) => {
         if (t.lines) { c.font = LINE(z); return Math.max(...t.lines.map((l) => c.measureText(l).width)) + 30; }
-        if (t.k === "reward") { c.font = NAME(z); const a = c.measureText(t.name).width; c.font = LAB(z); return Math.round(66 * Math.max(z, .8)) + 34 + Math.max(a, c.measureText(t.sub).width); }
+        if (t.name) { c.font = NAME(z); const a = c.measureText(t.name).width; c.font = LAB(z); return (t.k === "reward" ? Math.round(66 * Math.max(z, .8)) + 34 : 30) + Math.max(a, Math.min(c.measureText(t.sub).width, t.k === "reward" ? 1e9 : 150)); }
         c.font = BIG(z); let bw = c.measureText(t.big).width; if (t.unit) { c.font = UNIT(z); bw += 6 + c.measureText(t.unit).width; }
         c.font = LAB(z); return Math.max(bw, c.measureText(t.label).width) + 30;
       };
@@ -184,10 +197,10 @@
         if (t.lines) {
           c.fillStyle = col; c.font = LINE(z); const lh = Math.round(24 * Math.max(z, .78));
           t.lines.forEach((l, j) => c.fillText(fit(c, l, w - 26), x + 15, top + (h - lh * 4) / 2 + lh * (j + 0.8)));
-        } else if (t.k === "reward") {
-          const s2 = Math.round(66 * Math.max(z, .8));
-          if (rewardImg) c.drawImage(rewardImg, x + 12, top + (h - s2) / 2, s2, s2);
-          const tx = x + 12 + s2 + 12, tw = w - (tx - x) - 10;
+        } else if (t.name) {
+          const s2 = t.k === "reward" ? Math.round(66 * Math.max(z, .8)) : 0;
+          if (rewardImg && s2) c.drawImage(rewardImg, x + 12, top + (h - s2) / 2, s2, s2);
+          const tx = s2 ? x + 12 + s2 + 12 : x + 15, tw = w - (tx - x) - 10;
           c.fillStyle = col; c.font = NAME(z); c.fillText(fit(c, t.name, tw), tx, top + h / 2 - 2);
           c.fillStyle = "#94a9bc"; c.font = LAB(z); c.fillText(fit(c, t.sub, tw), tx, top + h / 2 + 22);
         } else {
@@ -213,7 +226,7 @@
     const panel = document.createElement("div");
     panel.className = "dvb-panel"; panel.hidden = true;
     panel.innerHTML = `<div class="dvb-preview"><canvas id="dvb-canvas" width="${W * S}" height="${H * S}" role="img" aria-label="Share banner preview"></canvas></div>
-      <fieldset class="dvb-options"><legend>Show on the banner</legend>${ITEMS.map(([k, label]) => `<label data-k="${k}"><input type="checkbox" data-k="${k}"><span>${esc(label)}</span><small class="dvb-na">not computed</small></label>`).join("")}</fieldset>
+      <fieldset class="dvb-options"><legend>Show on the banner</legend>${ITEMS.map(([k, label]) => `<label data-k="${k}"><input type="checkbox" data-k="${k}"><span>${esc(label)}</span><small class="dvb-na">${k === "spookbox" ? "not known" : "not computed"}</small></label>`).join("")}</fieldset>
       <div class="dvb-actions"><button type="button" id="dvb-copy" class="primary">Copy image</button><button type="button" id="dvb-download">Download PNG</button><button type="button" id="dvb-link">Copy link</button></div>
       <p class="dvb-status" id="dvb-status" role="status"></p>`;
     (head || dialog.firstChild).after(tabs);

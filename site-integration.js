@@ -89,7 +89,7 @@
     s.innerHTML = `<h3 id="site-about-title">About and credits</h3>
       <p>Predicted derelict-freighter layouts for No Man's Sky, generated offline by running the game's own layout code.</p>
       <details class="site-credits"><summary>Credits</summary><ul>${credits}</ul>${links ? `<p>Links to</p><ul>${links}</ul>` : ""}</details>
-      <p><button id="site-welcome-again" type="button" class="inline-link">Show the welcome again</button></p>
+      <p><button id="site-welcome-again" type="button" class="inline-link">Start the tour</button></p>
       <div class="site-about-cards"><div class="site-facsimile"><b>Facsimiles, not game files</b>
         <p>Unofficial fan project, not affiliated with or endorsed by Hello Games; No Man’s Sky is their trademark.
         No images, 3D models, textures, icons, sounds or other game files are on this site: every map, 3D view, portal glyph,
@@ -97,8 +97,7 @@
       <div class="site-facsimile site-free-use"><b>Free to link and use</b>
         <p>Link to any system page and use its numbers, screenshots and maps in guides, videos, streams, wikis and your own
         tools. A credit like “Data: Derelict Atlas” with a link is appreciated; the atlas data is public on
-        <a href="https://github.com/DerelictAtlas/derelictatlas.github.io" target="_blank" rel="noopener">GitHub</a>.</p></div></div>
-      ${gcBase ? `<p class="site-muted">Page views are counted anonymously with <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a> (no cookies, no personal data).</p>` : ""}`;
+        <a href="https://github.com/DerelictAtlas/derelictatlas.github.io" target="_blank" rel="noopener">GitHub</a>.</p></div></div>`;
     if (gcBase && !cfg.goatcounterToken && !cfg.goatcounterTokenSealed) {  // with a token, site-stats.js shows the full statistics (owner only)
       const v = document.createElement("p");
       v.id = "site-visitors";
@@ -126,12 +125,12 @@
   // fetched. Almanac website = galaxy slug (only galaxies listed here, never guessed); NMS Hub map = 0-based galaxy index.
   const OPEN_IN = [
     { name: "NMS Almanac", url: "https://nmsalmanac.com/system/{slug}/{glyphs}", slugs: { 0: "euclid" } },
-    { name: "NMS Hub galactic map", url: "https://map.nomansskyhub.app/?arrival=1&addr={glyphs}&galaxy={galaxy}" },
+    { name: "NMS Hub galactic map", url: "https://map.nomansskyhub.app/?arrival=1&addr={hubglyphs}&galaxy={galaxy}" },
   ];
   function openInHtml(address) {
     const glyphs = "0" + address.slice(3, 6) + address.slice(8), galaxy = parseInt(address.slice(6, 8), 16);
     const links = OPEN_IN.filter((e) => !e.slugs || e.slugs[galaxy]).map((e) => `<a href="${esc(e.url.replace("{glyphs}", glyphs)
-      .replace("{galaxy}", galaxy).replace("{slug}", (e.slugs || {})[galaxy] || ""))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
+      .replace("{hubglyphs}", glyphs).replace("{galaxy}", galaxy).replace("{slug}", (e.slugs || {})[galaxy] || ""))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
       title="External site, not affiliated">${esc(e.name)} ↗</a>`);
     // user 2026-11-04: the report link no longer shares this row; it is its own flag icon next to Copy (mountReport)
     return links.length ? `<span>Open in</span>${links.join("")}` : "";
@@ -173,7 +172,7 @@
     const glyphs = "0" + address.slice(3, 6) + address.slice(8), galaxy = parseInt(address.slice(6, 8), 16);
     const base = String((window.DV_CONFIG || {}).siteBase || "https://derelictatlas.github.io/");
     const body = "What looks wrong with this system? (for example the modules, containers, rooms, decks or loot)\n\n\n---\n" +
-      `Address: ${address}\nGlyphs: ${glyphs} (galaxy ${galaxy + 1}${galaxy === 0 ? ", Euclid" : ""})\nLink: ${base}#/d/${address}\n`;
+      `Address: ${address}\nGlyphs: ${glyphs} (galaxy ${galaxy + 1}${window.dvGalaxy && window.dvGalaxy.name(galaxy) ? ", " + window.dvGalaxy.name(galaxy) : galaxy === 0 ? ", Euclid" : ""})\nLink: ${base}#/d/${address}\n`;
     return "https://github.com/DerelictAtlas/derelictatlas.github.io/issues/new?template=report-system.md&labels=report-system&title=" +
       encodeURIComponent(address) + "&body=" + encodeURIComponent(body);
   }
@@ -208,7 +207,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
 </fieldset>
 <label class="site-report-text"><span>Anything else? <small id="site-report-count">0 / ${REPORT_TEXT_MAX}</small></span>
 <textarea id="site-report-textarea" maxlength="${REPORT_TEXT_MAX}" rows="3" placeholder="Anything else? (optional, ${REPORT_TEXT_MAX} characters)"></textarea></label>
-<p class="site-report-note">Sent anonymously through the atlas relay; no account needed. The atlas rescans the system and fixes it if it was wrong.</p>
+<p class="site-report-note">No account needed. Reports are public on GitHub. The atlas rescans the system and fixes it if it was wrong. <a href="index.html#/privacy" target="_blank" rel="noopener">Privacy</a></p>
 <p class="site-report-result" id="site-report-result" role="status" hidden></p>
 <div class="sheet-actions"><a class="site-report-gh" id="site-report-gh" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">or report on GitHub ↗</a>
 <span class="site-report-buttons"><button type="button" class="quiet" data-report-close id="site-report-cancel">Cancel</button><button type="submit" class="primary" id="site-report-send" disabled>Send report</button></span></div>
