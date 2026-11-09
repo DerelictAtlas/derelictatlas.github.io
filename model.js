@@ -373,6 +373,34 @@
     return out;
   }
 
+  // SITE ships (2026-11-09): plan rectangle (cells) of a ship box slid dz toward its own wall (local z points away from the wall)
+  function shipRect(s, dz) {
+    const A = s.axes, t = s.t, xs = [], zs = [];
+    for (const x of [s.box[0], s.box[3]]) for (const z of [s.box[2] - dz, s.box[5] - dz]) {
+      xs.push((x * A[0][0] + z * A[2][0] + t[0]) / 8); zs.push((x * A[0][2] + z * A[2][2] + t[2]) / 8);
+    }
+    return [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  }
+  const shipsOverlap = (a, b) => Math.min(a[1], b[1]) - Math.max(a[0], b[0]) > -0.03 && Math.min(a[3], b[3]) - Math.max(a[2], b[2]) > -0.03;  // keeps a 0.03 cell gap
+  // the boxes of two corner-neighbour rows can cross; slide one of the pair (the smaller slide) toward its wall. The piece translation is copied, piece_props is never changed.
+  function separateShips(ships) {
+    const fit = (s, o) => {
+      for (let d = 0.02; d <= 1.2; d += 0.02) { const dz = d * 8; if (s.box[2] - dz < 1) break; if (!shipsOverlap(shipRect(s, dz), shipRect(o, 0))) return dz; }
+      return null;
+    };
+    for (let pass = 0; pass < 6; pass++) {
+      let moved = false;
+      for (let i = 0; i < ships.length; i++) for (let j = i + 1; j < ships.length; j++) {
+        const a = ships[i], b = ships[j];
+        if (a.level !== b.level || !shipsOverlap(shipRect(a, 0), shipRect(b, 0))) continue;
+        const da = fit(a, b), db = fit(b, a);
+        const [s, dz] = db !== null && (da === null || db <= da) ? [b, db] : da !== null ? [a, da] : [null, 0];
+        if (!s) continue;
+        s.t = [s.t[0] - dz * s.axes[2][0], s.t[1] - dz * s.axes[2][1], s.t[2] - dz * s.axes[2][2]]; moved = true;  // the hull mesh and box move with t
+      }
+      if (!moved) break;
+    }
+  }
   function hangarOf(d, e, props) {
     const ships = [], details = [];
     for (const i of d.instances) {
@@ -382,6 +410,7 @@
       for (const b of rows.s || []) ships.push({ ...base, box: b });
       for (const [code, x, y, z, rx, ry, rz, fixture, ...box] of rows.d || []) details.push({ ...base, code, pos: [x, y, z], rot: [rx, ry, rz], fixture, box });
     }
+    separateShips(ships);  // SITE ships
     return { ships, details };
   }
 
