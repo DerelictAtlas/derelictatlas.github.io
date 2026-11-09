@@ -107,6 +107,17 @@ function atlasExtras() {
     .catch((e) => {  return null; });
   return extrasCache;
 }
+// SITE v155: views/ships.csv.gz = address,ships (# lines are comments); null when the file is not published. A system without a row is NOT counted (never 0).
+let shipsCache = null;
+globalThis.dvAtlasShips = function () {
+  if (!shipsCache) shipsCache = fetchGzipText(ATLAS_RAW + "views/ships.csv.gz").then((t) => {
+    if (!t) return null;
+    const out = new Map();
+    for (const line of t.split(/\r?\n/)) { const m = /^([0-9A-Fa-f]{16}),(\d+)\s*$/.exec(line); if (m) out.set(m[1].toUpperCase(), Number(m[2])); }
+    return out;
+  }).catch(() => null);
+  return shipsCache;
+};
 // one CSV line -> cells (Python csv quoting: "a,b" and "" inside quotes)
 function splitCsvLine(line) {
   const out = [];
@@ -209,7 +220,7 @@ function extrasCardsHtml(e) {
 
 export function configureAtlasFeatures(base){if(base&&base!==ATLAS_RAW){ATLAS_RAW=base.endsWith('/')?base:base+'/';resetAtlasFeatures();}}
 const DEFAULT_MAP_BITS=new Map([...MAP_BITS].map(([b,v])=>[b,{...v}]));
-export function resetAtlasFeatures(){featureEpoch++;regionTextCache.clear();atlasStatsCache=null;mapListsCache=null;extrasCache=null;MAP_BITS.clear();for(const [b,v] of DEFAULT_MAP_BITS)MAP_BITS.set(b,{...v});}
+export function resetAtlasFeatures(){featureEpoch++;regionTextCache.clear();atlasStatsCache=null;mapListsCache=null;extrasCache=null;shipsCache=null;MAP_BITS.clear();for(const [b,v] of DEFAULT_MAP_BITS)MAP_BITS.set(b,{...v});}
 export const mapListBit=v=>v==='crates'?1:v==='modules'?2:Number(v)||0;
 export function mapRows(rows,lists,bundle){for(const r of rows){r.map=lists?(lists.get(r.address)||0):r.map_column_present===false?Number(bundle?.k?.[r.address]||0):Number(r.map)||0;}return rows;}
 export function slimMessage(s){return `${s.modules} Salvaged Frigate Modules. To save space, the atlas keeps only the module count for this system; full details are kept for systems with more modules.${s.pruned?' (recorded after the atlas reached its size limit)':''}`;}

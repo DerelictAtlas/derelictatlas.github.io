@@ -3,7 +3,7 @@
  * possible system in Euclid), four big cards (2 by 2: Most frigate modules, Most nanites, Highest loot value, Most SpookBox
  * packages, each with the user's own picture home/<cat>-1.webp) and 12 small cards (4 per row, top 3 each): Most containers,
  * Most crates + footlockers, Most crates, Most footlockers, Most briefcases, Most tall lockers, Most rooms, Most stairs,
- * Most hangar pieces, Best end reward, Fewest frigate modules, Fewest crates. Every card has "Top 100 ↗" = dvShowList(name)
+ * Most ships, Best end reward, Fewest frigate modules, Fewest crates. Every card has "Top 100 ↗" = dvShowList(name)
  * (modern.js: the Systems list with that list chosen in the sort dropdown). "Worst of the worst" is gone (the Fewest cards
  * replace it), and so are the picture slot and hotspots (site-home-lists.js is not built any more).
  * On a PC the whole screen fits the window without scrolling (cards are size containers; type scales with them); on a phone
@@ -30,8 +30,9 @@
  * same name in map_lists, switches that list to the published data):
  *   containers (bit 262144) = crates + footlockers + briefcases + tall lockers, only systems with all four counts, most
  *                first, ties by crates, then crates + footlockers, then address
- *   hangars (bit 131072) = the hangar count (hangar_pieces), most first (above 0), ties by crates + footlockers, then
- *                crates, then address
+ * The hangar-pieces list (bit 131072) was dropped (user 2026-11-09). "Most ships" (bit 524288) is published only (no client
+ * list): the rows get r.ships from views/ships.csv.gz (modern.js); until stats/systems.json lists "ships" the card says
+ * "Not available yet".
  * Best end reward never shows a grade or a reward: "Hidden", click opens the system, the reward stays hidden there.
  */
 
@@ -119,8 +120,6 @@
   const cf = (r) => (r.salvage_crates || 0) + (r.footlockers || 0);  // the scanner's "total" = crates + footlockers
   const CLIENT_LISTS = {
     containers: { bit: 262144, use: has4, cmp: (a, b) => sum4(b) - sum4(a) || b.salvage_crates - a.salvage_crates || cf(b) - cf(a) || byAddr(a, b) },
-    hangars: { bit: 131072, use: (r) => (r.hangar_pieces || 0) > 0,
-      cmp: (a, b) => b.hangar_pieces - a.hangar_pieces || cf(b) - cf(a) || (b.salvage_crates || 0) - (a.salvage_crates || 0) || byAddr(a, b) },
   };
   let clientCache = null;
   const publishedSpec = (name) => (window.dvTopSpecs && window.dvTopSpecs[name]) || null;
@@ -143,7 +142,7 @@
     tall_lockers: '<path d="M8 3h8v18H8Z M12 3v18 M10 11v2 M14 11v2"/>',
     rooms: '<path d="M4 20V9l8-5 8 5v11Z M10 20v-6h4v6"/>',
     stairs: '<path d="M3 20h5v-5h5v-5h5V5h3"/>',
-    hangars: '<path d="M3 14 12 4l9 10-9 6Z M7 14h10 M12 4v16"/>',
+    ships: '<path d="M3 15 12 4l9 11-9 5Z M7 15h10 M12 4v16"/>',
     reward: '<path d="M12 3 20 9l-8 12L4 9Z M4 9h16 M9 9l3 12 3-12"/>',
     frigate_modules_lowest: '<path d="M6 7h12v4H6Z M6 13h12v4H6Z M9 9h2 M9 15h2"/>',
     crates_lowest: '<path d="M4 7h16v13H4Z M4 11h16 M9 7v4 M15 7v4"/>',
@@ -160,7 +159,7 @@
     { id: "tall_lockers", title: "Most tall lockers", val: (r) => num0(r.tall_lockers), unit: (n) => pluralize(n, "tall locker", "tall lockers") },
     { id: "rooms", title: "Most rooms", val: (r) => num0(r.rooms), unit: (n) => pluralize(n, "room", "rooms") },
     { id: "stairs", title: "Most stairs", val: (r) => num0(r.stair_pieces), unit: (n) => pluralize(n, "stair", "stairs") },
-    { id: "hangars", title: "Most hangar pieces", tip: "Pieces of the hangar room. A hangar room has 1 to 11 pieces and holds up to 7 ships.", val: (r) => num0(r.hangar_pieces), unit: (n) => pluralize(n, "hangar piece", "hangar pieces") },
+    { id: "ships", title: "Most ships", published: true, tip: "Ships in the hangar room (one per salvage ship piece). Systems without a ship count are not counted.", val: (r) => num0(r.ships), unit: (n) => pluralize(n, "ship", "ships") },
     { id: "reward", title: "Best end reward", hidden: true, note: "click to reveal", tip: "The end reward stays hidden until you reveal it in the viewer" },
     { id: "frigate_modules_lowest", title: "Fewest frigate modules", val: (r) => num0(r.frigate_modules), unit: (n) => pluralize(n, "module", "modules") },
     { id: "crates_lowest", title: "Fewest crates", val: (r) => num0(r.salvage_crates), unit: (n) => pluralize(n, "crate", "crates") },
@@ -206,10 +205,12 @@
     const nm = tname(r);
     if (c.hidden) return `<a class="sh-ent" href="#/d/${r.address}" data-address="${r.address}" aria-label="${esc(c.title)} number ${i + 1}: hidden, click to reveal, ${esc(nm ? nm + ", " + r.glyphs : r.glyphs)}" title="${esc([nm, r.glyphs, c.tip].filter(Boolean).join(" · "))}">${rank}<span class="sh-id"><span class="sh-glyphs">${glyphRow(r.glyphs)}</span></span><span class="sh-val sh-hid"><b>Hidden</b></span></a>`;
     const v = c.val(r);
+    if (v == null) return `<a class="sh-ent" href="#/d/${r.address}" data-address="${r.address}" aria-label="${esc(c.title)} number ${i + 1}: not counted, ${esc(nm ? nm + ", " + r.glyphs : r.glyphs)}" title="${esc([nm, r.glyphs].filter(Boolean).join(" · "))}">${rank}<span class="sh-id"><span class="sh-glyphs">${glyphRow(r.glyphs)}</span></span><span class="sh-val"><b>–</b><small>not counted</small></span></a>`;
     return `<a class="sh-ent" href="#/d/${r.address}" data-address="${r.address}" aria-label="${esc(c.title)} number ${i + 1}: ${v} ${c.unit(v)}, ${esc(nm ? nm + ", " + r.glyphs : r.glyphs)}" title="${esc([nm, r.glyphs].filter(Boolean).join(" · "))}">${rank}`
       + `<span class="sh-id"><span class="sh-glyphs">${glyphRow(r.glyphs)}</span></span><span class="sh-val"><b>${fmt(v)}</b><small>${esc(c.unit(v))}</small></span></a>`;
   }
-  function smallCard(c, picks) {
+  function smallCard(c, picks, off) {
+    if (off) return `<section class="sh-card sh-sm sh-off" data-cat="${c.id}" aria-label="${esc(c.title)}"><div class="sh-in"><header>${ico2(c.id)}<h2>${esc(c.title)}</h2></header><div class="sh-ents"><span class="sh-ent sh-wait"><span class="sh-id"></span><span class="sh-val"><small>Not available yet</small></span></span></div></div></section>`;
     return `<section class="sh-card sh-sm" data-cat="${c.id}" aria-label="${esc(c.title)}"${c.tip && !c.hidden ? ` title="${esc(c.tip)}"` : ""}><div class="sh-in"><header>${ico2(c.id)}<h2>${esc(c.title)}</h2>`
       + (c.note ? `<span class="sh-note">${esc(c.note)}</span>` : "") + t100(c.id, c.title) + `</header><div class="sh-ents">${[0, 1, 2].map((i) => smallRow(c, i, picks[i])).join("")}</div></div></section>`;
   }
@@ -218,7 +219,11 @@
     if (!root) return;
     root.querySelector(".sh-big4").innerHTML = CATS.map((cat) => bigCard(cat, !rows || (cat.loot && !withLoot) ? [] : topK(rows, cat.use, cat.cmp, 3))).join("");
     let waiting = false;
-    root.querySelector(".sh-small12").innerHTML = SMALL.map((c) => { const p = rows ? smallPicks(c) : null; if (rows && !p) waiting = true; return smallCard(c, p || []); }).join("");
+    root.querySelector(".sh-small12").innerHTML = SMALL.map((c) => {
+      // a published-only list that stats/systems.json does not have (specs are in, name missing) = "Not available yet", no waiting
+      if (c.published && rows && window.dvTopSpecs && !window.dvTopSpecs[c.id]) return smallCard(c, [], true);
+      const p = rows ? smallPicks(c) : null; if (rows && !p) waiting = true; return smallCard(c, p || []);
+    }).join("");
     if (waiting && retry++ < 60) setTimeout(schedule, 500);  // the list specs (stats/systems.json) are not in yet
   }
 
@@ -275,7 +280,7 @@
     show() { init(); const e = document.getElementById("viewer-empty"); if (e) { e.hidden = false; e.scrollTop = 0; } },
     showing() { const e = document.getElementById("viewer-empty"); return !!(e && !e.hidden); },
     takeTab() { const t = wantViewer ? "viewer" : "systems"; wantViewer = false; return t; },
-    setRows(next, loot) { if (!Array.isArray(next) || !next.length) return; rows = next; if (loot) withLoot = true; retry = 0; init(); schedule(); },
+    setRows(next, loot) { if (!Array.isArray(next) || !next.length) return; rows = next; mapCache = null; clientCache = null; if (loot) withLoot = true; retry = 0; init(); schedule(); },
     // the atlas rows for the top-100 rank of a system scanned here (site-scan.js / site-toplists.js rank)
     rows() { return rows ? { rows, loot: withLoot } : null; },
   };

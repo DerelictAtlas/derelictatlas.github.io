@@ -753,5 +753,11 @@ a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .4
   .site-goal { gap: 4px; }
   .site-goal-bar { min-width: 56px; font-size: 10.5px; }
   .header-contribute { padding: 0 6px; font-size: 11px; }
-  .app-header .coffee-slot { display: none; }
+  /* v155: the coffee button stays (user 2026-11-09); the milestone bar (flex 1) gives the room back */
+  .site-goal-bar { padding: 0 3px; }
 }
+
+/* SITE v156: centre the glyph in the header buttons. The 20 px svg is wider than the 14 px content box of a 30 px button
+   (padding 8 px), so the grid track grew to the svg and it sat 1-4 px right and down. No padding, flex centring. */
+.app-header .header-tools .icon-button { padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.app-header .header-tools .icon-button svg { display: block; flex: none; margin: 0; vertical-align: top; }
