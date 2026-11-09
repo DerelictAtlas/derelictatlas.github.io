@@ -251,6 +251,17 @@ MAP_LISTS = {
                       "then": (("frigate_modules", "lowest"), ("total", "lowest"))},
     "items_value": {"bit": 32768, "label": "Most value", "value": "items_value", "direction": "highest", "then": HIGH_THEN},
     "items_nanites": {"bit": 65536, "label": "Most nanites", "value": "items_nanites", "direction": "highest", "then": HIGH_THEN},
+    # LISTS2 (2026-11-08, user via SITE; additive: appended after every older list, bit 262144; bit 131072 stays
+    # unused: its "Most hangars" list was dropped 2026-11-09 for Most ships): Most containers = crates + footlockers
+    # + briefcases + tall lockers, only rows with all four counts (rows without briefcase / tall-locker counts are
+    # unknown, not 0)
+    "containers": {"bit": 262144, "label": "Most containers", "value": "containers", "direction": "highest",
+                   "then": (("crates", "highest"), ("total", "highest"))},
+    # SHIPS (2026-11-09, user via SITE; additive: appended after containers, bit 524288; replaces the dropped
+    # "Most hangars" pieces list): Most ships = salvage ships (ROOM_WALLEXTERIOR_4_1 hangar pieces, one ship each),
+    # from the ships column or views/ships.csv.gz; blank / missing = not counted (never 0); 0 never enters; then
+    # total, then crates
+    "ships": {"bit": 524288, "label": "Most ships", "value": "ships", "direction": "highest", "then": HIGH_THEN},
 }
 REWARD_RANK = {"C": 1, "B": 2, "A": 3, "S": 4}
 
@@ -265,6 +276,9 @@ def list_value(key, r):
     if key == "hangar":
         h = num("hangars")
         return None if h is None else int(h > 0)
+    if key == "containers":     # LISTS2: unknown when any of the four counts is unknown
+        parts = [num(k) for k in ("crates", "footlockers", "briefcases", "tall_lockers")]
+        return None if None in parts else sum(parts)
     if key == "reward":
         return REWARD_RANK.get(str(r.get("reward_class") or "").upper())
     return num(key)

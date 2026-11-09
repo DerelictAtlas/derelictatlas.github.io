@@ -46,6 +46,17 @@ MAP_LISTS = {
                       "then": (("frigate_modules", "lowest"), ("total", "lowest"))},
     "items_value": {"bit": 32768, "label": "Most value (systems with loot values)", "value": "items_value", "direction": "highest", "then": HIGH_THEN},
     "items_nanites": {"bit": 65536, "label": "Most nanites (systems with loot values)", "value": "items_nanites", "direction": "highest", "then": HIGH_THEN},
+    # LISTS2 (2026-11-08, user via SITE; additive: appended after every older list, bit 262144; bit 131072 stays
+    # unused: its "Most hangars" list was dropped 2026-11-09 for Most ships): Most containers = crates + footlockers
+    # + briefcases + tall lockers, only rows with all four counts (rows without briefcase / tall-locker counts are
+    # unknown, not 0)
+    "containers": {"bit": 262144, "label": "Most containers", "value": "containers", "direction": "highest",
+                   "then": (("crates", "highest"), ("total", "highest"))},
+    # SHIPS (2026-11-09, user via SITE; additive: appended after containers, bit 524288; replaces the dropped
+    # "Most hangars" pieces list): Most ships = salvage ships (ROOM_WALLEXTERIOR_4_1 hangar pieces, one ship each),
+    # from the ships column or views/ships.csv.gz; blank / missing = not counted (never 0); 0 never enters; then
+    # total, then crates
+    "ships": {"bit": 524288, "label": "Most ships", "value": "ships", "direction": "highest", "then": HIGH_THEN},
 }
 KEEP_S_REWARD_MAPS = False
 MAP_KEPT_S = 4
@@ -62,6 +73,8 @@ EXTRAS_COLUMNS = ["address", "spookbox", "spookbox_ambiguous", "spookbox_alt", "
                   "items_all"]
 ITEM_KEYS = ("items_value", "items_nanites")
 ITEM_VALUES = {}
+SHIPS_FILE = Path("views") / "ships.csv.gz"
+SHIPS = {}
 SINGLES_INDEX = Path("index") / "singles.csv"
 SINGLES_EXTRAS = Path("views") / "singles-extras.csv"
 SINGLE_MARK = "_single"
@@ -84,6 +97,23 @@ def read_extras(atlas):
         return {}
     lines = [l for l in gzip.decompress(p.read_bytes()).decode("utf-8").splitlines() if l and not l.startswith("#")]
     return {r["address"].upper(): {c: r.get(c) or "" for c in EXTRAS_COLUMNS[1:]} for r in csv.DictReader(lines)}
+
+def read_ships_file(path):
+    """SHIPS2: ({ADDRESS16: ships}, ships data SHA-256 of its header or None) of a ships file; ({}, None) when missing."""
+    p = Path(path)
+    if not p.exists():
+        return {}, None
+    text = gzip.decompress(p.read_bytes()).decode("utf-8")
+    head = text.split("\n", 1)[0]
+    i = head.find("ships data sha256 ")
+    sha = head[i + 18:i + 82] if head.startswith("#") and i >= 0 else None
+    lines = [l for l in text.splitlines() if l and not l.startswith("#")]
+    return {r["address"].upper(): int(r["ships"]) for r in csv.DictReader(lines) if (r.get("ships") or "").isdigit()}, sha
+
+
+def read_ships(atlas):
+    """SHIPS2: {ADDRESS16: ships} of SHIPS_FILE ({} when the atlas has none)."""
+    return read_ships_file(Path(atlas) / SHIPS_FILE)[0]
 
 def item_values_of(extras):
     """W26: ITEM_VALUES entries from read_extras() output (systems with an items value)."""
@@ -108,11 +138,17 @@ def list_value(key, r):
     if key == "hangar":
         h = num("hangars")
         return None if h is None else int(h > 0)
+    if key == "containers":     # LISTS2: unknown when any of the four counts is unknown
+        parts = [num(k) for k in ("crates", "footlockers", "briefcases", "tall_lockers")]
+        return None if None in parts else sum(parts)
     if key == "reward":
         return REWARD_RANK.get(str(r.get("reward_class") or "").upper())
     if key in ITEM_KEYS and r.get(key) in (None, "") and "glyphs" in r and "galaxy" in r:   # W26: index rows: ITEM_VALUES
         v = ITEM_VALUES.get(address(r), {}).get(key)
         return None if v is None or v == "" else int(v)
+    if key == "ships" and r.get("ships") in (None, "") and "glyphs" in r and "galaxy" in r:   # SHIPS2: index rows: SHIPS
+        v = SHIPS.get(address(r))
+        return None if v is None else int(v)
     return num(key)
 
 def list_key(spec, r):
@@ -162,6 +198,7 @@ def top_list(rows, spec, prev=None):
 def _lists(rows, prev):
     sig = (id(rows), len(rows), json.dumps(MAP_LISTS, sort_keys=True), TOP_N, KEEP_S_REWARD_MAPS,
            hash(tuple(sorted((a, v.get("items_value"), v.get("items_nanites")) for a, v in ITEM_VALUES.items()))),
+           hash(tuple(sorted(SHIPS.items()))),
            tuple(sorted((a, int(b)) for a, b in prev.items())))
     if _KINDS.get("sig") != sig:
         _KINDS.clear()
@@ -291,6 +328,8 @@ def rerank(repo):
         return {}, {}
     ITEM_VALUES.clear()
     ITEM_VALUES.update(item_values_of(read_extras(repo)))
+    SHIPS.clear()                   # SHIPS2: Most ships = the published views/ships.csv.gz (none: the list stays empty)
+    SHIPS.update(read_ships(repo))
     _KINDS.clear()
     prev = previous_maps(repo)
     LAST.clear()

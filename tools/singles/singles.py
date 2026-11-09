@@ -1825,7 +1825,7 @@ def _process(args, repo, version, region_counts):
     rank_before = RK.snapshot(repo)             # RANK1: bytes before this run writes (for `changed`)
     n_index = write_index(repo, atlas, store, index_keys, changed)
     write_extras(repo, atlas, store, index_keys, extras_store, changed)
-    try:        # RANK1: the singles rank in the 15 map lists like atlas rows (map-lists.txt, stats map_lists, map column)
+    try:        # RANK1: the singles rank in the 17 map lists like atlas rows (map-lists.txt, stats map_lists, map column)
         rank = RK.apply(repo, changed, rank_before)
     except Exception as exc:    # never blocks the singles; the PC publish ranks them too
         rank = {"ranked": False, "error": f"{type(exc).__name__}: {exc}"[:300]}

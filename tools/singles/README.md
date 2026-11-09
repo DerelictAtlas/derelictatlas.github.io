@@ -32,9 +32,42 @@ Files:
 | `tools/singles/action.sh` | check-w29 -> fetch issues -> process -> commit/push (3 attempts) -> Pages build -> comment/close |
 | `tools/singles/singles.py` | the processor (Python 3 standard library only) |
 | `tools/singles/atlas_rules.py` | the scanner's rules copied from its private code (tiers, map lists and their ranking, the post-cap break-in rule, the known-range rule, row check, index row mapping), each with its source line, so they can be kept in sync |
+| `tools/singles/maps.py` | MAPS1: adds the maps of listed systems that have none to `views/top100.json(.gz)` + `views/top100-loot.json` (validated, atomic, never fails the run) |
+| `tools/singles/map_many.cjs` | Node helper for `maps.py`: scans systems with `scan/` (derelict on) and packs each map with the site's `model.js` |
 | `tools/singles/scan_many.cjs` | Node helper: scans a list of addresses with `scan/` and prints one JSON line per address |
 | `tools/singles/region_count.cjs` | Node helper: the game's system count of a region (stdin `GG REGION8`) and the portal rule with purple unlocked (stdin `V GG REGION8 SSS`), one persistent process per run, stdout one JSON line each |
 | `tools/singles/w29d/` | `w29d_rc.wasm` + `w29d_rc.js`: unchanged copies of RE_FULL's W29d region-count port (`re-full/fast/w29d/bin/`, `node/`), pinned by sha256 in `singles.py` (`W29D_FILES`) |
+
+## Maps of listed systems (MAPS1, 2026-11-06)
+
+After `process` (so after the re-rank) `action.sh` runs `python -I tools/singles/maps.py` once per attempt. Missing set =
+every address in `views/map-lists.txt` with no entry in `views/top100.json` "s" (computed fresh every run, so the first
+run also fills the systems that were listed before this step existed, and a failed run heals itself next hour).
+`map_many.cjs` scans them with the site's own W29 wasm (`scan/`, options of `scan_many.cjs` plus `derelict: true,
+loot: true`) and packs each with `model.js` `pack()`, the JavaScript twin of the PC's `tools/derelict_view.py pack()`,
+using the piece-table ids of the published bundle. The result is what the PC publish stores: verified on 43 systems
+that already had a published map (30 atlas, 13 singles): `view` and `top100-loot.json` entry identical for all 43.
+What goes into the files:
+
+- `views/top100.json` / `.json.gz` "s": the view; "k": the system's bits from `map-lists.txt`. Keys stay sorted, JSON
+  compact (`separators=(",",":")`, `ensure_ascii=False`), gzip level 9 with mtime 0: with nothing added the same bytes
+  come out as the PC wrote (checked), so a run that adds nothing writes nothing.
+- `views/top100-loot.json` "views": the W29g per-container loot (`cv` / `xv`) of the new system, when the engine mapped it.
+- Never changed: the piece table "t", any existing entry, the 11 entries of systems that are in no list. A system that
+  needs a scene the table does not have is skipped (the table also holds wall shapes, which this job does not have);
+  it stays in the missing set and is retried each hour.
+
+Safety: the new files are built and validated in memory (parse, every old entry equal, table equal, `.json` ==
+gunzip(`.json.gz`)), written to temp files beside the real ones and renamed; an error before the rename, a scanner
+failure, a timeout or a bad line from the helper leave every file as it was, and the run commits the singles data as
+before (`maps.py` always exits 0; its one line `maps: {...}` is in the log). Limits per attempt: `SINGLES_MAPS_MAX`
+(300 maps) and `SINGLES_MAPS_MINUTES` (6 min), never later than the scan deadline + 5 min; the rest is made next hour.
+`SINGLES_NO_MAPS=1` skips the step. Cost: about 0.6 s per map, about 5.5 KB JSON / 1.4 KB gzip each (17 maps = +94 KB / +24 KB).
+When maps were added the commit message gets a second line `maps: +N map views ...`.
+
+PC publish: it rebuilds the whole bundle from its own layouts (listed singles get a regenerated layout there too), so it
+writes the same entries and also drops the dead ones; the two never disagree, but a PC pull that conflicts in the three
+files above needs the PC's version kept (the scanner's `RANK_FILES` rule in `atlas.py`, see the coordination file).
 
 ## Input: issues
 
@@ -206,10 +239,10 @@ A system listed in `# deferred_systems` is not published yet, so it is scanned.
 | `singles/manifest.json` | `{"format":1,"rows":N,"split":[...],"files":[{"path","rows","bytes","sha256"}]}` (compact JSON, paths sorted; bucket files only) |
 | `singles/none.csv` | systems recomputed with no derelict (format below), only once `NONE_VERIFIED` is on; absent when empty |
 | `singles/held.csv` | held addresses with reason `status4`, retried every run (format below; old `range` rows are re-checked and dropped); absent when empty |
-| `index/singles.csv` | plain-text index rows of every full single row that is not in the main index yet, in the same columns and encoding as the main index, with `map` = 0. Its first two lines are copied unchanged from the main index (the `#` line and the column header). It is NOT listed in `index/manifest.json`. The file is absent when there are no rows |
+| `index/singles.csv` | plain-text index rows of every full single row that is not in the main index yet, in the same columns and encoding as the main index, with `map` = the bits of the map lists the single is in (0 = in none; RANK1, see "Map lists"; > 0 means the viewer expects a map entry in `views/top100.json.gz`, which MAPS1 makes). Its first two lines are copied unchanged from the main index (the `#` line and the column header). It is NOT listed in `index/manifest.json`. The file is absent when there are no rows |
 | `views/singles-extras.csv` | loot extras (items value, nanites, SpookBox, W28 money Units) of the systems in `index/singles.csv`, uncompressed, in extras **format 2** (the columns of `build_atlas_index.py` `EXTRAS_COLUMNS`: format 1 + `items_units`, `items_units_min`, `items_units_max` after `spookbox_value`), also while the live `views/extras.csv.gz` is still format 1 (a newer live format is followed). Cells are filled by name; the units cells are empty for scans made with W29b/c. The file is absent when there are none |
 
-No map views are ever written (W29c's map is skipped: `scan_many.cjs` passes `derelict: false`).
+Scanning for the rows writes no map (`scan_many.cjs` passes `derelict: false`). Maps of systems that are in a map list are made by a separate step after the re-rank, see "Maps of listed systems (MAPS1)"; it also writes `views/top100.json`, `views/top100.json.gz` and `views/top100-loot.json`.
 
 Every singles bucket file starts with four lines:
 ```
@@ -445,17 +478,21 @@ by_preset adds each `by_preset` value with weight 1. Values outside 20-120,000 m
 
 ## Map lists: singles rank like atlas systems (RANK1, 2026-11-03)
 
-After writing `index/singles.csv` and `views/singles-extras.csv`, every run re-ranks the 15 map lists
-(`tools/singles/rerank.py`, called from `process`), exactly as the PC publish (`build_atlas_index.build`) does on the
+After writing `index/singles.csv` and `views/singles-extras.csv`, every run re-ranks the 17 map lists
+(`tools/singles/rerank.py`, called from `process`; LISTS2 2026-11-08 appended Most containers, bit 262144, after Most
+nanites (bit 131072 stays unused), SHIPS 2026-11-09 Most ships, bit 524288, after it (value from
+`views/ships.csv.gz`, written by the PC publish; a system without an entry is not counted and never enters):
+every run ranks the whole atlas, so the first run after the update fills them),
+exactly as the PC publish (`build_atlas_index.build`) does on the
 same files: candidates = the main index rows + the singles rows (a single never duplicates an index row), item values
 from `views/extras.csv.gz` + `views/singles-extras.csv`, incumbents from `views/top100.json.gz` "k" +
 `views/map-lists.txt`. It rewrites `views/map-lists.txt`, the `maps` and `map_lists` parts of `stats/systems.json`
 (cut keys; the totals and tiers stay atlas-only) and the `map` column of `index/singles.csv`. The functions are a
 verbatim copy of the scanner's (the scanner's tests compare the source and the output bytes). No maps are made here:
-a single that enters a list has map bits but no `views/top100.json.gz` entry until the next PC publish, which ranks
-the singles too and adds their maps (the site draws a map on the device meanwhile). A system pushed out of every list
-loses its `map-lists.txt` line. A re-rank error never stops the run (summary `rerank.error`); summary `rerank` gives
-the number of singles in lists. `action.sh` allows `views/map-lists.txt` and `stats/systems.json` as outputs. When
+the re-rank itself makes no maps: the map step that follows in the same run (MAPS1, below) adds the missing ones to
+`views/top100.json.gz`. A system pushed out of every list loses its `map-lists.txt` line (its bundle entry stays; the next PC
+publish drops it). A re-rank error never stops the run (summary `rerank.error`); summary `rerank` gives
+the number of singles in lists. `action.sh` allows `views/map-lists.txt`, `stats/systems.json` and (MAPS1) `views/top100.json`, `views/top100.json.gz`, `views/top100-loot.json` as outputs. When
 the PC pushes after such a commit, its pull keeps the PC's version of these two files (the next run re-ranks again).
 
 ## Run locally
@@ -484,7 +521,7 @@ A fresh wasm instance is used every 100 systems, which keeps memory under about 
 ## Deploy
 
 1. Commit these files to `main`: `.github/workflows/singles.yml` and `tools/singles/` (`action.sh`, `singles.py`,
-   `atlas_rules.py`, `rerank.py`, `scan_many.cjs`, `region_count.cjs`, `w29d/w29d_rc.wasm`, `w29d/w29d_rc.js`, `README.md`; not
+   `atlas_rules.py`, `rerank.py`, `maps.py`, `map_many.cjs`, `scan_many.cjs`, `region_count.cjs`, `w29d/w29d_rc.wasm`, `w29d/w29d_rc.js`, `README.md`; not
    the `*.pre-*` backup files; the repo's `.gitattributes` keeps them byte-identical: `*.wasm binary`, the LF `.js`
    unchanged by `eol=lf`, and the sha256 check would stop the run otherwise). `scan/` (`scan_w29.wasm`,
    `w29_scan.js`, `w29.json`) comes from the SITE agent.

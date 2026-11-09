@@ -3,6 +3,7 @@
 # Runs in the repo root of a checkout of main. Also runs locally against a throwaway git repo:
 #   SINGLES_ISSUES_FILE=issues.json  read issues from this JSON file instead of the GitHub API
 #   SINGLES_DRY_RUN=calls.jsonl      write the issue comment / close calls to this file, no API, no Pages request
+#   SINGLES_NO_MAPS=1  skip the map step; SINGLES_MAPS_MAX (300 maps per run), SINGLES_MAPS_MINUTES (6)
 #   SINGLES_WORK, SINGLES_WORKERS, SINGLES_SCAN_MINUTES, PYTHON, NODE, SINGLES_REMOTE, SINGLES_BRANCH   (defaults below)
 # Never reads issue text itself: only tools/singles/singles.py does, with strict regular expressions.
 set -euo pipefail
@@ -40,8 +41,14 @@ for attempt in 1 2 3; do
   "$PY" -I "$TOOL" process --repo . --issues-file "$WORK/issues.json" --cache "$WORK/scan-cache.jsonl" \
     --summary "$WORK/summary.json" --message "$WORK/message.txt" --run-id "$RUN_ID" --workers "$WORKERS" \
     --deadline "$DEADLINE"
+  # MAPS1: the map of every system in a map list that has none in views/top100.json(.gz) yet (the singles that broke into
+  # a list), as the PC publish makes it. Never fails the job: on any error maps.py leaves the bundle untouched and the
+  # singles data of this hour is committed below as before; the missing maps are made by the next run.
+  if [ -z "${SINGLES_NO_MAPS:-}" ]; then
+    "$PY" -I tools/singles/maps.py --repo . --work "$WORK" --message "$WORK/message.txt" --deadline $(( DEADLINE + 300 ))       || echo "maps step failed (ignored): the map bundle is untouched"
+  fi
   other=$(git status --porcelain --untracked-files=all \
-          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv|views/finders\.csv|stats/speed\.json|views/map-lists\.txt|stats/systems\.json)$' || true)
+          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv|views/finders\.csv|stats/speed\.json|views/map-lists\.txt|stats/systems\.json|views/top100\.json|views/top100\.json\.gz|views/top100-loot\.json)$' || true)
   if [ -n "$other" ]; then
     echo "the processor changed files outside its outputs, stopping:"
     echo "$other"
