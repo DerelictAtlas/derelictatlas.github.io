@@ -137,7 +137,7 @@
     return n;
   }
   // a random region, then its systems in order from a random start: contributors spread out, one region at a time
-  let cursor = null, stopAfter = false;   // stopAfter: finish the current region, then stop (user 2026-10-31)
+  let cursor = null, lastLine = null, stopAfter = false;   // stopAfter: finish the current region, then stop (user 2026-10-31)
   function nextAddress() {
     for (let tries = 0; tries < 50; tries++) {
       if (!cursor || cursor.left <= 0) {
@@ -145,7 +145,7 @@
         const open = work.filter((l) => l.idx.some((i) => free(addressOf(l, i))));
         if (!open.length) return null;
         const line = open[Math.floor(Math.random() * open.length)];
-        cursor = { line, pos: Math.floor(Math.random() * line.idx.length), left: line.idx.length };
+        cursor = { line, pos: Math.floor(Math.random() * line.idx.length), left: line.idx.length }; lastLine = line;
       }
       while (cursor.left > 0) {
         const a = addressOf(cursor.line, cursor.line.idx[cursor.pos % cursor.line.idx.length]);
@@ -358,18 +358,25 @@
     dropUnsendable();
     if (!url || inFlight || Date.now() < retryAt || !outbox.length) return;
     const b = inFlight = takeBatch(maxBytes), n = b.length, body = bodyOf(b);
+    // v149u: each request is timed in the upload log (same fields as Near me, see site-scan.js nbInfo) and one with no answer for 30 s is stopped and tried again
+    const t0 = Date.now(), q0 = outbox.length + n, by = body.length, ac = typeof AbortController === "function" ? new AbortController() : null, watch = ac ? setTimeout(() => ac.abort(), 30000) : 0;
+    const info = (st, wt, wr) => ({ t0, ms: Date.now() - t0, by, q0, q1: outbox.length + (inFlight ? inFlight.length : 0), st, wt, wr });
     const retry = (s) => { putBack(b); retryAt = Date.now() + s * 1000; setTimeout(flush, s * 1000 + 50); };
-    fetch(url, { method: "POST", body, keepalive: body.length < KEEPALIVE_MAX, mode: "cors", headers: { "Content-Type": "text/plain" } })
+    fetch(url, { method: "POST", body, mode: "cors", headers: { "Content-Type": "text/plain" }, signal: ac ? ac.signal : undefined })   // no keepalive (v149u): its 64 KB quota failed back-to-back sends, see site-scan.js nbFlush
       .then((r) => {
-        inFlight = null;
-        if (r.ok) { dev.sent += n; upMark(b, CODE.sent); upEvent("sent", n); save(); render(); flush(); return; }
-        if (r.status === 429 || r.status === 503) { upEvent("retry", n, "the relay is busy, HTTP " + r.status); retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
+        clearTimeout(watch); inFlight = null;
+        if (r.ok) { dev.sent += n; upMark(b, CODE.sent); upEvent("sent", n, "", info(r.status, 0, "next batch at 200 waiting or after 60 s")); save(); render(); flush(); return; }
+        if (r.status === 429 || r.status === 503) { const sec = Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60)); retry(sec); upEvent("retry", n, "the relay is busy, HTTP " + r.status, info(r.status, sec, "the relay asked for it (Retry-After)")); return; }
         if (r.status === 413 && maxBytes > 16384) { maxBytes = Math.max(16384, maxBytes >> 1); putBack(b); setTimeout(flush, 50); return; }
         // a body the relay refuses would be refused again: dropped, with the relay's reason in the log
         upMark(b, CODE.refused);
         r.text().catch(() => "").then((why) => { logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }); upEvent("refused", n, "HTTP " + r.status + (why ? ": " + String(why).slice(0, 120) : "")); });
       })
-      .catch((err) => { inFlight = null; retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); upEvent("retry", n, "no connection to the relay"); });
+      .catch((err) => {
+        clearTimeout(watch); inFlight = null;
+        if (ac && ac.signal.aborted) { retry(0); logFailure({ what: "relay", error: "no answer in 30 s", n }); upEvent("retry", n, "no answer from the relay in 30 s", info("stall", 0, "no answer in 30 s, trying again at once")); return; }
+        retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); upEvent("retry", n, "no connection to the relay", info("err", 60, "no connection, waiting"));
+      });
   }
   // leaving the page: whatever is not sent yet (and the batch in flight; a duplicate answers 200) goes by sendBeacon
   function lastChance() {
@@ -422,10 +429,10 @@
     }
     jsonSet(PEND_KEY, pend);
   }
-  function upEvent(k, n, why) {
+  function upEvent(k, n, why, info) {
     const all = jsonGet(UPLOG_KEY, []), last = all[all.length - 1];
-    if (last && (k === "retry" || k === "notsent") && last.k === k && last.why === (why || "")) { last.n += n; last.c = (last.c || 1) + 1; last.t = Date.now(); }
-    else all.push({ t: Date.now(), k, n, why: why || "" });
+    if (last && (k === "retry" || k === "notsent") && last.k === k && last.why === (why || "")) { last.n += n; last.c = (last.c || 1) + 1; last.t = Date.now(); if (info) Object.assign(last, info, { t0: last.t0 || info.t0 }); }
+    else all.push(Object.assign({ t: Date.now(), k, n, why: why || "" }, info || {}));
     jsonSet(UPLOG_KEY, all.slice(-MAX_UPLOG));
     upLogShow();
     upSoon();
@@ -446,7 +453,9 @@
       handed: `Page closed: ${n} handed to the browser to send. Whether they arrived is not confirmed.`,
       published: `${fmt(e.n)} more of your ${e.n === 1 ? "systems is" : "systems are"} now in the atlas.`,
       baseline: `First check: ${fmt(e.n)} of your systems ${e.n === 1 ? "is" : "are"} in the atlas. Uploads before this log started were not recorded.` }[e.k] || `${e.k} ${n}`;
-    return `${when(e.t)}  ${text}`;
+    // v149u: lines written by Near me uploads carry the timing of the request (t0 start, ms, by bytes, q0 / q1 queue before / after, st, wt, wr)
+    const det = e.ms == null ? "" : `\n      Started ${new Date(e.t0).toLocaleTimeString("en-GB")}, took ${(e.ms / 1000).toFixed(1)} s, ${Math.max(1, Math.round(e.by / 1024))} KB. ${e.st === "err" ? "No connection." : e.st === "stall" ? "No answer in 30 s." : "Relay answered HTTP " + e.st + "."} Waiting before the request: ${fmt(e.q0)}, after: ${fmt(e.q1)}. Next send: ${e.wr}${e.wt ? ` (${fmt(e.wt)} s)` : ""}.`;
+    return `${when(e.t)}  ${text}${det}`;
   }
   const upLogText = () => jsonGet(UPLOG_KEY, []).slice().reverse().map(upLine).join("\n");
   function upLogShow() {
@@ -781,6 +790,100 @@
     if (pre.textContent !== log) pre.textContent = log;
   }
 
+  // ---- Scanning viewer (SITE v149, user: "the region star system viewer in the main contribute window ... look at your progress") ----
+  // The region being scanned (or the last one), drawn by site-nearmap.js (dvNearMap, regionOnly). Local only: nothing is sent, no extra requests
+  // besides the map's own files. One map worker, started when the dialog opens and ended when it closes. The page updates the map at most once a second.
+  // Per star: bright = checked by you (done), dim = already in the atlas (published since the work list, or not on it), grey = not checked yet.
+  const view = { open: false, line: null, ready: false, marked: new Set(), found: new Set(), timer: 0, loading: false, idxSet: null, tickAt: 0, last: null };
+  let nearLoad = null;
+  function loadNearMap() {
+    if (globalThis.dvNearMap) return Promise.resolve();
+    if (!nearLoad) nearLoad = new Promise((ok, no) => { const s = document.createElement("script"); s.src = "site-nearmap.js"; s.onload = ok; s.onerror = () => { nearLoad = null; no(new Error("load")); }; document.head.appendChild(s); });
+    return nearLoad;
+  }
+  function viewLine() {
+    if (cursor && cursor.line) return cursor.line;
+    if (lastLine) return lastLine;
+    const a = session && session.feed && session.feed[0] && session.feed[0].a;
+    return a ? work.find((l) => l.prefix === a.slice(6)) || null : null;
+  }
+  const sgn = (v, bits) => (v >= (1 << (bits - 1)) ? v - (1 << bits) : v);
+  function regionOf(line) {
+    const lo = parseInt(line.prefix.slice(2), 16) >>> 0;
+    return { gal: parseInt(line.prefix.slice(0, 2), 16), x: sgn(lo & 0xfff, 12), z: sgn((lo >>> 12) & 0xfff, 12), y: sgn(lo >>> 24, 8) };
+  }
+  const inAtlas = (a) => known.has(a) || mainIn.has(a) || mainNo.has(a);
+  function viewCounts(line) {
+    let mine = 0, atlas = 0;
+    for (const i of line.idx) { const a = addressOf(line, i); if (done.has(a)) mine++; else if (inAtlas(a)) atlas++; }
+    return { total: line.idx.length, mine, atlas, left: line.idx.length - mine - atlas };
+  }
+  function viewText(line) {
+    const c = line ? viewCounts(line) : null;
+    $("cbv-region").textContent = line ? `Region ${line.prefix.slice(2)} · galaxy ${parseInt(line.prefix.slice(0, 2), 16) + 1}` : "No region yet";
+    $("cbv-counts").textContent = c ? `${fmt(c.mine + c.atlas)} of ${fmt(c.total)} systems done · ${fmt(c.left)} left` : "";
+    const pct = c && c.total ? (c.mine + c.atlas) / c.total * 100 : 0;
+    $("cbv-fill").style.width = pct.toFixed(1) + "%";
+    $("cbv-bar").setAttribute("aria-valuenow", String(Math.round(pct)));
+    $("cbv-session").textContent = `${fmt(c ? c.mine : 0)} checked by you here · this session: ${fmt(session.scanned)} checked, ${fmt(session.found)} found, ${fmt(session.mods)} modules`;
+    view.last = c;
+  }
+  function viewMarks(line) {   // the stars finished since the last look, and the finds (5+ modules) in this region
+    const m = globalThis.dvNearMap; if (!m || !view.ready) return;
+    for (const i of line.idx) {
+      const a = addressOf(line, i);
+      if (!view.marked.has(a) && done.has(a)) { view.marked.add(a); try { m.scanMark(a); } catch (_) {} }
+    }
+    const finds = [...dev.best, ...session.feed];
+    for (const f of finds) {
+      if (!f || !f.a || f.a.slice(6) !== line.prefix || !(f.m >= 5) || view.found.has(f.a)) continue;
+      view.found.add(f.a); try { m.scanMatch(f.a, f.m + (f.amb ? "?" : "") + " modules"); } catch (_) {}
+    }
+  }
+  function viewShow(line) {
+    view.line = line; view.ready = false; view.marked = new Set(); view.found = new Set();
+    view.idxSet = new Set(line.idx);
+    const r = regionOf(line), slot = $("cbv-slot"), gh = line.prefix.slice(0, 2);
+    const hex3 = (n) => n.toString(16).toUpperCase().padStart(3, "0");
+    const req = { gal: r.gal, regionOnly: true, start: { x: r.x, y: r.y, z: r.z, sys: 1 },
+      addr: (sys, x, y, z) => "000" + hex3(sys) + gh + (y & 255).toString(16).toUpperCase().padStart(2, "0") + hex3(z & 4095) + hex3(x & 4095),
+      name: () => "",
+      known: (a) => !done.has(a) && (inAtlas(a) || !view.idxSet.has(parseInt(a.slice(3, 6), 16))),
+      onState: (info) => { if (view.line !== line || !view.open) return; if (info.ok) { view.ready = true; viewMarks(line); } } };
+    $("cbv-empty").hidden = true; slot.hidden = false;
+    loadNearMap().then(() => { if (view.open && view.line === line) globalThis.dvNearMap.scanShow(slot, req); },
+      () => { $("cbv-empty").textContent = "The star map file did not load. Scanning still works."; $("cbv-empty").hidden = false; slot.hidden = true; });
+  }
+  function viewTick() {
+    if (!view.open) return;
+    const line = viewLine();
+    if (!line) { viewText(null); $("cbv-empty").textContent = "Press SCAN. The region being scanned shows up here."; $("cbv-empty").hidden = false; $("cbv-slot").hidden = true; return; }
+    if (view.line !== line) viewShow(line);
+    viewText(line); viewMarks(line);
+  }
+  function viewOpen() {
+    const dlg = $("cbv"); if (!dlg || dlg.open) return;
+    view.open = true; view.line = null;
+    document.documentElement.classList.add("cbv-open");
+    dlg.showModal();
+    viewTick();
+    view.timer = setInterval(viewTick, 1000);
+  }
+  function viewClose() {
+    view.open = false; view.line = null; view.ready = false; clearInterval(view.timer); view.timer = 0;
+    document.documentElement.classList.remove("cbv-open");
+    if (globalThis.dvNearMap) globalThis.dvNearMap.stop();   // ends the one map worker and drops its cache
+  }
+  function viewerSetup() {
+    const dlg = $("cbv"), btn = $("cb-viewer"); if (!dlg || !btn) return;
+    btn.addEventListener("click", viewOpen);
+    $("cbv-close").addEventListener("click", () => dlg.close());
+    dlg.addEventListener("close", viewClose);
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+    window.addEventListener("pagehide", () => { if (view.open) viewClose(); });
+    window.dvContribView = { open: viewOpen, state: () => ({ open: view.open, ready: view.ready, prefix: view.line && view.line.prefix, counts: view.last, marked: view.marked.size, found: view.found.size }) };   // test hook
+  }
+
   function setup() {
     const url = relay();
     $("cb-consent").innerHTML = url
@@ -797,6 +900,7 @@
     $("cb-takeover").addEventListener("click", () => { if (channel) channel.postMessage({ type: "takeover" }); state = "ready"; setTimeout(() => scan(), 400); });
     $("cb-stop").addEventListener("click", () => halt("stopped"));
     $("cb-region").addEventListener("click", () => { if (running()) { stopAfter = !stopAfter; render(); } });
+    viewerSetup();
     document.querySelectorAll("#cb-speed button").forEach((b) => b.addEventListener("click", () => {
       speed = b.dataset.s; jsonSet(SPEED_KEY, speed);
       if (running()) { stopPool(); startPool(); }

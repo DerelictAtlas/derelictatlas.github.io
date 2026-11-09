@@ -140,10 +140,32 @@
   // A system of another galaxy is scanned and shown here but never sent, never a top-100 break and never in the Systems list.
   const isEuclid = (a) => String(a || "").slice(6, 8) === "00";
 
+  // ---- already in the atlas (v145b, user 2026-11-07: a top-100 system the atlas already lists asked for a scout name and was sent again) ----
+  // Two sources, both loaded by the site anyway. (1) The rows it loads at start (dvHome.rows(): the 16 region index shards plus
+  // index/singles.csv, so the region files and the visitor scanned singles both count; a pruned row is still a row). (2) What opening
+  // the system found (modern.js: a published map, a full row of its region file, or the module count of a slim system, but not a
+  // "deferred" system, which the atlas still lacks): the address goes into ATLAS_KNOWN in dvSystemOpened. true = in the atlas,
+  // false = not, null = the rows have not arrived yet: then nothing is asked or sent until they have (atlasKnown waits).
+  const ATLAS_KNOWN = new Set();
+  function atlasHas(address) {
+    if (ATLAS_KNOWN.has(address)) return true;
+    try {
+      const h = globalThis.dvHome && globalThis.dvHome.rows && globalThis.dvHome.rows(), rows = h && h.rows;
+      if (!rows || !rows.length) return null;
+      for (let i = 0; i < rows.length; i++) if (rows[i].address === address) return true;
+      return false;
+    } catch (_) { return null; }
+  }
+  async function atlasKnown(address, ms) {
+    const end = Date.now() + ms;
+    for (;;) { const k = atlasHas(address); if (k !== null) return k; if (Date.now() > end) return null; await new Promise((x) => setTimeout(x, 300)); }
+  }
+  const ATLAS_WAIT_MS = 45000;
+
   // ---- systems scanned on this device in the Systems list (user 2026-10-31) ----
   // tag: "Uploaded" once the address was sent, "Not uploaded yet" while a top-100 system waits to be sent, otherwise
   // "Local only" (only top-100 lookups are sent). modern.js turns the cached rows into list cards (withDeviceRows).
-  function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.top || []).length ? "Not uploaded yet" : "Local only"; }
+  function tagOf(address, c) { return wasSent(address) ? "Uploaded" : (c.top || []).length && atlasHas(address) === false ? "Not uploaded yet" : "Local only"; }
   const changed = () => { try { if (globalThis.dvDeviceChanged) globalThis.dvDeviceChanged(); } catch (_) {} };
   globalThis.dvDeviceScans = () => Object.entries(jsonGet(CACHE_KEY, {})).filter(([a, c]) => isEuclid(a) && c && c.status === 0 && c.row && c.valid !== false)
     .map(([address, c]) => ({ address, row: c.row, extras: lootShown(address, c) ? c.extras : null, tag: tagOf(address, c) }));
@@ -153,23 +175,59 @@
   // Near me: the addresses this device already sent, or holds as a top-100 find waiting to be sent (Near me does not scan them again)
   // Near me, every finished Galaxy 0 scan (user 2026-11-07, "the systems get marked ... thusly not wasting a contributors time"): the same
   // upload as Contribute. Queue item {a, ver, row, ext, ms, p, w, sp} (a found system) or {a, ver, ms, w, sp} (no derelict). Batches of
-  // up to 200 / 200 KB, one POST at a time, every 60 s and when the scan stops, 429/503 wait Retry-After, 413 halves the batch,
-  // the page closing hands the rest to sendBeacon: all as in contribute.js. Without a relay nothing is queued.
-  const NB = { out: [], inFlight: null, retryAt: 0, maxBytes: 200 * 1024, timer: 0 };
-  const NB_BATCH = 200, NB_MAXQ = 5000, NB_KEEPALIVE = 60000;
+  // up to 60 / 200 KB, one POST at a time, every 15 s and when the scan stops, 429/503 wait Retry-After, 413 halves the batch,
+  // the page closing hands the rest to sendBeacon: as in contribute.js. Without a relay nothing is queued.
+  // v145b (closing a tab delivered only about 58 KB, so 82 of 143 waiting systems arrived): a system is marked done (Contribute does not
+  // scan it) only when the relay has ANSWERED OK for it. What is not confirmed stays in the queue, is saved on this device
+  // (dv.near.outbox, newest 1500) and sent again on the next visit; a batch the relay refuses is tried 3 times, then dropped and logged.
+  // v149u (a Near me scan at 9 systems/s showed 329, later about 800, systems waiting; cause unknown): every request is timed and logged (see nbInfo),
+  // a request with no answer for 30 s is stopped and tried again, a batch holds up to 200 systems (the relay's limit; about 135 KB, under the 200 KB cap)
+  // and goes out every 20 s or at 200 waiting, not at every 60: the relay allows 300 requests and 15,000 systems per hour per client (relay.py defaults),
+  // and 60 per request at 9/s is about 545 requests an hour. dvNearWhy() gives the panel a plain reason when the queue is long or old.
+  const NB = { out: [], inFlight: null, retryAt: 0, maxBytes: 200 * 1024, timer: 0, accepted: 0, handed: [], saveT: 0, stallRun: 0, errRun: 0, durs: [], lastSt: 0, lastErr: false, bgAt: 0, bgBack: 0, t0: 0, by: 0, q0: 0 };
+  const NB_BATCH = 60, NB_BATCH_MAX = 200, NB_WATCH = 30000, NB_MAXQ = 5000, NB_KEEPALIVE = 60000, NB_EVERY = 20000, NB_TRIES = 3, NB_REFUSED_WAIT = 300, NB_SAVE_MAX = 1500, NB_KEY = "dv.near.outbox";
+  // the saved queue (what the relay has not confirmed): written a moment after every change and at once when the page goes away
+  function nbSaveNow() {
+    if (NB.saveT) { clearTimeout(NB.saveT); NB.saveT = 0; }
+    try {
+      const all = [...NB.handed, ...(NB.inFlight || []), ...NB.out].slice(-NB_SAVE_MAX);
+      if (all.length) localStorage.setItem(NB_KEY, JSON.stringify(all)); else localStorage.removeItem(NB_KEY);
+    } catch (_) {}
+  }
+  const nbSave = () => { if (!NB.saveT) NB.saveT = setTimeout(() => nbSaveNow(), 1500); };
+  // confirmed by the relay: now (and only now) Contribute may skip these systems
+  function nbDone(list) {
+    const done = jsonGet(DONE_KEY, []), have = new Set(done);
+    for (const e of list) if (!have.has(e.a)) done.push(e.a);
+    jsonSet(DONE_KEY, done.slice(-40000));
+  }
+  // a refused batch: tried again NB_TRIES times in all (counted per system, also across visits), then dropped
+  function nbRefused(b, status) {
+    const keep = [], drop = [];
+    for (const e of b) { e.r = (e.r || 0) + 1; (e.r < NB_TRIES ? keep : drop).push(e); }
+    if (keep.length) {
+      NB.out.unshift(...keep); NB.retryAt = Date.now() + NB_REFUSED_WAIT * 1000; setTimeout(nbFlush, NB_REFUSED_WAIT * 1000 + 50);
+      nbLog(keep, 0, "retry", `the relay refused them, HTTP ${status}, try ${keep[0].r} of ${NB_TRIES}`, nbInfo(NB.t0, NB.by, NB.q0, status, NB_REFUSED_WAIT, "refused, tried again later"));
+    }
+    if (drop.length) nbLog(drop, 3, "refused", `HTTP ${status}, tried ${NB_TRIES} times`, nbInfo(NB.t0, NB.by, NB.q0, status, 0, "dropped, not sent again"));
+    nbSave();
+  }
   const fpOf = (ver) => (/tables fingerprint ([0-9a-f]{16})\b/.exec(ver) || [])[1] || "";
-  function nbLog(list, code, kind, why) {
+  // one request, as the log keeps it (v149u): t0 start, ms duration, by bytes, q0 / q1 systems waiting before / after, st HTTP status or "err" or "stall",
+  // wt seconds until the next send, wr the reason for that wait. The fields are added to the log line (the old lines have none and stay readable).
+  const nbInfo = (t0, by, q0, st, wt, wr) => ({ t0, ms: Date.now() - t0, by, q0, q1: globalThis.dvNearPending(), st, wt, wr });
+  function nbLog(list, code, kind, why, info) {
     const pend = jsonGet(PEND_KEY, {}), now = Math.floor(Date.now() / 60000);
     if (code) { for (const e of list) { const had = pend[e.a]; if (code === 2 && had && had[1] === 1) continue; pend[e.a] = [now, code]; } jsonSet(PEND_KEY, pend); }
     const log = jsonGet(UPLOG_KEY, []), last = log[log.length - 1];
-    if (last && kind === "retry" && last.k === kind && last.why === (why || "")) { last.n += list.length; last.c = (last.c || 1) + 1; last.t = Date.now(); }
-    else log.push({ t: Date.now(), k: kind, n: list.length, why: why || "" });
+    if (last && kind === "retry" && last.k === kind && last.why === (why || "")) { last.n += list.length; last.c = (last.c || 1) + 1; last.t = Date.now(); if (info) Object.assign(last, info, { t0: last.t0 || info.t0 }); }
+    else log.push(Object.assign({ t: Date.now(), k: kind, n: list.length, why: why || "" }, info || {}));
     jsonSet(UPLOG_KEY, log.slice(-200));
   }
   function nbTake(limit) {
     const ver = NB.out[0].ver, out = [];
     let bytes = 400 + ver.length + (globalThis.dvPerf && globalThis.dvPerf.on() ? 2048 : 0);
-    while (out.length < NB_BATCH && NB.out.length && NB.out[0].ver === ver) {
+    while (out.length < NB_BATCH_MAX && NB.out.length && NB.out[0].ver === ver) {
       const e = NB.out[0], add = e.row ? e.row.length + e.ext.length + 8 : 21;
       if (out.length && bytes + add > limit) break;
       out.push(NB.out.shift()); bytes += add;
@@ -196,44 +254,93 @@
     const url = relay();
     nbDropUnsendable();
     if (!url || NB.inFlight || Date.now() < NB.retryAt || !NB.out.length) return;
-    const b = NB.inFlight = nbTake(NB.maxBytes), n = b.length, body = nbBody(b);
-    const retry = (sec) => { NB.out.unshift(...b); NB.retryAt = Date.now() + sec * 1000; setTimeout(nbFlush, sec * 1000 + 50); };
-    fetch(url, { method: "POST", body, keepalive: body.length < NB_KEEPALIVE, mode: "cors", headers: { "Content-Type": "text/plain" } })
+    const t0 = Date.now(), q0 = globalThis.dvNearPending();
+    const b = NB.inFlight = nbTake(NB.maxBytes), n = b.length, body = nbBody(b), by = body.length;
+    Object.assign(NB, { t0, by, q0 });   // for nbRefused
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    const watch = ac ? setTimeout(() => ac.abort(), NB_WATCH) : 0;
+    const durOf = () => { NB.durs.push(Date.now() - t0); if (NB.durs.length > 5) NB.durs.shift(); };
+    // after a failed request: the batch goes back to the front, the next send waits sec seconds, the log says why
+    const retry = (sec, st, wr, why) => {
+      NB.out.unshift(...b); NB.retryAt = Date.now() + sec * 1000; setTimeout(nbFlush, sec * 1000 + 50);
+      nbLog(b, 0, "retry", why, nbInfo(t0, by, q0, st, sec, wr));
+    };
+    // no keepalive here (v149u): Chrome counts keepalive bodies against a 64 KB quota per page and fails the NEXT request at once ("Failed to fetch" after 20 ms,
+    // measured: a 60-system body is about 42 KB and the one sent right after a 2xx failed, then waited 60 s as "no connection"); a closing page is handled by nbLast (sendBeacon)
+    fetch(url, { method: "POST", body, mode: "cors", headers: { "Content-Type": "text/plain" }, signal: ac ? ac.signal : undefined })
       .then((r) => {
-        NB.inFlight = null;
-        if (r.ok) { nbLog(b, 1, "sent"); changed(); nbFlush(); return; }
-        if (r.status === 429 || r.status === 503) { nbLog(b, 0, "retry", "the relay is busy, HTTP " + r.status); retry(Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60))); return; }
-        if (r.status === 413 && NB.maxBytes > 16384) { NB.maxBytes = Math.max(16384, NB.maxBytes >> 1); NB.out.unshift(...b); setTimeout(nbFlush, 50); return; }
-        nbLog(b, 3, "refused", "HTTP " + r.status);
+        clearTimeout(watch); NB.inFlight = null; NB.stallRun = 0; NB.errRun = 0; NB.lastSt = r.status; NB.lastErr = false; durOf();
+        if (r.ok) {
+          NB.accepted += n; nbDone(b); nbSave(); changed();
+          nbLog(b, 1, "sent", "", nbInfo(t0, by, q0, r.status, 0, NB.out.length >= NB_BATCH ? "more waiting, sent at once" : "next batch at 200 waiting or after 20 s"));
+          if (NB.out.length >= NB_BATCH) nbFlush();   // a long queue goes out back to back; a short one waits for the timer (fewer requests)
+          return;
+        }
+        if (r.status === 429 || r.status === 503) { const sec = Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60)); retry(sec, r.status, "the relay asked for it (Retry-After)", "the relay is busy, HTTP " + r.status); return; }
+        if (r.status === 413 && NB.maxBytes > 16384) { NB.maxBytes = Math.max(16384, NB.maxBytes >> 1); retry(0, r.status, `too big: batch limit halved to ${NB.maxBytes >> 10} KB`, "the relay said the batch was too big, HTTP 413"); return; }
+        nbRefused(b, r.status);
         r.text().catch(() => "").then((why) => logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }));
       })
-      .catch((err) => { NB.inFlight = null; nbLog(b, 0, "retry", "no connection to the relay"); retry(60); logFailure({ what: "relay", error: String(err && err.message || err), n }); });
+      .catch((err) => {
+        clearTimeout(watch); NB.inFlight = null; durOf();
+        if (ac && ac.signal.aborted) {   // no answer for 30 s: stopped; tried again at once the first time, after 60 s if it happens again
+          NB.stallRun++; NB.lastErr = true; NB.lastSt = 0;
+          const sec = NB.stallRun >= 2 ? 60 : 0;
+          retry(sec, "stall", sec ? "no answer again, waiting" : "no answer in 30 s, trying again at once", "no answer from the relay in 30 s");
+          logFailure({ what: "relay", error: "no answer in 30 s", n });
+          return;
+        }
+        NB.lastErr = true; NB.lastSt = 0; NB.errRun++;
+        const wait = NB.errRun >= 2 ? 60 : 10;   // the first failure is tried again after 10 s, repeated ones after 60 s
+        retry(wait, "err", "no connection, waiting", "no connection to the relay");
+        logFailure({ what: "relay", error: String(err && err.message || err), n });
+      });
   }
   function nbLast() {
     const url = relay();
     if (!url) return;
     if (NB.inFlight) { NB.out.unshift(...NB.inFlight); NB.inFlight = null; }
     nbDropUnsendable();
+    nbSaveNow();   // the page is going: everything the relay has not confirmed is kept for the next visit, whatever the beacon does
     while (NB.out.length) {
       const b = nbTake(NB_KEEPALIVE - 2000);
       let handed = false;
       try { handed = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([nbBody(b)], { type: "text/plain" })); } catch (_) {}
+      NB.handed.push(...b);   // not confirmed: still saved, and queued again if the page comes back
       nbLog(b, handed ? 2 : 4, handed ? "handed" : "notsent", handed ? "" : "the browser would not send them as the page closed");
       nbDropUnsendable();
     }
   }
   addEventListener("pagehide", nbLast);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") nbLast(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { NB.bgAt = Date.now(); nbLast(); }
+    else if (NB.bgAt && (NB.bgBack = Date.now()) && NB.handed.length) { NB.out.unshift(...NB.handed); NB.handed = []; nbFlush(); }   // the page was only hidden: send what was handed over again
+  });
   globalThis.dvNearQueue = (item) => {
     if (!relay() || !isEuclid(item && item.a) || !item.ver) return false;
     if (NB.out.length >= NB_MAXQ) NB.out.shift();
+    if (!item.q) item.q = Date.now();
     NB.out.push(item);
-    if (!NB.timer) NB.timer = setInterval(nbFlush, 60000);
-    if (NB.out.length >= NB_BATCH) nbFlush();
+    if (!NB.timer) NB.timer = setInterval(nbFlush, NB_EVERY);
+    nbSave();
+    if (NB.out.length >= NB_BATCH_MAX) nbFlush();
     return true;
   };
   globalThis.dvNearFlush = () => nbFlush();
-  globalThis.dvNearPending = () => NB.out.length + (NB.inFlight ? NB.inFlight.length : 0);
+  globalThis.dvNearPending = () => NB.out.length + NB.handed.length + (NB.inFlight ? NB.inFlight.length : 0);
+  // what the relay has really accepted since this page opened (a 2xx answer), and what still waits; accepted is not "in the atlas": the update job runs later
+  // a plain reason for a long or old queue (more than 300 waiting, or the oldest has waited over 60 s); "" when all is well
+  globalThis.dvNearWhy = () => {
+    const now = Date.now(), first = NB.handed[0] || (NB.inFlight || [])[0] || NB.out[0];
+    if (!first || (globalThis.dvNearPending() <= 300 && !(first.q && now - first.q > 60000))) return "";
+    if (now < NB.retryAt && (NB.lastSt === 429 || NB.lastSt === 503)) return `the relay is busy, waiting ${Math.ceil((NB.retryAt - now) / 1000)} s`;
+    if (NB.lastErr && (now < NB.retryAt || NB.inFlight)) return "no connection to the relay";
+    if (document.visibilityState === "hidden" || (NB.bgBack && now - NB.bgBack < 90000)) return "the tab was in the background";
+    const d = NB.durs.slice(-3), run = NB.inFlight ? (now - NB.t0) : 0, avg = d.length ? d.reduce((x, y) => x + y, 0) / d.length : 0, top = Math.max(avg, run);
+    if (top > 6000) return `slow answers from the relay (${Math.round(top / 1000)} s per request)`;
+    return "sending is catching up";
+  };
+  globalThis.dvNearStats = () => ({ accepted: NB.accepted, waiting: globalThis.dvNearPending() });
   globalThis.dvFindRecord = () => {
     const out = new Set(jsonGet(SENT_KEY, []));
     for (const [a, c] of Object.entries(jsonGet(CACHE_KEY, {}))) if (isEuclid(a) && c && c.status === 0 && c.valid !== false && (c.top || []).length) out.add(a);
@@ -245,6 +352,9 @@
     address = String(address || "").toUpperCase();
     if (!relay() || !isEuclid(address) || !data || data.status !== 0 || !data.row) return { top: [], queued: false };
     if (wasSent(address)) return { top: [], queued: false, sent: true };
+    const known = await atlasKnown(address, ATLAS_WAIT_MS);   // v145b: the atlas has it already, or its rows are not here: no upload
+    if (known === true) return { top: [], queued: false, sent: true };
+    if (known === null) return { top: [], queued: false, held: true };
     const T = globalThis.dvTopLists, lists = T ? await T.load().catch(() => null) : null;
     const top = lists ? T.breaks(data.row, data.extras, lists) : [];
     if (!top.length) return { top: [], queued: false };
@@ -277,6 +387,7 @@
   const NEAR_UP = new Set(), DONE_KEY = "dv.contrib.done", PEND_KEY = "dv.contrib.pending", UPLOG_KEY = "dv.contrib.uplog";
   function nearRecord(address, handed) {
     NEAR_UP.delete(address);
+    if (!handed) NB.accepted++;
     const done = jsonGet(DONE_KEY, []);
     if (!done.includes(address)) { done.push(address); jsonSet(DONE_KEY, done.slice(-40000)); }
     const pend = jsonGet(PEND_KEY, {});
@@ -286,6 +397,22 @@
     log.push({ t: Date.now(), k: handed ? "handed" : "sent", n: 1, why: "" });
     jsonSet(UPLOG_KEY, log.slice(-200));
   }
+  // earlier visit(s): systems the relay never confirmed are queued again (Euclid only, not done meanwhile, refused fewer than NB_TRIES times)
+  (function nbRestore() {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(NB_KEY)) || []; } catch (_) {}
+    if (!Array.isArray(saved) || !saved.length) return;
+    const done = new Set(jsonGet(DONE_KEY, [])), seen = new Set();
+    for (const e of saved) {
+      if (!e || typeof e.a !== "string" || !/^[0-9A-F]{16}$/.test(e.a) || !isEuclid(e.a) || typeof e.ver !== "string" || !fpOf(e.ver)) continue;
+      if (e.row !== undefined && (typeof e.row !== "string" || typeof e.ext !== "string")) continue;
+      if (done.has(e.a) || seen.has(e.a) || (e.r || 0) >= NB_TRIES) continue;
+      seen.add(e.a); NB.out.push(e);
+    }
+    if (!NB.out.length) { nbSaveNow(); return; }
+    NB.timer = setInterval(nbFlush, NB_EVERY);
+    setTimeout(nbFlush, 4000);
+  })();
   // v3 upload (2026-11-02): scan/v3-lines.js builds the lines; the body names the scanner version the scan was made with
   let v3lib = null;
   function v3Load() {
@@ -318,7 +445,7 @@
   const finderOn = () => !!(globalThis.dvFinder && globalThis.dvFinder.on() && relay());
   function ask(address) {
     const st = states.get(address);
-    if (!st || wasSent(address) || asks.has(address) || !isEuclid(address)) return;
+    if (!st || wasSent(address) || asks.has(address) || !isEuclid(address) || atlasHas(address) !== false) return;
     v3Load().catch(() => {});
     st.askName = true;
     asks.set(address, setTimeout(() => release(address, ""), ASK_MS));
@@ -338,6 +465,9 @@
     pending.delete(address);
     const url = relay(), st = states.get(address);
     if (!url || !isEuclid(address) || !(st && st.send) || wasSent(address) || st.sending || savedInvalid(address)) return;
+    const known = atlasHas(address);
+    if (known === true) { st.send = false; return; }
+    if (known === null) { atlasKnown(address, ATLAS_WAIT_MS).then((k) => { if (k === false) send(address); }); return; }   // wait for the rows, never send blind
     st.sending = true; st.sendError = "";
     v3Load().then(() => v3Body(address)).catch((e) => {
       st.sending = false; st.sendError = "could not prepare the upload";
@@ -354,6 +484,17 @@
       .catch((err) => { st.sending = false; st.sendError = "could not reach the atlas relay"; logFailure({ what: "relay", address, error: String(err && err.message || err) }); render(); }));
     render();
   }
+  // a top-100 system found earlier and not sent yet (never one the atlas has)
+  function sendTop(address, c) {
+    const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s);
+    if (finderOn() && !c.asked) ask(address); else schedule(address);
+  }
+  function dropTop(address) {
+    const all = jsonGet(CACHE_KEY, {});
+    if (all[address]) { all[address].top = []; jsonSet(CACHE_KEY, all); }
+    const s = states.get(address); if (s) s.send = false;
+    changed();
+  }
   function schedule(address) {
     if (!relay() || !isEuclid(address) || wasSent(address) || pending.has(address) || asks.has(address) || savedInvalid(address)) return;
     v3Load().catch(() => {});   // ready for a last-chance sendBeacon too
@@ -366,7 +507,7 @@
     for (const a of [...asks.keys()]) { clearTimeout(asks.get(a)); asks.delete(a); const s = states.get(a); if (s) s.askName = false; if (!wasSent(a)) pending.set(a, 0); }
     for (const a of [...pending.keys()]) {
       clearTimeout(pending.get(a)); pending.delete(a);
-      if (savedInvalid(a) || !isEuclid(a)) continue;
+      if (savedInvalid(a) || !isEuclid(a) || atlasHas(a) !== false) continue;
       let body = null;
       try { body = v3Body(a); } catch (e) { logFailure({ what: "relay", address: a, step: "upload", error: String(e && e.message || e) }); continue; }
       try { if (url && navigator.sendBeacon(url, new Blob([body], { type: "text/plain" }))) markSent(a, true); } catch (_) {}
@@ -456,6 +597,9 @@
     const T = globalThis.dvTopLists, lists = T ? await T.load().catch(() => null) : null;
     let top = lists && isEuclid(address) ? T.breaks(data.row, data.extras, lists) : [];
     if (top.length && T.rank) try { top = T.rank(data.row, data.extras, lists, top, globalThis.dvHome && globalThis.dvHome.rows ? globalThis.dvHome.rows() : null); } catch (_) {}
+    // v145b: a system the atlas already has is not "new to the atlas": no "broke the top 100" box, no scout name, no upload. Rows not loaded
+    // yet: wait for them; if they never arrive nothing is asked or sent for this system (a missing list must not cause a send).
+    if (top.length) { const known = await atlasKnown(address, ATLAS_WAIT_MS); if (known !== false) top = []; }
     if (states.get(address) !== st) return;
     remember(address, { status: 0, row: data.row, extras: data.extras, loot: data.loot || null, version: data.version, top, ms: Math.round(Number(data.ms)) || null, at: Date.now(), valid: true });
     changed();
@@ -529,7 +673,7 @@
   // a scanned system: the "Scanned on this device" tag; a top-100 one also gets the notice (nothing about sending
   // otherwise: only top-100 lookups are sent)
   function consentHtml(address) {
-    const st = states.get(address) || {}, url = relay(), c = cached(address), top = topNames(c), lists = listText(c);
+    const st = states.get(address) || {}, url = relay(), c = cached(address), top = atlasHas(address) === false ? topNames(c) : [], lists = listText(c);
     const tag = `<div class="site-scan-row"><span class="site-scan-tag${top.length ? " top" : ""}" title="${top.length ? esc("Top 100: " + lists) : "Scanned in your browser"}">${top.length ? "★ Top 100 · " : ""}Scanned on this device</span></div>`;
     if (!top.length) return tag;
     let ask = "";
@@ -631,8 +775,10 @@
     try { auto = sessionStorage.getItem("dv.scan.auto"); if (auto === address) sessionStorage.removeItem("dv.scan.auto"); } catch (_) {}
     const searched = globalThis.dvSearchedAddress === address || auto === address;   // auto: "Open" on the Contribute page
     globalThis.dvSearchedAddress = null;
+    if (!info.unscanned) ATLAS_KNOWN.add(address);
     open = { address, unscanned: !!info.unscanned, slim: !!info.slim, nomap: !!info.nomap, noloot: !!info.noloot };
     const go = () => {
+      { const c0 = cached(address); if (c0 && c0.status === 0 && (c0.top || []).length && !wasSent(address) && atlasHas(address) === true) dropTop(address); }   // v145b: an old top-100 mark on a system the atlas has
       // no loot numbers in the atlas: only on request ("Scan loot", site-loot.js); a loot scan made here earlier shows at once
       const lootHere = open.noloot && globalThis.dvLootSaved ? globalThis.dvLootSaved(address) : null;
       if (lootHere && globalThis.dvFillExtras) setTimeout(() => { if (open && open.address === address) globalThis.dvFillExtras(address, lootHere); }, 0);
@@ -642,7 +788,15 @@
       const c = cached(address);
       if (c && c.status === 0) {
         // a top-100 system found earlier and not sent yet: it is always added
-        if (topNames(c).length && !wasSent(address) && !asks.has(address)) { const s = Object.assign(states.get(address) || { phase: "done" }, { send: true }); states.set(address, s); if (finderOn() && !c.asked) ask(address); else schedule(address); }
+        if (topNames(c).length && !wasSent(address) && !asks.has(address)) {
+          const known = atlasHas(address);
+          if (known === true) dropTop(address);   // the atlas has it: normal view, nothing asked or sent
+          else if (known === false) sendTop(address, c);
+          else atlasKnown(address, ATLAS_WAIT_MS).then((k) => {   // rows not loaded yet: decide when they are
+            if (k === true) { dropTop(address); if (open && open.address === address) show(address); }
+            else if (k === false && !wasSent(address) && !asks.has(address) && topNames(cached(address)).length) { sendTop(address, cached(address) || c); render(); }
+          });
+        }
         setTimeout(() => show(address), 0);
         // the map is never saved (only the numbers): draw it again on this device, like an atlas system without a map
         // (user 2026-11-01: "the scanner should keep it's 3d-2d for a system that should be local")

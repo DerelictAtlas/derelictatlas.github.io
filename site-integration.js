@@ -413,7 +413,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     link.title = "Contribute: scan systems for the atlas with this device";
     link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18.5 5.5"/><circle cx="12" cy="12" r="1.2"/></svg><span>Contribute!</span>';
     goal.appendChild(link);
-    // tutorial (user 2026-11-03): glowing orange graduation cap in the header middle until the welcome is seen
+    // tutorial (user 2026-11-03, v149 2026-11-08: header top right beside the information button, always visible): glows until the welcome is seen
     // (site-welcome.js sets html.dv-tut-seen; the home screen then has a small one at its top right)
     const tut = document.createElement("button");
     tut.type = "button";
@@ -423,7 +423,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     tut.title = "Tutorial: how the atlas works";
     tut.setAttribute("aria-label", "Tutorial: how the atlas works");
     tut.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 5l10 4.5L12 14Z M6 11.6V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.4 M22 9.5v5.5"/></svg>';
-    goal.appendChild(tut);
+    const infoBtn = tools.querySelector("#info-button"); if (infoBtn) tools.insertBefore(tut, infoBtn); else tools.appendChild(tut);  // v149: top right of the page, next to the information button, on every page, always visible
     tools.before(goal);
     const count = tools.querySelector(".header-count"), heading = document.querySelector("#systems .section-heading");
     if (count && heading) { count.classList.add("site-list-count"); heading.appendChild(count); }

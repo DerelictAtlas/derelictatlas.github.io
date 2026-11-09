@@ -1,6 +1,6 @@
 import {hasBit,mapListBit} from './atlas-features.js';
 import {matchesReward} from './reward-types.js';
-export const VERSION = '144 (2026-11-07)';
+export const VERSION = '152 (2026-11-09)';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const known = n => n == null ? '—' : n;
 export const glyphsOf = address => '0' + address.slice(3,6) + address.slice(8);
@@ -65,6 +65,7 @@ export function systemQuery(f) {
     if (q && ![r.address,r.glyphs,r.preset,r.system_name,r.systemName,r.name,r.derelict_name,r.freighter_name,r.reward_name,r.reward_class].some(x=>normalize(x).includes(q))) return false;
     if (r.slim||r.pruned||r.deferred) return false;
     if (f.hasMap && !r.map) return false;
+    if (f.topSpec && (f.topSpec.rank ? !f.topSpec.rank.has(r.address) : !hasBit(r.map, f.topSpec.bit))) return false;
     if (mapListBit(f.mapList)&&!hasBit(r.map,mapListBit(f.mapList)))return false;
     if (f.region && r.region!==f.region || f.preset && r.preset!==f.preset) return false;
     if (sbKey!==null && r.spookbox!==sbKey && !(r.spookbox_alts && r.spookbox_alts.includes(sbKey))) return false;
@@ -79,6 +80,7 @@ export function systemQuery(f) {
     if(ma==null||mb==null){if(ma!=null)return -1;if(mb!=null)return 1;}else if(mb!==ma)return mb-ma;
     return (a.frigate_modules_ambiguous?1:0)-(b.frigate_modules_ambiguous?1:0)||total(b)-total(a)||(b.items_value??-1)-(a.items_value??-1)||(b.items_nanites??-1)-(a.items_nanites??-1)||(a.rooms??1e9)-(b.rooms??1e9)||(a.floors??1e9)-(b.floors??1e9)||byAddress(a,b);};
   const compare=(a,b)=>{
+    if(f.topSpec)return topCompare(f.topSpec,a,b);
     if(f.sort==='overall')return overall(a,b);
     let x=field==='total'?total(a):a[field], y=field==='total'?total(b):b[field];
     if (x==null || y==null) return x==null && y==null ? byAddress(a,b) : x==null ? 1 : -1;
@@ -86,6 +88,12 @@ export function systemQuery(f) {
   };
   return {matches,compare};
 }
+const TOP_REW={C:1,B:2,A:3,S:4},TOP_ALIAS={crates:'salvage_crates',stairs:'stair_pieces',hangars:'hangar_pieces'};
+function topNum(r,k){const x=r[TOP_ALIAS[k]||k];return x==null||x===''||!Number.isFinite(Number(x))?null:Math.trunc(Number(x));}
+function topVal(k,r){if(k==='total'){const c=topNum(r,'crates'),f=topNum(r,'footlockers');return c===null||f===null?null:c+f;}if(k==='hangar'){const h=topNum(r,'hangars');return h===null?null:h>0?1:0;}if(k==='reward')return TOP_REW[String(r.reward_class||'').toUpperCase()]||null;return topNum(r,k);}
+export function topKey(l,r){const out=[];for(const [k,d] of [[l.value,l.direction],...(l.then||[])]){const v=l.value?topVal(k,r):null;out.push(...(v===null?[1,0]:[0,d==='highest'?-v:v]));}return out;}
+function topCompare(l,a,b){if(l.rank)return (l.rank.get(a.address)??1e9)-(l.rank.get(b.address)??1e9);const x=topKey(l,a),y=topKey(l,b);for(let i=0;i<Math.min(x.length,y.length);i++)if(x[i]!==y[i])return x[i]<y[i]?-1:1;return a.address<b.address?-1:a.address>b.address?1:0;}
+if(typeof globalThis!=='undefined')globalThis.dvTopKey=topKey;
 export function filterSort(rows,f){const {matches,compare}=systemQuery(f);return rows.filter(matches).sort(compare);}
 export function family(t='') { return t==='R_END'?'end':t.includes('HANG')?'hangar':t.includes('CARG')?'cargo':t.includes('BARR')?'barracks':t.includes('MED')?'medical':'other'; }
 export const COLORS={cargo:'#c89b50',barracks:'#7299d6',medical:'#6fa894',end:'#d978c6',hangar:'#cf8076',other:'#92a2b7'};

@@ -1,5 +1,5 @@
-// Eighth-tile navigation; independent of visibility layers and renderers.
-const S=8,INF=1e15,cache=new WeakMap();
+// Sixteenth-tile navigation (SITE v145b); independent of visibility layers and renderers.
+const S=16,INF=1e15,cache=new WeakMap();
 const key=(x,y,z)=>`${x},${y},${z}`;
 class Heap{
   a=[];

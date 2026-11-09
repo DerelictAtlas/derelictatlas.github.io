@@ -149,7 +149,7 @@ function withDeviceRows(base){const rev=globalThis.dvDeviceRevision||0;if(base==
   deviceBase=base;deviceRev=rev;deviceSource=add.length?base.concat(add):base;return deviceSource;}
 globalThis.dvDeviceChanged=()=>{globalThis.dvDeviceRevision=(globalThis.dvDeviceRevision||0)+1;if(rows.length)renderSystems();};
 async function renderSystems(reset=false){
-  const ticket=++queryTicket,source=withDeviceRows(rows),settings={...filters,groups:{...filters.groups}},key=JSON.stringify(settings)+(settings.hideDone?':'+completionRevision:'');
+  const ticket=++queryTicket,source=withDeviceRows(rows),settings={...filters,groups:{...filters.groups},topSpec:String(filters.sort).startsWith('top:')?globalThis.dvTopSpecOf(filters.sort.slice(4)):null},key=JSON.stringify(settings)+(settings.hideDone?':'+completionRevision:'');
   syncQuickToggles();syncSortLabel();
   queryBusy=!(source===computedRows&&key===computedKey);showAtlasProgress();
   const result=queryBusy?await filterSortAtlas(source,settings,{isCurrent:()=>ticket===queryTicket,isDone:completion.isDone,firstK:Math.max(400,listLimit+300),isFullCurrent:()=>computedRows===source&&computedKey===key}):shown;
@@ -169,6 +169,7 @@ async function renderSystems(reset=false){
   $('more-filter-chips')?.addEventListener('click',()=>{buildFilterFields();openDialog('filter-dialog');});
   $('filter-chips').querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{filters[b.dataset.clear]=typeof defaults[b.dataset.clear]==='boolean'?false:'';renderSystems(true);});
   $('source-status').textContent=`${dataState.source} · ${rows.length.toLocaleString()} systems`;
+  {const tl=$('top-list-line');if(String(filters.sort).startsWith('top:')){const o=$('sort').querySelector(`option[value="${filters.sort}"]`);const txt=`Top 100: ${(o?.title||o?.textContent||'').replace(/\s*\(systems with loot values\)/,'')} · ${shown.length.toLocaleString()} ${shown.length===1?'system':'systems'}`;$('source-status').textContent=txt;if(tl){tl.hidden=false;tl.textContent=txt;}}else if(tl)tl.hidden=true;}
   if(!firstMode||stats?.total_systems!=null)$('system-count').textContent=Number(stats?.total_systems!=null?Number(stats.total_systems)+(globalThis.dvSinglesN||0):rows.length).toLocaleString();
   save('filters',filters);
   return true;
@@ -182,10 +183,13 @@ function syncSortLabel(){
 }
 function totalDescription(){if(filters.groups.frigate&&filters.groups.briefcases&&filters.groups.tall)return 'All containers';return [filters.groups.frigate?'Crates + footlockers':'',filters.groups.briefcases?'Briefcases':'',filters.groups.tall?'Tall lockers':''].filter(Boolean).join(' + ')||'No groups selected';}
 function syncSearchLabel(){$('search-label').textContent=filters.q||'Search names, glyphs or address';$('search').classList.toggle('has-query',Boolean(filters.q));$('clear-search').hidden=!filters.q;}
-syncSearchLabel();$('sort').value=filters.sort;syncSortLabel();
+(()=>{const s=$('sort'),sep=document.createElement('option');sep.id='sort-top-sep';sep.disabled=true;sep.value='';sep.textContent='-------- Top 100 lists --------';s.append(sep);if(!$('top-list-line')){const tl=document.createElement('div');tl.id='top-list-line';tl.className='top-list-line';tl.hidden=true;tl.setAttribute('role','status');$('results').before(tl);}for(const [n,l,b,tip] of [["total","Most crates + footlockers",1,""],["frigate_modules","Most frigate modules",2,""],["crates","Most crates",8,""],["footlockers","Most footlockers",16,""],["briefcases","Most briefcases",32,""],["tall_lockers","Most tall lockers",64,""],["rooms","Most rooms",128,""],["floors","Most floors",256,""],["stairs","Most stairs",512,""],["hangar","Hangar",1024,""],["reward","Best end reward",2048,""],["frigate_modules_lowest","Fewest frigate modules",4096,""],["crates_lowest","Fewest crates",8192,""],["items_value","Most value (loot values)",32768,"Most value (systems with loot values)"],["items_nanites","Most nanites (loot values)",65536,"Most nanites (systems with loot values)"],["containers","Most containers",262144,""],["hangars","Most hangar pieces",131072,""]]){const o=document.createElement('option');o.value='top:'+n;o.textContent=l;o.title=tip||l;o.dataset.bit=b;s.append(o);}})();
+syncSearchLabel();if(!$('sort').querySelector(`option[value="${filters.sort}"]`))filters.sort='modules';$('sort').value=filters.sort;syncSortLabel();
 $('search').onclick=()=>openSearch();
 $('clear-search').onclick=()=>{clearTimeout(searchTimer);filters.q='';$('address-input').value='';updateSearchEntry(false);syncSearchLabel();renderSystems(true);$('search').focus();};
 $('sort').onchange=e=>{filters.sort=e.target.value;renderSystems(true);};
+globalThis.dvTopSpecOf=n=>{const pub=globalThis.dvTopSpecs?.[n];if(pub)return pub;const rk=globalThis.dvClientRank?.(n);return rk?{name:n,bit:0,value:'',then:[],rank:rk}:{name:n,bit:Number($('sort').querySelector(`option[value="top:${n}"]`)?.dataset.bit)||0,value:'',then:[]};};
+globalThis.dvShowList=name=>{const o=$('sort').querySelector(`option[value="top:${name}"]`)||$('sort').querySelector(`option[value="${name}"]:not([disabled])`);if(!o||o.hidden||!rows.length)return false;Object.assign(filters,structuredClone(defaults));filters.sort=o.value;$('sort').value=filters.sort;syncSearchLabel();globalThis.dvSysMin?.set(false);setTab('systems');renderSystems(true);return true;};
 function resetFilters(){Object.assign(filters,structuredClone(defaults));syncSearchLabel();$('sort').value='modules';renderSystems(true);if(current)updateSummary();if($('filter-dialog').open)buildFilterFields();}
 $('reset-filters').onclick=resetFilters;
 const spookLabel=k=>spookboxText(Number(k)===0?'0':`${Number(k)%100}x${Math.floor(Number(k)/100)}`);
@@ -460,13 +464,14 @@ function syncExtras(){
 async function loadFeatureUI(refresh=false){
   const ticket=++featureTicket,source=rows;if(refresh)resetAtlasFeatures();
   const [s,lists,extras]=await Promise.all([atlasStats(),atlasMapLists(),atlasExtras()]);if(ticket!==featureTicket||source!==rows)return;
-  stats=s;extrasAvailable=Boolean(extras);mapRows(source,lists,await import('./data.js').then(m=>m.bundle()));
+  stats=s;extrasAvailable=Boolean(extras);globalThis.dvTopSpecs=Object.fromEntries((s?.map_lists||[]).filter(l=>l&&l.name).map(l=>[l.name,l]));mapRows(source,lists,await import('./data.js').then(m=>m.bundle()));
   for(let i=0;i<source.length;i++){applyExtras(source[i],extras?.get(source[i].address));if(i%4096===4095)await new Promise(r=>setTimeout(r,0));if(ticket!==featureTicket||source!==rows)return;}
   for(const [value,label] of [['items_value','Loot value (Units / credits) ↓'],['items_nanites','Nanites ↓'],['spookbox','SpookBox (7.10+) ↓']]){
-    let option=$('sort').querySelector(`option[value="${value}"]`);if(extrasAvailable&&!option){option=document.createElement('option');option.value=value;option.textContent=label;$('sort').append(option);}if(option)option.hidden=!extrasAvailable;
+    let option=$('sort').querySelector(`option[value="${value}"]`);if(extrasAvailable&&!option){option=document.createElement('option');option.value=value;option.textContent=label;$('sort').insertBefore(option,$('sort-top-sep'));}if(option)option.hidden=!extrasAvailable;
   }
   if(!extrasAvailable&&filters.spookbox)filters.spookbox='';
-  if(!extrasAvailable&&['items_value','items_nanites','spookbox'].includes(filters.sort)){filters.sort='modules';$('sort').value='modules';}
+  if(!extrasAvailable&&['items_value','items_nanites','spookbox','top:items_value','top:items_nanites'].includes(filters.sort)){filters.sort='modules';$('sort').value='modules';}
+  for(const v of ['top:items_value','top:items_nanites']){const o=$('sort').querySelector(`option[value="${v}"]`);if(o)o.hidden=!extrasAvailable;}
   $('atlas-stats-body').innerHTML=atlasStatsHtml(stats);$('atlas-stats').hidden=!$('atlas-stats-body').innerHTML;
   computedRows=null;await renderSystems();if(current){const r=rows.find(r=>r.address===current.row.address);if(r)current.row=keepDeviceLoot(r);updateSummary();}
   if($('filter-dialog').open)buildFilterFields();

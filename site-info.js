@@ -78,7 +78,7 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
 
   // credits out in the open (user 2026-10-31): cards, each description two lines until it is clicked
   function creditsHtml() {
-    const credits = (window.DV_CREDITS || []).map((c) => `<li class="si-credit" tabindex="0" title="Click to read all"><b><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a></b>`
+    const credits = (window.DV_CREDITS || []).map((c) => `<li class="si-credit" tabindex="0" title="Click to read all"><b>${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}</b>`
       + `<small>by ${esc(c.by)} · ${esc(c.license)}</small><p>${esc(c.what)}</p></li>`).join("");
     const links = (window.DV_LINKS_TO || []).map((c) => `<a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${esc(c.name)}</a> by ${esc(c.by)}`).join(" · ");
     return credits ? `<h4 class="si-credits-title">Credits</h4><ul class="si-credits">${credits}</ul>${links ? `<p class="si-links">Links to (external, not affiliated): ${links}</p>` : ""}` : "";

@@ -55,7 +55,7 @@
     glyphs: { tab: "viewer", sel: [".identity-strip"], sys: true },
     done: { tab: "viewer", sel: ["#viewer-done"], sys: true },
     filters: { tab: "systems", sel: [".filter-toolbar"] },
-    top: { tab: "viewer", sel: [".sh-head", ".sh-row"], union: true, home: true },
+    top: { tab: "viewer", sel: [".sh-trivia", ".sh-big4", ".sh-small12"], union: true, home: true },
     quick: { tab: "viewer", sel: [".viewer-controls"], sys: true },
     search: { tab: "systems", sel: ["#search"] },
     near: { tab: "systems", sel: ["#near-main"] },

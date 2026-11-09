@@ -57,6 +57,7 @@
       <button id="cb-scan" class="cb-scan-btn" type="button" disabled>▶ SCAN</button>
       <div class="cb-row"><button id="cb-pause" type="button" disabled>⏸ Pause</button><button id="cb-stop" type="button" disabled>⏹ Stop</button></div>
       <button id="cb-region" class="cb-region" type="button" aria-pressed="false" disabled title="Finish the region being scanned, then stop">⏭ Stop after region</button>
+      <button id="cb-viewer" class="cb-viewer" type="button" aria-haspopup="dialog" title="Look at the region you are scanning, star by star"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>Scanning viewer</button>
       <div class="cb-sub">Speed</div>
       <div class="cb-seg" id="cb-speed" role="group" aria-label="Speed"><button type="button" data-s="gentle">Gentle</button><button type="button" data-s="balanced">Balanced</button><button type="button" data-s="max">Maximum</button></div>
       <p class="cb-small" id="cb-speed-note"></p>
@@ -170,6 +171,20 @@
     </section>
   </aside>
   </div>
+  <dialog id="cbv" class="cbv" aria-labelledby="cbv-title">
+    <div class="cbv-head">
+      <div><h2 id="cbv-title">Look at your progress</h2><p class="cbv-sub">See the region you are scanning, star by star.</p></div>
+      <button id="cbv-close" class="cbv-x" type="button" aria-label="Close the scanning viewer">&times;</button>
+    </div>
+    <div class="cbv-stats">
+      <div class="cbv-line"><strong id="cbv-region">No region yet</strong><span id="cbv-counts"></span></div>
+      <div class="cbv-bar" role="progressbar" aria-labelledby="cbv-title" aria-valuemin="0" aria-valuemax="100" id="cbv-bar"><span id="cbv-fill"></span></div>
+      <div class="cbv-line cbv-small"><span id="cbv-session"></span></div>
+    </div>
+    <div class="cbv-slot" id="cbv-slot"></div>
+    <p class="cbv-empty" id="cbv-empty" hidden>Press SCAN. The region being scanned shows up here.</p>
+    <div class="cbv-legend" aria-label="Key"><span><i class="cbv-sw cbv-mine"></i>Checked by you (bright colour)</span><span><i class="cbv-sw cbv-atlas"></i>Already in the atlas (dim colour)</span><span><i class="cbv-sw cbv-wait"></i>Not checked yet (grey)</span><span><i class="cbv-sw cbv-find"></i>Your finds (5+ modules)</span></div>
+  </dialog>
   <canvas id="cb-confetti" hidden></canvas><div id="cb-toast" role="status" aria-live="polite"></div>
 </body>
 </html>
