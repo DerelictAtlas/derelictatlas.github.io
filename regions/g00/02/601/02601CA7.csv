@@ -1,0 +1,12 @@
+# nms-derelict-atlas format 4: region 02601CA7 galaxy 0
+# region_systems 249 (portal-valid 001-0F8); scanned 001-0F0; edge systems above 0F0 left out on purpose
+# generator fastgen server 1.8.0 (2026-10-20); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-10T06:56:50Z
+# inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
+# status partial: 151 of 240 systems; 89 deferred (fast-first), the scanner completes this region
+# deferred: 89 (fast-first)
+# deferred_systems: 002 004-005 007 009-00B 00D 010 014 016 01A 01D 021-022 024-025 027-029 02B 02D-02F 037-039 03C 03E-03F 042 045 048 04A-04B 04D 055 057-05A 05E-05F 061 063 065-067 06A-06B 073 079-07A 07C-07F 083 085 08F-090 095 098 09C 09F 0A4 0A7 0AB-0AD 0AF-0B0 0B3 0B8 0BA 0BD 0C1 0C3-0C7 0CC 0DF 0E5-0E6 0EC 0EE 0F0
+# slim_modules 001-0EF: 0.0..0.0...0.23.210.0.021.20.001..1..0...1.1...2000000...00.0..01.10.0..0..2.0002101.1....221..0.0.0...01..0101222.21010..0....100.1.221000100..1003.11.000.00.4000.20.220...2..40.0020.0.00.00..0.....2000.30001000001.101000.01102..20000.1.1 91ef9b25dc71227c
+glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
+004702601CA7,CARGO_FLOATERS,11,49,24,1,0,0,35,16,Salvaged Fleet Fuel Unit,S,0,,3,3,0.5,15.32.42,35.42.68,R_FLO_CARG:10/1|B_FLO_BARR:0/0|R_S_FLO_BARR:0/6|R_FLO_CARG:9/5|B_FLO_CARG:1/0|R_FLO_CARG:19/3|B_FLO_CARG:1/0|R_S_FLO_CARG:6/1|R_FLO_BARR:1/5|B_FLO_CARG:2/0|R_END:0/3,df27e06fd529a9fc
+00C002601CA7,CARGO_FLOATERS,10,28,16,2,1,0,26,19,Salvaged Hyperdrive Upgrade,C,0,,5,0,1.3.5.9,6.17.25.27.38,,R_S_FLO_CARG:4/0|R_S_FLO_BARR:1/5|B_FLO_CARG:2/0|R_FLO_CARG:11/4|B_FLO_CARG:0/0|R_S_FLO_CARG:5/3|R_FLO_BARR:0/1|R_S_FLO_CARG:4/0|B_FLO_CARG:1/0|R_END:0/3,5c0f8abc44c376ac
+00D802601CA7,CARGO_MAZE,7,24,14,1,0,0,16,30,A-Class Reactor,A,0,,5,0,2.4.5,1.17.22.23.33,,R_S_BARR:2/4|B_BARR:0/0|R_BARR:0/5|R_S_BARR:0/2|R_CARG:14/1|R_S_CARG:7/2|R_END:1/0,e455ad115d633944
