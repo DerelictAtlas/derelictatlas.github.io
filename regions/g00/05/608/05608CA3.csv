@@ -1,0 +1,9 @@
+# nms-derelict-atlas format 4: region 05608CA3 galaxy 0
+# region_systems 239 (portal-valid 001-0EE); scanned 001-0E6; edge systems above 0E6 left out on purpose
+# generator fastgen server 1.8.0 (2026-10-20); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-10T07:46:24Z
+# inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
+# status partial: 141 of 230 systems; 89 deferred (fast-first), the scanner completes this region
+# deferred: 89 (fast-first)
+# deferred_systems: 002 00D-00F 011 014 01B 020 024 026-027 029 02C-02D 02F 031 034 036 038-039 03B 03F 043 045-047 04C-04D 053 057 059 05B 05E 062 066-068 06F 072 074-075 07A 07F-080 082 085 08A-08D 08F-090 092 094 097 099-09A 09C 09F 0A1 0A4-0A6 0A9-0AA 0AC-0AD 0AF-0B0 0B2 0B4 0B8 0BD-0BE 0C3 0C6-0C7 0C9-0CC 0D0 0D2 0D7 0DA-0DC 0E3 0E5
+# slim_modules 001-0E6: 2.1031000002...0.00.110011.0022.000.0..0.00..1.2.10.0.0..0.112.101.2...0031..01122.011.2.0.00.010.201...200000.11.1..0200.1000..0.11.0021....0..3.0.32.2..1.12.0.10...10..0..0..2.2.001.1100..0001.00..1....010.1.0110.10...011011.2.0 2b4a257b473ddaf0
+glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
