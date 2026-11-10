@@ -8,6 +8,7 @@ window.DV_CONFIG = {
   "scanRelay": "https://raspberrypi.tail9a10b2.ts.net/submit",
   "relayFinder": true,
   "relayPerf": true,
+  "relayScanned": true,
   "gate": {
     "enabled": true,
     "salt": "5c582c687eaa21f67cc523ec",

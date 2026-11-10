@@ -2,7 +2,7 @@
  * Policy (user, decided): every scanned system counts. Per region and per scan session the browser uploads full rows for at
  * least 1 in 10 scanned systems (ceil(n/10), best by modules) plus every system that enters a top-100 list. The others are
  * reported only as a "scanned" bit in a per-region bitmap and one module character each.
- * v157: see the "v157" notes below (400 handling, decided set, probe after switch-off, counted set).
+ * v158: relay 1.4 answers (scanned uploads are off, bad scanned part) handled in badRequest/answer. v157: see the "v157" notes below (400 handling, decided set, probe after switch-off, counted set).
  * Switched on only by DV_CONFIG.relayScanned === true (same pattern as relayFinder / relayPerf: relay 1.3 answers 400 to the
  * unknown key "scanned" for the WHOLE batch, so it stays false until the Pi runs relay 1.4). Off = today's behaviour, nothing changes.
  *   dvCull.on()                      culling and the "scanned" part are switched on (flag true, relay set, not switched off by an error)
@@ -120,6 +120,13 @@
       if (again) setTimeout(again, sec * 1000 + 50);
       return false;
     }
+    // v158: relay 1.4 answers 200/202 with scanned.ok false for these (the rows in the body were taken, so nothing is lost)
+    if (/scanned uploads are off/i.test(why)) { giveBack(tk); disable("relay has scanned uploads off"); return false; }
+    if (/bad scanned part/i.test(why)) {              // same counter as a 400: give back once and hold 60 s, the second time drop the part; culling stays on
+      badRequest(tk, why);
+      if (again && bad400 > 0) setTimeout(again, 60050);
+      return false;
+    }
     disable("the relay refused the scanned part: " + why);
     return false;
   }
@@ -129,9 +136,10 @@
   function badRequest(tk, text) {
     if (!tk) return "again";
     if (/v3: keys must be/i.test(String(text || ""))) { giveBack(tk); disable("relay 1.3 does not take the scanned part (HTTP 400: v3: keys must be ...)"); return "off"; }
+    if (/scanned uploads are off/i.test(String(text || ""))) { giveBack(tk); disable("relay has scanned uploads off"); return "off"; }   // v158: relay 1.4 with scanned=false: 400 "v4: scanned uploads are off"
     if (++bad400 >= 2) {
       bad400 = 0;
-      for (const s of srcs.values()) { try { s.log && s.log("a scanned part was refused twice with HTTP 400 and dropped: " + String(text || "").slice(0, 120)); } catch (_) {} }
+      for (const s of srcs.values()) { try { s.log && s.log("a scanned part was refused twice and dropped: " + String(text || "").slice(0, 120)); } catch (_) {} }
       return "dropped";
     }
     giveBack(tk); hold = Date.now() + 60000;
