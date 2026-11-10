@@ -183,6 +183,15 @@
   const smallPicks = (c) => { const t = clientTop(c.id); return t ? t.slice(0, 3) : top3Published(c.id); };
 
   let root = null, rows = null, withLoot = false, wantViewer = false, pending = 0, retry = 0;
+  // v161 loading state: a card waits ("loading": a circle over its placeholder rows, aria-busy) until its data is in; after dvLoading.MS it says
+  // "Could not load" with a Retry button ("failed"). Layout stays: the overlay sits on the rows that are already there.
+  // Later source: a small file views/home.json could fill earlyCards (card id -> rows) BEFORE the full atlas arrives; render() would read it first.
+  let failed = false, loadTimer = 0, earlyCards = null;
+  const LD = () => window.dvLoading || null;
+  const stateAttr = (st) => (st === "loading" ? ' aria-busy="true"' : st === "failed" ? ' data-failed="1"' : "");
+  const overlay = (st) => (st === "ready" ? "" : st === "failed" ? '<span class="sh-load" data-s="failed" role="alert">Could not load. <button type="button" class="sh-retry">Retry</button></span>' : `<span class="sh-load" data-s="loading">${LD() ? LD().html("Loading") : "Loading"}</span>`);
+  const allReady = () => !!rows && withLoot;
+  function startLoadTimer() { clearTimeout(loadTimer); loadTimer = 0; failed = false; if (allReady()) return; loadTimer = setTimeout(() => { if (!allReady()) { failed = true; render(); } }, (LD() && LD().MS) || 30000); }
   const phone = () => matchMedia("(max-width:700px)").matches;
   const tname = (r) => (window.dvSystemName && window.dvSystemName(r.address)) || "";
   const t100 = (id, title) => `<a class="sh-t100" href="#/" data-list="${esc(id)}" aria-label="Top 100: ${esc(title)}">Top 100 <span aria-hidden="true">↗</span></a>`;
@@ -194,10 +203,10 @@
     return `<a class="sh-ent" href="#/d/${r.address}" data-address="${r.address}" aria-label="${esc(cat.title)} number ${i + 1}: ${esc(big + " " + unit)}, ${esc(nm ? nm + ", " + r.glyphs : r.glyphs)}" title="${esc([r.glyphs, tip].filter(Boolean).join(" · "))}">${rank}`
       + `<span class="sh-id"><span class="sh-glyphs">${glyphRow(r.glyphs)}</span></span><span class="sh-val"><b>${esc(big)}</b><small>${esc(unit)}</small></span></a>`;
   }
-  function bigCard(cat, picks) {
-    return `<section class="sh-card sh-big sh-c-${cat.id}" data-cat="${cat.id}" aria-label="${esc(cat.title)}"><div class="sh-in"><header>${icon(cat.id)}<h2>${esc(cat.title)}</h2>`
+  function bigCard(cat, picks, st) {
+    return `<section class="sh-card sh-big sh-c-${cat.id}" data-cat="${cat.id}" aria-label="${esc(cat.title)}"${stateAttr(st)}><div class="sh-in"><header>${icon(cat.id)}<h2>${esc(cat.title)}</h2>`
       + (cat.id === "value" ? '<span class="sh-note"><i aria-hidden="true">i</i>Known loot</span>' : "") + t100(BIG_LIST[cat.id], cat.title) + `</header>`
-      + `<img class="sh-img" src="home/${cat.id}-1.webp" alt="" decoding="async"><div class="sh-ents">${[0, 1, 2].map((i) => bigRow(cat, i, picks[i])).join("")}</div></div></section>`;
+      + `<img class="sh-img" src="home/${cat.id}-1.webp" alt="" decoding="async"><div class="sh-ents">${[0, 1, 2].map((i) => bigRow(cat, i, picks[i])).join("")}${overlay(st)}</div></div></section>`;
   }
   function smallRow(c, i, r) {
     const rank = `<span class="sh-rank">${i + 1}</span>`;
@@ -209,20 +218,20 @@
     return `<a class="sh-ent" href="#/d/${r.address}" data-address="${r.address}" aria-label="${esc(c.title)} number ${i + 1}: ${v} ${c.unit(v)}, ${esc(nm ? nm + ", " + r.glyphs : r.glyphs)}" title="${esc([nm, r.glyphs].filter(Boolean).join(" · "))}">${rank}`
       + `<span class="sh-id"><span class="sh-glyphs">${glyphRow(r.glyphs)}</span></span><span class="sh-val"><b>${fmt(v)}</b><small>${esc(c.unit(v))}</small></span></a>`;
   }
-  function smallCard(c, picks, off) {
+  function smallCard(c, picks, off, st) {
     if (off) return `<section class="sh-card sh-sm sh-off" data-cat="${c.id}" aria-label="${esc(c.title)}"><div class="sh-in"><header>${ico2(c.id)}<h2>${esc(c.title)}</h2></header><div class="sh-ents"><span class="sh-ent sh-wait"><span class="sh-id"></span><span class="sh-val"><small>Not available yet</small></span></span></div></div></section>`;
-    return `<section class="sh-card sh-sm" data-cat="${c.id}" aria-label="${esc(c.title)}"${c.tip && !c.hidden ? ` title="${esc(c.tip)}"` : ""}><div class="sh-in"><header>${ico2(c.id)}<h2>${esc(c.title)}</h2>`
-      + (c.note ? `<span class="sh-note">${esc(c.note)}</span>` : "") + t100(c.id, c.title) + `</header><div class="sh-ents">${[0, 1, 2].map((i) => smallRow(c, i, picks[i])).join("")}</div></div></section>`;
+    return `<section class="sh-card sh-sm" data-cat="${c.id}" aria-label="${esc(c.title)}"${stateAttr(st)}${c.tip && !c.hidden ? ` title="${esc(c.tip)}"` : ""}><div class="sh-in"><header>${ico2(c.id)}<h2>${esc(c.title)}</h2>`
+      + (c.note ? `<span class="sh-note">${esc(c.note)}</span>` : "") + t100(c.id, c.title) + `</header><div class="sh-ents">${[0, 1, 2].map((i) => smallRow(c, i, picks[i])).join("")}${overlay(st)}</div></div></section>`;
   }
 
   function render() {
     if (!root) return;
-    root.querySelector(".sh-big4").innerHTML = CATS.map((cat) => bigCard(cat, !rows || (cat.loot && !withLoot) ? [] : topK(rows, cat.use, cat.cmp, 3))).join("");
+    root.querySelector(".sh-big4").innerHTML = CATS.map((cat) => { const ok = !!rows && !(cat.loot && !withLoot); return bigCard(cat, ok ? topK(rows, cat.use, cat.cmp, 3) : [], ok ? "ready" : failed ? "failed" : "loading"); }).join("");
     let waiting = false;
     root.querySelector(".sh-small12").innerHTML = SMALL.map((c) => {
       // a published-only list that stats/systems.json does not have (specs are in, name missing) = "Not available yet", no waiting
       if (c.published && rows && window.dvTopSpecs && !window.dvTopSpecs[c.id]) return smallCard(c, [], true);
-      const p = rows ? smallPicks(c) : null; if (rows && !p) waiting = true; return smallCard(c, p || []);
+      const p = rows ? smallPicks(c) : null; if (rows && !p) waiting = true; return smallCard(c, p || [], false, p ? "ready" : failed ? "failed" : "loading");
     }).join("");
     if (waiting && retry++ < 60) setTimeout(schedule, 500);  // the list specs (stats/systems.json) are not in yet
   }
@@ -257,6 +266,7 @@
     empty.innerHTML = `<div class="sh-trivia" aria-label="Trivia">${trivia}</div><div class="sh-big4"></div><div class="sh-small12"></div><span class="sh-act" hidden></span>`;
     if (btn) empty.querySelector(".sh-act").appendChild(btn);
     empty.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest(".sh-retry")) { failed = false; render(); startLoadTimer(); if (LD()) LD().retry(); return; }
       const a = e.target.closest && e.target.closest("a.sh-t100");
       if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
@@ -266,7 +276,7 @@
     });
     root = empty;
     initSysMin();
-    render();
+    render(); startLoadTimer();
     if (window.dvNamesReady) Promise.resolve(window.dvNamesReady).then(() => { if (rows) render(); }, () => {});
     return root;
   }
@@ -280,7 +290,7 @@
     show() { init(); const e = document.getElementById("viewer-empty"); if (e) { e.hidden = false; e.scrollTop = 0; } },
     showing() { const e = document.getElementById("viewer-empty"); return !!(e && !e.hidden); },
     takeTab() { const t = wantViewer ? "viewer" : "systems"; wantViewer = false; return t; },
-    setRows(next, loot) { if (!Array.isArray(next) || !next.length) return; rows = next; mapCache = null; clientCache = null; if (loot) withLoot = true; retry = 0; init(); schedule(); },
+    setRows(next, loot) { if (!Array.isArray(next) || !next.length) return; rows = next; mapCache = null; clientCache = null; if (loot) withLoot = true; retry = 0; init(); if (allReady()) { clearTimeout(loadTimer); failed = false; } schedule(); },
     // the atlas rows for the top-100 rank of a system scanned here (site-scan.js / site-toplists.js rank)
     rows() { return rows ? { rows, loot: withLoot } : null; },
   };

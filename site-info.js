@@ -52,7 +52,7 @@ ${card(I.search, "Not in the atlas yet?", "Search its glyphs or hex address and 
 ${card(I.save, "Kept to save space", "The atlas keeps every number of every system for everyone; the 3D and 2D maps are kept only for the top-100 lists.")}</div>
 <div class="si-cards si-cards-more">${card(I.scan, "Contribute scanner", "Scans systems the atlas does not have yet, in your browser, at the speed you choose. Your results are checked and added to the atlas automatically, about every hour. <a href=\"contribute.html\">Open the scanner</a>")}
 ${card(I.check, "Your uploads", "The scanner page shows how many of your scans are in the atlas, still waiting or missing, and the map state of your top-100 finds.")}</div>`;
-    if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">Loading atlas statistics…</p></div><div class="si-speed" aria-live="polite"></div><div class="si-owner-stats"></div>`;
+    if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading atlas statistics") : "Loading atlas statistics…"}</p></div><div class="si-speed" aria-live="polite"></div><div class="si-owner-stats"></div>`;
     return `<div class="si-about-layout">
 <div class="si-about-main"><div class="si-about-slot"></div>${creditsHtml()}<div class="si-owner-slot"></div></div>
 <aside class="si-about-embed" aria-label="Embed preview">
@@ -93,11 +93,19 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
   function loadStats(box) {
     if (statsLoaded) return;
     statsLoaded = true;
+    let settled = false;
+    const tmo = setTimeout(() => {
+      if (settled) return;
+      box.innerHTML = '<p class="site-muted">Could not load the statistics. <button type="button" class="dv-retry">Retry</button></p>'; statsLoaded = false;
+      const b = box.querySelector(".dv-retry");
+      if (b) b.addEventListener("click", () => { box.innerHTML = `<p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading atlas statistics") : "Loading..."}</p>`; loadStats(box); });
+    }, (window.dvLoading && window.dvLoading.MS) || 30000);
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       window.dvSinglesCount ? window.dvSinglesCount() : 0,
       fetch("stats/speed.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       window.dvSinglesHist ? window.dvSinglesHist() : [],
-      fetch("stats/scanned.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)]).then(([s, singles, speed, singlesHist, scanned]) => {   // v157: stats/scanned.json (absent = nothing extra is shown)
+      fetch("stats/scanned.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)]).then(([s, singles, speed, singlesHist, scanned]) => {
+      settled = true; clearTimeout(tmo);   // v157: stats/scanned.json (absent = nothing extra is shown)
       if (!s) { box.innerHTML = `<p class="site-muted">Atlas statistics are not available right now.</p>`; statsLoaded = false; return; }
       // v157: stats/systems.json "community" = regions + singles + scanned systems with no row = the one number toward the cap (older files: the sum the page always used)
       const com = s.community && Number(s.community.total) > 0 ? s.community : null, only = com ? Number(com.scanned_no_row) || 0 : 0;

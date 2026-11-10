@@ -31,7 +31,17 @@
     while (cum < thr && k < cnt) { cum = Math.fround(cum + (k + 1 < cnt ? W[k + 1] : 0)); idx++; k++; }
     return Math.min(idx, cnt - 1);
   }
-  const api = { index, of: (a) => { const i = index(a); return i < 0 ? "" : NAMES[i]; }, NAMES, SLOW: ["MEDI_TURRETS", "CARGO_TURRETS"] };
+  // v161: scan time per type, measured in the browser scanner (bulk-worker.js, WASM, headless Chrome desktop, 50 scans of each type,
+  // 2026-11-10). MS = average ms per scan. Time share of a type = weight x ms against the sum over all types (weights = how often the
+  // game picks the type). Near me uses it to show what skipping a type saves; the numbers are typical, not your device.
+  const MS = { MEDI_TURRETS: 1412, MEDI_FLOATERS: 654, MEDI_BUGS: 176, MEDI_SLIME: 232, MEDI_MAZE: 64, CARGO_TURRETS: 975, CARGO_FLOATERS: 313, CARGO_BUGS: 165, CARGO_SLIME: 184, CARGO_MAZE: 59 };
+  const COST = NAMES.map((n, i) => W[i] * MS[n]), COST_SUM = COST.reduce((a, b) => a + b, 0);
+  const WSUM = W.reduce((a, b) => a + b, 0), FREQ = {}; NAMES.forEach((n, i) => { FREQ[n] = W[i] / WSUM * 100; });   // percent of all systems that have the type
+  const SHARE = {}; NAMES.forEach((n, i) => { SHARE[n] = COST[i] / COST_SUM * 100; });   // percent of the scan time of all systems
+  const NEAR_SKIP = ["MEDI_TURRETS", "CARGO_TURRETS", "MEDI_FLOATERS"];   // the 3 slowest by SHARE: skipped by default in Near me
+  // how many times faster a pass over the same area is when the types in `skip` (names) are not scanned
+  const speedup = (skip) => { const s = new Set(skip); let left = 0; NAMES.forEach((n, i) => { if (!s.has(n)) left += COST[i]; }); return left > 0 ? COST_SUM / left : 1; };
+  const api = { index, of: (a) => { const i = index(a); return i < 0 ? "" : NAMES[i]; }, NAMES, SLOW: ["MEDI_TURRETS", "CARGO_TURRETS"], MS, SHARE, FREQ, NEAR_SKIP, speedup };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.dvPreset = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

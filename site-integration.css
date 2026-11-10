@@ -766,3 +766,58 @@ a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .4
 .site-scanned-note { margin: -4px 0 8px; font-size: 12px; color: var(--muted, #94a9bc); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 html.dv-sysmin .site-scanned-note { display: none; }
 .si-tiles4.si-two { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+
+/* v161: icons on the Quick Run and Navigate buttons of the system page */
+.viewer-control-row .vc-ico { width: 14px; height: 14px; margin-right: 5px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+#viewer-navigate { white-space: normal; }
+
+/* v161: an icon on every button of the system page row (drawn with a mask so the button text can still be rewritten by the page's script) */
+#viewer-done::before, #viewer-toggle-reward::before, #toggle-layers::before, #toggle-spacing::before {
+  content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 5px; vertical-align: -2px; background: currentColor; -webkit-mask: var(--vc) center / contain no-repeat; mask: var(--vc) center / contain no-repeat; }
+#viewer-done { --vc: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='m8 12.5 3 3 5-6'/></svg>"); }
+#viewer-toggle-reward { --vc: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z'/></svg>"); }
+#toggle-layers { --vc: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m12 3 9 5-9 5-9-5z'/><path d='m3 12 9 5 9-5'/><path d='m3 16 9 5 9-5'/></svg>"); }
+#toggle-spacing { --vc: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4'/></svg>"); }
+
+/* v161 loading circle (site-loading.js) and the retry fallback */
+.dv-load { display: inline-flex; align-items: center; gap: 6px; }
+.dv-spin { display: inline-block; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #f4cd5440; border-top-color: var(--gold, #f4cd54); animation: dv-spin .75s linear infinite; }
+@keyframes dv-spin { to { transform: rotate(360deg); } }
+.dv-load-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .dv-spin { animation: none; } .dv-load-t { position: static; width: auto; height: auto; clip: auto; font-size: 11px; color: var(--muted, #94a9bc); } }
+.dv-retry, .sh-retry { min-height: 28px; padding: 2px 10px; border: 1px solid var(--gold, #f4cd54); border-radius: 4px; background: none; color: var(--gold, #f4cd54); font: inherit; font-size: 12px; cursor: pointer; }
+.sh-ents { position: relative; }
+.sh-load { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; font-size: 12px; pointer-events: none; }
+.sh-load[data-s="failed"] { background: #07131ee6; gap: 8px; flex-wrap: wrap; pointer-events: auto; color: var(--muted, #94a9bc); }
+
+/* v162: waypoint reach note on a system page */
+.viewer-wp-note { margin: 6px 0 0; font-size: 12.5px; line-height: 1.35; color: var(--muted, #9aa3b2); max-width: 60ch; overflow-wrap: anywhere; }
+.nr-galused { display: inline-block; }
+
+/* v163: Copied! popup at the pressed button, and the Embed card on the Share page */
+.share-toast { position: fixed; z-index: 2147483000; left: 0; top: 0; max-width: calc(100vw - 16px); padding: 6px 12px; border-radius: 6px; background: #1f7a45; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.share-toast.show { opacity: 1; }
+.share-toast.bad { background: #a63a2a; }
+.share-sheet button.copied { outline: 2px solid #2fbf71; }
+.share-sheet button.copied::before { content: "\2713 "; }
+.share-embed .share-embed-body { padding: 0 8px 8px; }
+.share-embed textarea { width: 100%; box-sizing: border-box; font-size: 11px; }
+.share-embed #share-embed-copy { margin: 6px 0; }
+.share-embed .share-embed-preview { display: block; width: 100%; max-width: 100%; height: 260px; border: 0; border-radius: 3px; background: #0b141b; }
+
+/* v163: X close button in the top right corner of the system panel; Copy sits with the other actions */
+.site-close-x { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; width: 40px; height: 40px; padding: 0; border-radius: 8px; background: transparent; border: 1px solid var(--line, #2a3a47); color: var(--text, #e6eef3); cursor: pointer; flex: none; }
+.site-close-x:hover { background: rgba(255,255,255,.08); }
+.site-close-x:focus-visible { outline: 2px solid var(--gold, #ffb055); outline-offset: 2px; }
+.site-strip-actions #viewer-copy { min-width: 40px; }
+
+/* v163: with a mouse on a wide screen the X / Copy / Report column is compact, so the system panel does not grow taller (the 3D view and map keep their height) */
+@media (min-width: 760px) and (pointer: fine) {
+  .site-strip-actions { gap: 4px; }
+  .site-strip-actions .site-close-x { min-width: 28px; min-height: 28px; width: 28px; height: 28px; }
+  .site-strip-actions .site-close-x svg { width: 14px; height: 14px; }
+  .site-strip-actions #viewer-copy { flex-direction: row; min-height: 28px; height: 28px; padding: 0 8px; gap: 5px; font-size: 11px; width: auto; min-width: 0; }
+  .site-strip-actions #viewer-copy svg { width: 14px; height: 14px; }
+  .site-strip-actions a.site-report-icon { height: 28px; }
+}
+.site-strip-actions #viewer-copy { border: 1px solid var(--line, #24394a); border-radius: 6px; }

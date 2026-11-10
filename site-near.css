@@ -533,3 +533,27 @@ dialog.sheet.nr-dialog[data-view="trip"]::before { inset: 0; clip-path: none; }
   .nr-dialog[data-step="scan"] .nr-p-opt, .nr-dialog[data-step="done"] .nr-p-opt { display: grid; }
   .nr-p-res, .nr-dialog[data-step="ready"] .nr-p-res, .nr-dialog[data-step="enter"] .nr-p-res { display: flex; flex: 1 1 auto; min-height: 0; max-height: none; }
 }
+
+/* v161 Fast scan: a speed button beside Scan and a popup above them (tick = scan this type, untick = skip it) */
+.nr-actbar { position: relative; display: flex; gap: 8px; align-items: stretch; }
+.nr-actbar .nr-gold { flex: 1 1 auto; width: auto; }
+.nr-fastbtn { flex: none; min-width: 48px; min-height: 48px; padding: 0 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 1px solid var(--nr-line); border-radius: 3px; background: var(--nr-fill2); color: var(--nr-text); font: inherit; font-size: 11px; line-height: 1; cursor: pointer; }
+.nr-fastbtn .nr-ico { width: 20px; height: 20px; stroke: var(--nr-gold-hi); fill: none; stroke-width: 1.8; stroke-linejoin: round; }
+.nr-fastbtn.on .nr-ico { fill: var(--nr-gold-hi); }
+.nr-fastbtn:hover, .nr-fastbtn[aria-expanded="true"] { border-color: var(--nr-gold); background: #2c220a; }
+.nr-fastpop { position: absolute; z-index: 20; left: 0; right: 0; bottom: calc(100% + 8px); max-width: 420px; max-height: min(72vh, 440px); overflow: auto; padding: 10px 12px; border: 1px solid var(--nr-line); border-radius: 4px; background: #08151f; box-shadow: 0 -8px 28px #000a; }
+.nr-fastpop p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; }
+.nr-fastpop .nr-fhead { margin-top: 0; font-size: 14px; color: #fff; }
+.nr-flist { list-style: none; margin: 6px 0 0; padding: 0; }
+.nr-frow { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+.nr-frow:hover { background: #12303f; }
+.nr-frow input { flex: none; width: 18px; height: 18px; accent-color: var(--nr-gold); }
+.nr-fname { flex: 1 1 auto; }
+.nr-fgain { flex: none; color: var(--nr-mute); font-size: 12px; font-variant-numeric: tabular-nums; }
+.nr-frow input:not(:checked) ~ .nr-fname { color: var(--nr-mute); text-decoration: line-through; text-decoration-color: #8fa9b866; }
+.nr-frow input:not(:checked) ~ .nr-fgain { color: var(--nr-gold-hi); }
+.nr-ftotal { padding: 6px 8px; border: 1px solid var(--nr-line-dim); border-radius: 3px; background: #0a1d2a; font-size: 13px !important; }
+.nr-ftotal b { color: var(--nr-gold-hi); }
+.nr-frow2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nr-fastnote { color: var(--nr-gold-hi); }
+@media (max-height: 520px) { .nr-fastbtn { min-height: 36px; } .nr-fastpop { max-height: 70vh; } }

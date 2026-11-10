@@ -80,7 +80,7 @@
   }
   const driveOf = () => (S.drive >= 50 ? S.drive : 1000);
   const modsKey = (r) => (r.row && r.row.frigate_modules != null ? Number(r.row.frigate_modules) : -1);
-  const resCmp = (a, b) => modsKey(b) - modsKey(a) || a.d - b.d || (a.address < b.address ? -1 : 1);   // most predicted modules first, then nearest
+  const resCmp = (a, b) => a.d - b.d || (a.address < b.address ? -1 : 1);   // v162: always nearest first (it was modules first, so a far atlas hit with more modules led the list)
   const dist = (a, b) => LY * Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
   const coreDist = (a) => LY * Math.hypot(a.x, a.y, a.z);
   const jumpsFor = (d, range) => (d <= 0 ? 0 : Math.max(1, Math.ceil(d / (SAFE * Math.max(1, range)))));
@@ -219,7 +219,7 @@
     if (p.ownGal) setGalaxy(p.gal);
     const how = p.kind === "booster" ? "Booster read as" : p.kind === "address" ? "Address read as" : "Glyphs read as";
     box.className = "nr-note ok";
-    box.innerHTML = `${how} region ${p.x}, ${p.y}, ${p.z}, system ${hex(p.sys, 3)}${isPurple(p.sys) ? " (purple star)" : ""}. ${num(coreDist(p))} ly from the galaxy core.` + (p.kind === "booster" ? ` Glyphs: <code>${glyphsOf(p.address)}</code> (${esc(gname(p.gal))})` : "");
+    box.innerHTML = `${how} region ${p.x}, ${p.y}, ${p.z}, system ${hex(p.sys, 3)}${isPurple(p.sys) ? " (purple star)" : ""}. ${num(coreDist(p))} ly from the galaxy core.` + (p.kind === "booster" ? ` Glyphs: <code>${glyphsOf(p.address)}</code> (${esc(gname(p.gal))})` : p.kind === "glyphs" ? ` <span class="nr-galused">Galaxy used: <b>${esc(gname(p.gal))}</b>. Wrong galaxy? Change it in the Galaxy list.</span>` : "");
     rcLoad().then((rc) => {
       if (curPos().address !== p.address) return;
       const code = rc.validSystemUA(p.gal | (p.sys << 8), (parseInt(p.address.slice(8), 16)) >>> 0, true);
@@ -245,15 +245,17 @@
     const { systemQuery } = await core();
     const f = filterOf(w), q = systemQuery(f), found = [];
     let full = 0, hits = 0;
+    const lim = S.range >= 1 ? S.range : 1000;   // v162: atlas rows obey the scan radius too (a 1,061,036 ly row was listed for a 1000 ly radius)
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (r.galaxy !== 0) continue;
       atlasAny.add(r.address);
       if (!r.slim && !r.pruned && !r.deferred) { full++; atlasSet.add(r.address); }
       if (q.matches(r)) {
+        const c = coordsOf(r.address), d = dist(pos, c);
+        if (d > lim) continue;
         hits++;
-        const c = coordsOf(r.address);
-        found.push({ address: r.address, gal: 0, x: c.x, y: c.y, z: c.z, sys: c.sys, d: dist(pos, c), row: r, src: "atlas" });
+        found.push({ address: r.address, gal: 0, x: c.x, y: c.y, z: c.z, sys: c.sys, d, row: r, src: "atlas" });
       }
       if ((i & 16383) === 16383) { await yieldMain(); if (token !== runToken) return { cancelled: true }; }
     }
@@ -375,6 +377,25 @@
       ? `<p class="nr-prog" role="status">Accepted by the relay: <b>${num(S.accepted)}</b> systems${S.waiting ? `, ${num(S.waiting)} waiting to be sent${(globalThis.dvNearWhy && dvNearWhy()) ? ` (${dvNearWhy()})` : ""}` : ""}${upStats.found ? `, ${upStats.found} found in a top 100` : ""}${upQ.length || upStats.busy ? " (checking more top-100 finds)" : ""}${upStats.failed ? `, ${upStats.failed} top-100 finds sent without loot` : ""}. The atlas adds them at its next update.</p>` : "";
   };
 
+  // ---------------------------------------------------------------- Fast scan (v161, user 2026-11-10): ON by default
+  // The types that take longest to scan (site-preset.js: measured time share) are skipped. A skipped system is never scanned and never marked
+  // (no done mark, no upload, not counted): it stays unscanned, so it can still be found later with every type ticked. Systems already in the
+  // atlas or in this browser's records are judged as before, whatever their type. Only WHICH systems are scanned changes, never what a scan returns.
+  const PRE = globalThis.dvPreset || null, WHICH_KEY = "dv.near.which";
+  let which = (() => {
+    let skip = PRE ? PRE.NEAR_SKIP.slice() : [];
+    try { const j = JSON.parse(localStorage.getItem(WHICH_KEY) || "null"); if (PRE && j && Array.isArray(j.skip)) { const k = j.skip.filter((x) => PRE.NAMES.includes(x)); if (k.length < PRE.NAMES.length) skip = k; } } catch (_) {}
+    return { skip };
+  })();
+  let skipFlag = new Uint8Array(16), msFast = false;   // msFast: the measured ms per system came from a Fast run (only ticked types were scanned)
+  const whichApply = () => { skipFlag = new Uint8Array(16); if (PRE) for (const t of which.skip) { const i = PRE.NAMES.indexOf(t); if (i >= 0) skipFlag[i] = 1; } };
+  const fastOn = () => !!PRE && which.skip.length > 0;
+  const whichSave = () => { try { localStorage.setItem(WHICH_KEY, JSON.stringify({ skip: which.skip })); } catch (_) {} };
+  whichApply();
+  // systems per second COVERED (skipped systems cost nothing): calibration scans all types, so it is multiplied by the speedup; a Fast run's own
+  // speed already counts only the systems it scanned, so it is divided by the share that was not skipped
+  const covRate = () => { const r = 1000 / msPer; if (!fastOn()) return r; return msFast ? r / Math.max(0.05, 1 - which.skip.reduce((a, t) => a + PRE.FREQ[t], 0) / 100) : r * PRE.speedup(which.skip); };
+
   // ---------------------------------------------------------------- scan
   function spawn(v) {
     const w = new Worker("scan/bulk-worker.js?v=" + encodeURIComponent(v));
@@ -400,7 +421,7 @@
         const t0 = performance.now();
         await Promise.all(ws.map(async (w, i) => { for (let j = 1; j < K; j++) await one(w, 1 + (i * K + j) * step); }));
         const ms = (performance.now() - t0) / (n * (K - 1));
-        if (mine === calibrating) { msPer = Math.max(1, Math.round(ms)); msN = n; }
+        if (mine === calibrating) { msPer = Math.max(1, Math.round(ms)); msN = n; msFast = false; }
       } finally { for (const w of ws) w.terminate(); }
       return msPer;
     })().catch((e) => { if (mine === calibrating) calibrating = null; throw e; });
@@ -420,7 +441,7 @@
   }
   function estHtml(e, w, pos) {
     const n = workerCount();
-    const rate = msPer && msN === n ? 1000 / msPer : 0;
+    const rate = msPer && msN === n ? covRate() : 0;
     const mods = Number(w.mods || 0);
     const l = [];
     if (e.share == null) l.push("No atlas numbers for this want, so there is no estimate. The scan still works.");
@@ -439,8 +460,9 @@
     const q = arg || lastEst;
     if (!q) return;
     const pos = q.pos, w = q.w;   // the question the list on screen answers
-    run = { late: true, atlasWait: false, held: [], stop: false, queue: [], workers: [], idle: [], busy: new Map(), scanned: 0, matches: 0, regions: 0, fails: 0, t0: performance.now(), R: -1, cur: [], k: 0, work: 0, refilling: false, exhausted: false, reach: 0,
+    run = { late: true, atlasWait: false, held: [], stop: false, queue: [], workers: [], idle: [], busy: new Map(), scanned: 0, matches: 0, regions: 0, fails: 0, t0: performance.now(), R: -1, cur: [], k: 0, work: 0, refilling: false, exhausted: false, reach: 0, skipped: 0, fast: fastOn(),
       pos, gal: pos.gal, limit: S.range, w, f: filterOf(w), purple: !!w.purple, curRegion: null, err: "", up: 0, lists: null, rec: new Set(), noUp: new Set(), judged: 0, recRows: new Map(), atlasAny: atlasAny || new Set(), none: new Set() };
+    fastOpen(false);   // v161: the Fast scan popup never stays open over a running scan
     (async () => {
       try {
         const [rc, v, c] = await Promise.all([rcLoad(), version(), core()]);
@@ -489,11 +511,13 @@
         const reg = await nextRegion(r);
         if (r.stop) return;
         if (!reg) { r.exhausted = true; break; }
-        const last = reg.n - 9, skip = (a) => { if (atlasSet && atlasSet.has(a)) return true; if (r.rec.has(a)) { recMatch(r, a); return true; } return false; };   // the atlas rule: the last 8 systems below the star count are not sure to exist; r.rec = already uploaded from this browser
+        const last = reg.n - 9, skip = (a) => { if (atlasSet && atlasSet.has(a)) return true; if (r.rec.has(a)) { recMatch(r, a); return true; } if (r.fast && skipFlag[PRE.index(a)]) { r.skipped++; return true; } return false; };   // the atlas rule: the last 8 systems below the star count are not sure to exist; r.rec = already uploaded from this browser
         for (let s = 1; s <= last; s++) { const a = addrOf(s, r.gal, reg.x, reg.y, reg.z); if (!skip(a)) r.queue.push({ a, x: reg.x, y: reg.y, z: reg.z, sys: s, d: reg.d }); }
         if (r.purple) for (let s = PURPLE_LO; s <= PURPLE_HI; s++) {   // all 65 purple numbers are valid in any real region (checked with W29d)
           if (s < reg.n) continue;
-          r.queue.push({ a: addrOf(s, r.gal, reg.x, reg.y, reg.z), x: reg.x, y: reg.y, z: reg.z, sys: s, d: reg.d });
+          const pa = addrOf(s, r.gal, reg.x, reg.y, reg.z);
+          if (r.fast && skipFlag[PRE.index(pa)]) { r.skipped++; continue; }
+          r.queue.push({ a: pa, x: reg.x, y: reg.y, z: reg.z, sys: s, d: reg.d });
         }
         r.regions++;
         if (!r.queue.length) continue;
@@ -558,8 +582,8 @@
     for (const wk of r.workers) { try { wk.terminate(); } catch (_) {} }
     r.workers = []; r.idle = []; r.busy.clear(); r.queue = [];
     r.endText = why || "Stopped.";
-    if (r.scanned >= 30) { msPer = Math.max(1, Math.round((performance.now() - r.t0) / r.scanned)); msN = r.size || 1; }   // this device's real rate, with start-up included
-    lastRun = { scanned: r.scanned, matches: r.matches, reach: r.reach, secs: (performance.now() - r.t0) / 1000, text: r.endText };
+    if (r.scanned >= 30) { msPer = Math.max(1, Math.round((performance.now() - r.t0) / r.scanned)); msN = r.size || 1; msFast = !!r.fast; }   // this device's real rate, with start-up included
+    lastRun = { scanned: r.scanned, matches: r.matches, reach: r.reach, secs: (performance.now() - r.t0) / 1000, text: r.endText, skipped: r.skipped, fast: r.fast };
     lastRec = r.rec; run = null;
     paintScan(); paintResults();
   }
@@ -568,7 +592,33 @@
     if (results.some((x) => x.address === res.address)) return;
     results.push(res);
     results.sort(resCmp);
+    schedulePaint();
+  }
+  // v162: live inserts land in distance order, but the repaint waits a moment while the pointer or focus is on the list, and keeps the row
+  // under the pointer (or the focused one) at the same place on screen, so the list does not jump under the user.
+  let paintTimer = 0;
+  function schedulePaint() {
+    const list = $("nr-list");
+    const busy = !!(list && (list.matches(":hover") || list.contains(document.activeElement)));
+    if (paintTimer) return;
+    paintTimer = setTimeout(() => { paintTimer = 0; paintAnchored(); }, busy ? 700 : 120);
+  }
+  function paintAnchored() {
+    const list = $("nr-list"), box = $("nr-out") && $("nr-out").closest(".nr-resbox") || list && list.closest(".nr-resbox");
+    let addr = null, top = 0, focusSel = null;
+    if (list && box) {
+      const a = document.activeElement, li = (a && list.contains(a) && a.closest(".nr-res")) || list.querySelector(".nr-res:hover");
+      if (li) { addr = li.dataset.address; top = li.getBoundingClientRect().top; if (a && li.contains(a) && a.getAttribute) { const k = a.getAttribute("data-nr-open") ? "data-nr-open" : a.getAttribute("data-nr-start") ? "data-nr-start" : a.getAttribute("data-nr-copy") ? "data-nr-copy" : null; if (k) focusSel = `[${k}="${a.getAttribute(k)}"]`; } }
+    }
     paintResults();
+    if (addr && box) {
+      const nl = [...box.querySelectorAll(".nr-res")].find((x) => x.dataset.address === addr);
+      if (nl) {
+        const dy = nl.getBoundingClientRect().top - top;
+        if (dy) box.scrollTop += dy;
+        if (focusSel) { const f = nl.querySelector(focusSel); if (f) f.focus({ preventScroll: true }); }
+      }
+    }
   }
 
   // ---------------------------------------------------------------- name check-in (nearest regions first)
@@ -695,6 +745,7 @@
     d.addEventListener("scroll", () => { if (ddOpen) ddPlace(); }, true);
   }
   function field(id, label, html) { return `<div class="nr-f"><label for="${id}">${label}</label>${html}</div>`; }
+  const ICON_BOLT = '<svg class="nr-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/></svg>';
   const ICON_CROSS = '<svg class="nr-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></svg>';
   function build() {
     if (dlg || !document.body) return;
@@ -726,7 +777,7 @@ ${ddHtml("map", "About the map", `<p class="nr-note">Star positions are worked o
 <div class="nr-col3">
 <section class="nr-panel nr-p-res" aria-labelledby="nr-h3">
 <header class="nr-ph"><h3 id="nr-h3">Matching systems</h3></header>
-<div class="nr-resbox" id="nr-out" aria-live="polite"><p class="nr-note" id="nr-status" role="status"></p><ol class="nr-list" id="nr-list"></ol><p class="nr-empty" id="nr-empty">No matches yet.</p></div>
+<div class="nr-resbox" id="nr-out" aria-live="polite"><p class="nr-note" id="nr-status" role="status"></p><p class="nr-note nr-fastnote" id="nr-fastnote" role="note" hidden></p><ol class="nr-list" id="nr-list"></ol><p class="nr-empty" id="nr-empty">No matches yet.</p></div>
 </section>
 <section class="nr-panel nr-p-opt" aria-labelledby="nr-h2">
 <header class="nr-ph"><h3 id="nr-h2">Scan options</h3></header>
@@ -747,7 +798,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
 <p class="nr-note">The scan works outward from your region, nearest first, in this browser. The radius is an upper limit: it stops at ${MAX_MATCH} matches, at the radius, or when you press Stop. Every Galaxy 0 system it finishes is added to the atlas, the same as Contribute. Other galaxies are never uploaded. Your position, check-ins and scout name are never sent. Systems already in the atlas, or scanned in this browser with their numbers saved, are not scanned again but still count as matches. A system whose numbers are no longer saved is scanned again on this device and not uploaded again. Neither are the last 8 below each region's star count, which may not exist.</p></details>
 `, "nr-help nr-about")}</div>
 </section>
-<div class="nr-actbar"><button type="button" class="nr-gold" id="nr-find">${ICON_CROSS}<span>Scan</span></button></div>
+<div class="nr-actbar"><button type="button" class="nr-fastbtn" id="nr-fast" aria-haspopup="dialog" aria-expanded="false" aria-controls="nr-fastpop" aria-label="Fast scan: choose which derelict types to scan" title="Fast scan: choose which derelict types to scan">${ICON_BOLT}<span id="nr-fast-x"></span></button><button type="button" class="nr-gold" id="nr-find">${ICON_CROSS}<span>Scan</span></button><div class="nr-fastpop" id="nr-fastpop" role="dialog" aria-label="Derelict types to scan" hidden></div></div>
 </div>
 </div>
 </div>`;
@@ -755,7 +806,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
     const sel = $("nr-gal");
     sel.innerHTML = Array.from({ length: 256 }, (_, b) => `<option value="${b}">${esc(gname(b))}</option>`).join("");
     fill();
-    dlg.addEventListener("click", onClick); ddWire(dlg);
+    dlg.addEventListener("click", onClick); ddWire(dlg); fastWire();
     dlg.addEventListener("input", onInput);
     dlg.addEventListener("change", onInput);
     dlg.addEventListener("close", onClose);
@@ -814,11 +865,18 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
   }
   // wants or position changed: the list on screen is from the earlier question
   function stale() { if (!run && results.length && !$("nr-status").dataset.stale) { $("nr-status").dataset.stale = "1"; msg("nr-status", "The list below is for the earlier position or wants. Press Scan to update it."); } }
+  let cameFrom = null;   // v163: the #/d/<address> page Near me was opened from (null = home, search or a direct link)
+  const fromSystem = () => (/^#\/d\/[0-9A-Fa-f]{16}$/.test(location.hash) ? location.hash : null);
   function onClose() {
     clearTimeout(mapTimer); ddClose(false); stopMap();   // the worker holds 133 MB of memory: stopped whenever the window closes
     if (run) stopScan("Stopped: the page was closed.");
     if (nameRun) nameRun.stop = true;
-    if (location.hash === "#/near") history.replaceState(null, "", "#/");
+    if (location.hash === "#/near") {
+      // v163: opened from a system page: closing (X, Escape, phone Back) returns to that system page, not the main menu
+      const from = cameFrom; cameFrom = null;
+      if (from) { history.back(); setTimeout(() => { if (location.hash === "#/near") history.replaceState(null, "", from); }, 400); }
+      else history.replaceState(null, "", "#/");
+    }
   }
   function openDlg() {
     build();
@@ -975,15 +1033,22 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
   }
   // the time estimate, short: the measured speed with the atlas hit rate (the long version is under "How this is estimated")
   function estShort(e, pos) {
-    const n = workerCount(), rate = msPer && msN === n ? 1000 / msPer : 0;
+    const n = workerCount(), rate = msPer && msN === n ? covRate() : 0;
     if (e.share == null) return "No atlas numbers for this want, so no time estimate.";
     if (e.share === 0) return "None of this kind in the atlas, so a match may never turn up.";
     const base = `About 1 system in ${num(e.perMatch)} matches.`;
     if (!rate) return base + " The time estimate comes after the first few systems.";
     return rate ? `${base} At ${rate.toFixed(1)} systems per second: first match ${fmtTime(e.perMatch / rate)}, ${MAX_MATCH} matches ${fmtTime(e.perMatch * MAX_MATCH / rate)} (a guess).` : base;
   }
+  function paintFastNote() {
+    const n = $("nr-fastnote");
+    if (!n) return;
+    const on = run ? run.fast : !!(lastRun && lastRun.fast);
+    n.hidden = !on;
+    if (on) n.textContent = "Fast scan was on, so some derelict types were skipped and may hide matches. Use the speed button next to Scan to scan every type.";
+  }
   function paintScan() {
-    syncState();
+    syncState(); paintFastNote();
     const box = $("nr-scan");
     if (!box || box.hidden) return;
     const ready = !!lastEst && !calibBusy;
@@ -994,7 +1059,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
         box.innerHTML = '<div class="nr-prow"><div class="nr-pinfo"><div class="nr-ptitle" id="nr-ptitle"></div><div class="nr-bar" id="nr-pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span></span></div></div><button type="button" class="nr-stop" id="nr-scan-stop">Stop</button></div><p class="nr-prog" id="nr-prog" role="status"></p><div id="nr-estl"></div>' + ddHtml("est", "How this is estimated", '<div class="nr-estfull" id="nr-estfull"></div>', "nr-help nr-estmore") + '<div id="nr-upl"></div>';
       }
       const secs = (performance.now() - run.t0) / 1000, rate = run.scanned / Math.max(1, secs), lim = Math.max(1, run.limit || S.range);
-      if (run.scanned >= 5) { msPer = Math.max(1, Math.round(secs * 1000 / run.scanned)); msN = workerCount(); }   // live speed (start-up included), after the first few systems
+      if (run.scanned >= 5) { msPer = Math.max(1, Math.round(secs * 1000 / run.scanned)); msN = workerCount(); msFast = !!run.fast; }   // live speed (start-up included), after the first few systems
       const pct = Math.min(100, Math.round(100 * run.reach / lim));
       $("nr-ptitle").innerHTML = `Scanning · <b>${num(run.scanned)}</b> systems <span>· ${run.reach > 0 ? "out to " + num(run.reach) + " of " + num(lim) + " ly" : "your own region first, radius " + num(lim) + " ly"}</span>`;
       const pb = $("nr-pbar"); pb.setAttribute("aria-valuenow", String(pct)); pb.firstChild.style.width = pct + "%";
@@ -1005,7 +1070,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
     }
     box.dataset.mode = "idle";
     const est = lastEst ? estHtml(lastEst, lastEst.w, lastEst.pos) : "";
-    const end = lastRun ? `<p class="nr-prog"><b>${esc(lastRun.text)}</b> ${num(lastRun.scanned)} systems scanned in ${Math.round(lastRun.secs)} s, ${lastRun.matches} match${lastRun.matches === 1 ? "" : "es"}${lastRun.reach > 0 ? ", searched out to " + num(lastRun.reach) + " ly" : ", searched your own region"}.</p>` : "";
+    const end = lastRun ? `<p class="nr-prog"><b>${esc(lastRun.text)}</b> ${num(lastRun.scanned)} systems scanned in ${Math.round(lastRun.secs)} s, ${lastRun.matches} match${lastRun.matches === 1 ? "" : "es"}${lastRun.reach > 0 ? ", searched out to " + num(lastRun.reach) + " ly" : ", searched your own region"}.${lastRun.fast && lastRun.skipped ? " " + num(lastRun.skipped) + " systems of skipped types were not scanned." : ""}</p>` : "";
     ddKeep(box, () => { box.innerHTML = `${end}${estP}${ready ? ddHtml("est", "How this is estimated", `<div class="nr-estfull">${est}</div>`, "nr-help nr-estmore") : ""}${upLine()}`; });
   }
   function revealReward(address, btn) {
@@ -1028,7 +1093,7 @@ ${ddHtml("row:" + r.address, "Details", `<div class="nr-line"><code class="nr-gl
     const list = $("nr-list");
     if (!list) return;
     const byReward = !!(resultFilterObj && (resultFilterObj.rewardModule || resultFilterObj.reward));
-    const head = resultFilter ? `<li class="nr-head">${ddHtml("head", "Looking for: " + esc(resultFilter) + ". Sorted by modules, then distance. Predicted by the scanner.", "<p>Looking for: " + esc(resultFilter) + ". Sorted by modules, then distance. Predicted by the scanner.</p><p>Distances are from region to region, so each can be off by a few hundred light years.</p>", "nr-headdd")}</li>` : "";
+    const head = resultFilter ? `<li class="nr-head">${ddHtml("head", "Looking for: " + esc(resultFilter) + ". Nearest first. Predicted by the scanner.", "<p>Looking for: " + esc(resultFilter) + ". Nearest first, farthest last. Predicted by the scanner.</p><p>Distances are from region to region, so each can be off by a few hundred light years.</p>", "nr-headdd")}</li>` : "";
     ddKeep(list, () => { list.innerHTML = results.length ? head + results.map((r) => resultHtml(r, byReward)).join("") : (resultFilter ? head : ""); });
     if (!results.some((r) => r.address === selAddr)) selAddr = results.length ? results[0].address : null;
     list.querySelectorAll(".nr-res").forEach((li) => li.classList.toggle("sel", li.dataset.address === selAddr));
@@ -1039,6 +1104,90 @@ ${ddHtml("row:" + r.address, "Details", `<div class="nr-line"><code class="nr-gl
 
   // ---------------------------------------------------------------- the trip (check-in)
   const hist = () => (S.trip && S.trip.hist) || [];
+  // ---- the Fast scan popup (v161): opens above the Scan button; tick = scan this type, untick = skip it
+  const typeLabel = (t) => t.replace("_", " ").toLowerCase().replace(/^(medi|cargo)/, (m) => m.toUpperCase());
+  const factor = () => (PRE ? PRE.speedup(which.skip) : 1);
+  const fmtX = (x) => (x >= 10 ? Math.round(x) : x.toFixed(1)) + "x";
+  const pct = (v) => (v < 1 ? "<1%" : Math.round(v) + "%");
+  function fastPaintBtn() {
+    const x = $("nr-fast-x"), b = $("nr-fast");
+    if (!x || !b) return;
+    x.textContent = fastOn() ? fmtX(factor()) : "Off";
+    b.classList.toggle("on", fastOn());
+  }
+  function fastRender() {
+    const pop = $("nr-fastpop");
+    if (!pop || !PRE) return;
+    const names = PRE.NAMES.slice().sort((a, b) => PRE.SHARE[b] - PRE.SHARE[a]);
+    const skippedSys = which.skip.reduce((a, t) => a + PRE.FREQ[t], 0);
+    const rows = names.map((t) => `<li><label class="nr-frow"><input type="checkbox" data-nr-ft="${t}"${which.skip.includes(t) ? "" : " checked"}><span class="nr-fname">${esc(typeLabel(t))}</span><span class="nr-fgain">saves ${pct(PRE.SHARE[t])}</span></label></li>`).join("");
+    const had = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute("data-nr-ft");
+    pop.innerHTML = `<p class="nr-fhead"><b>Derelict types to scan</b></p><p class="nr-note">Tick a type to scan it. Untick it to skip it. The percent is the share of scan time you save by skipping it.</p>
+<ul class="nr-flist">${rows}</ul>
+<p class="nr-ftotal" id="nr-ftotal" aria-live="polite">${fastOn() ? `About <b>${fmtX(factor())} faster</b>. Skips ${pct(skippedSys)} of the systems.` : "Every type is scanned: no speed gain."}</p>
+<p class="nr-note">Skipped systems stay unscanned, so they can hide matches. Times are typical for a desktop browser.</p>
+<div class="nr-frow2"><button type="button" class="nr-mini" id="nr-fast-def">Slowest off (default)</button><button type="button" class="nr-mini" id="nr-fast-all">Scan every type</button><button type="button" class="nr-mini" id="nr-fast-close">Close</button></div>`;
+    if (had) { const e = pop.querySelector(`[data-nr-ft="${had}"]`); if (e) e.focus(); }
+    fastPaintBtn();
+  }
+  function fastOpen(open) {
+    const pop = $("nr-fastpop"), b = $("nr-fast");
+    if (!pop || !b || !PRE) return;
+    if (open && run) return;
+    pop.hidden = !open; b.setAttribute("aria-expanded", String(!!open));
+    if (open) { fastRender(); const f = pop.querySelector("input"); if (f) f.focus({ preventScroll: true }); }
+  }
+  const fastIsOpen = () => { const p = $("nr-fastpop"); return !!p && !p.hidden; };
+  function fastSet(skip) { which.skip = skip; whichApply(); whichSave(); if (msFast) { msPer = 0; msFast = false; } fastRender(); stale(); }
+  function fastWire() {
+    const b = $("nr-fast"), pop = $("nr-fastpop");
+    if (!b || !pop) return;
+    if (!PRE) { b.hidden = true; return; }
+    fastPaintBtn();
+    b.addEventListener("click", () => fastOpen(!fastIsOpen()));
+    pop.addEventListener("change", (e) => {
+      const t = e.target && e.target.getAttribute && e.target.getAttribute("data-nr-ft");
+      if (!t) return;
+      const k = which.skip.filter((x) => x !== t); if (!e.target.checked) k.push(t);
+      if (k.length >= PRE.NAMES.length) { fastRender(); return; }   // at least one type stays ticked
+      fastSet(k);
+    });
+    pop.addEventListener("click", (e) => {
+      const id = e.target && e.target.id;
+      if (id === "nr-fast-def") fastSet(PRE.NEAR_SKIP.slice());
+      else if (id === "nr-fast-all") fastSet([]);
+      else if (id === "nr-fast-close") { fastOpen(false); b.focus(); }
+    });
+    dlg.addEventListener("keydown", (e) => { if (e.key === "Escape" && fastIsOpen()) { e.preventDefault(); e.stopPropagation(); ddEscAt = Date.now(); fastOpen(false); b.focus(); } }, true);
+    dlg.addEventListener("pointerdown", (e) => { if (fastIsOpen() && !pop.contains(e.target) && !b.contains(e.target)) fastOpen(false); });
+    dlg.addEventListener("close", () => fastOpen(false));
+  }
+  // ---- Navigate from a system page (v161): Heading there with this system as the target, same galaxy. The start is the last check-in of an
+  // earlier trip, else the position saved in Near me; with neither, the panel asks "Where are you now?" first. Nothing is sent anywhere.
+  // v162: how far (in regions, the largest step on any axis) a system is from where the player is known to be; null when no position is known
+  function playerGap(address) {
+    try {
+      const c = coordsOf(String(address).toUpperCase()), h = hist(), last = h.length ? h[h.length - 1] : null;
+      let from = last && coordsOf(last.address).gal === c.gal ? coordsOf(last.address) : null;
+      if (!from) { const p = curPos(); if (p && p.ok && p.gal === c.gal) from = coordsOf(p.address); }
+      if (!from) return null;
+      return Math.max(Math.abs(c.x - from.x), Math.abs(c.y - from.y), Math.abs(c.z - from.z));
+    } catch (_) { return null; }
+  }
+  function navigateTo(address) {
+    const a = String(address || "").trim().toUpperCase();
+    if (!/^[0-9A-F]{16}$/.test(a)) return false;
+    build();
+    const c = coordsOf(a), gal = c.gal, old = hist(), last = old.length ? old[old.length - 1] : null;
+    let start = last && coordsOf(last.address).gal === gal ? { address: last.address, via: last.via } : null;
+    if (!start) { setGalaxy(gal); const p = curPos(); if (p.ok && p.gal === gal) start = { address: p.address, via: p.kind }; }
+    S.trip = { target: { address: a, gal }, hist: start ? [{ address: start.address, gal, via: start.via, t: Date.now() }] : [] };
+    tripShown = true; tripOpen = true; save();
+    if (location.hash === "#/near") openDlg(); else { cameFrom = fromSystem(); location.hash = "#/near"; }
+    paintTrip(); syncState();
+    setTimeout(() => { const ci = $("nr-ci"); if (ci && dlg.open) ci.focus({ preventScroll: true }); }, 60);
+    return true;
+  }
   function startTrip(address) {
     const res = results.find((x) => x.address === address), pos = findPos || curPos();
     if (!res || !pos.ok) return;
@@ -1066,6 +1215,13 @@ ${ddHtml("row:" + r.address, "Details", `<div class="nr-line"><code class="nr-gl
   function tripHtml() {
     const t = S.trip;
     if (!t) return "";
+    if (!hist().length) {   // v161: sent here from a system page with no position known yet
+      const ag = t.target, ac = coordsOf(ag.address), an = sysName(ag.address);
+      return `<div class="nr-tbar"><button type="button" class="nr-mini nr-back" id="nr-trip-back">← Back to scan</button>
+<p class="nr-target">Target: <b>${esc(an || "system " + hex(ac.sys, 3))}</b>${an ? " <small>(generated name, a best guess)</small>" : ""} · ${esc(gname(ag.gal))} · system ${hex(ac.sys, 3)} · <code>${glyphsOf(ag.address)}</code></p></div>
+<div class="nr-tbot nr-task"><div class="nr-tleft"><div class="nr-ciline"><p class="nr-note nr-lastnote"><b>Where are you now?</b> Enter your glyphs, address or booster to see the distance and the jumps left.</p><div class="nr-inline" data-enter="nr-ci-go"><label class="nr-sr" for="nr-ci">Where are you now? Glyphs, address or booster</label><input id="nr-ci" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Glyphs, address or booster"><button type="button" class="primary" id="nr-ci-go">Check in</button></div></div>
+<p class="nr-note" id="nr-ci-msg" role="status"></p><div class="nr-tact"><button type="button" class="nr-mini" id="nr-trip-clear">Clear</button></div></div></div>`;
+    }
     const rp = tripReport(), g = t.target, range = driveOf(), name = sysName(g.address), sys = hex(rp.tg.sys, 3);
     const last = hist()[hist().length - 1];
     const jumps = jumpsFor(rp.d, range);
@@ -1105,7 +1261,6 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
     if (!box) return;
     const keep = {}; for (const id of ["nr-ci", "nr-ci-n", "nr-tgt"]) { const e = $(id); if (e) keep[id] = e.value; }
     const had = document.activeElement && document.activeElement.id;
-    if (S.trip && !hist().length) S.trip = null;
     box.hidden = !S.trip;
     ddKeep(box, () => { box.innerHTML = S.trip ? tripHtml() : ""; });
     for (const id in keep) { const e = $(id); if (e) e.value = keep[id]; }
@@ -1189,7 +1344,7 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
   // ---------------------------------------------------------------- route #/near and the Search button
   function route() {
     if (location.hash === "#/near") openDlg();
-    else if (dlg && dlg.open) dlg.close();
+    else { cameFrom = null; if (dlg && dlg.open) dlg.close(); }
   }
   function hook() {
     const search = $("address-dialog");
@@ -1204,7 +1359,7 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
         if (globalThis.dvGalaxy) setGalaxy(dvGalaxy.selected());
         if (typed && typed.ok) { $("nr-pos").value = $("address-input").value.trim(); if (typed.ownGal) setGalaxy(typed.gal); readForm(); showPosNote(); }
         if (search && search.open) search.close();
-        if (location.hash === "#/near") openDlg(); else location.hash = "#/near";
+        if (location.hash === "#/near") openDlg(); else { cameFrom = fromSystem(); location.hash = "#/near"; }
       });
     }
   }
@@ -1218,5 +1373,6 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
     up: () => ({ found: upStats.found, failed: upStats.failed, queued: upStats.queued, topQueue: upQ.length, busy: upStats.busy, seen: [...upSeen], pending: globalThis.dvNearPending ? dvNearPending() : 0 }),
     state: () => ({ S, results, run: run ? { workers: run.workers.length, scanned: run.scanned, matches: run.matches, regions: run.regions, reach: run.reach, stop: run.stop, judged: run.judged } : null, nameRun: !!nameRun, msPer, lastRun, lastEst, atlasInfo, storeOk, workerCount, speed: speedKey() }),
     scanNow: () => startScan(), mapState: () => mapState, view: () => ({ tripOpen }), title: NEAR_TITLE,
-    open: openDlg, close: closeDlg };
+    open: openDlg, close: closeDlg, navigateTo, playerGap, addResult, paintNow: paintAnchored,
+    which: () => ({ skip: which.skip.slice(), fast: fastOn(), factor: factor() }) };
 })();

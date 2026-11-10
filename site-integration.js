@@ -306,10 +306,19 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
   });
   // user 2026-11-04 (2nd): Report sits UNDER Copy, at the bottom of the glyph area: Copy + Report share a right column
   function mountReport(address) {
-    const copy = document.querySelector("#viewer-content .identity-strip #viewer-copy");
-    if (!copy) return;
-    let col = copy.parentNode.classList.contains("site-strip-actions") ? copy.parentNode : null;
-    if (!col) { col = document.createElement("div"); col.className = "site-strip-actions"; copy.parentNode.insertBefore(col, copy); col.appendChild(copy); }
+    const strip = document.querySelector("#viewer-content .identity-strip");
+    const copy = document.querySelector("#viewer-content #viewer-copy");
+    if (!strip || !copy) return;
+    let col = strip.querySelector(".site-strip-actions");
+    if (!col) { col = document.createElement("div"); col.className = "site-strip-actions"; strip.appendChild(col); }
+    // v163: X (close, to the main menu) takes the top right corner; Copy moves down to the other actions
+    if (!col.querySelector("#viewer-close")) {
+      const x = document.createElement("button"); x.id = "viewer-close"; x.type = "button"; x.className = "site-close-x"; x.setAttribute("aria-label", "Close"); x.title = "Close";
+      x.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>';
+      col.insertBefore(x, col.firstChild);
+    }
+    const xb = col.querySelector("#viewer-close");
+    if (copy.parentNode !== col) col.insertBefore(copy, xb.nextSibling);   // order top to bottom: X, Copy, Report
     let wrap = col.querySelector(".site-report-slot");
     if (wrap && wrap.dataset.address === address && wrap.dataset.done === String(!!reported()[address])) return;
     if (!wrap) { wrap = document.createElement("div"); wrap.className = "site-report-slot"; col.appendChild(wrap); }
@@ -348,7 +357,7 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     if (!st || !results) return;
     const text = st.textContent.trim();
     const loading = results.querySelector(".loading");
-    if (loading && text && text !== "systems") {
+    if (loading && !loading.querySelector(".dv-retry") && text && text !== "systems") {   // v163: the "Could not load" text with Retry is not overwritten
       const node = [...loading.childNodes].reverse().find((n) => n.nodeType === 3);
       if (node && node.textContent !== text) node.textContent = text;
     }
@@ -456,10 +465,26 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     });
   }
 
+  // v162: the game's waypoint line reaches about 1 region (400 ly) on every axis; a farther target routes to a stop-over star
+  function wpNote() {
+    const b = document.getElementById("viewer-navigate");
+    let n = document.getElementById("viewer-wp-note");
+    if (!b) { if (n) n.remove(); return; }
+    const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
+    let gap = null;
+    try { gap = m && globalThis.dvNear && dvNear.playerGap ? dvNear.playerGap(m[1]) : null; } catch (_) {}
+    const show = gap == null || gap > 1;
+    if (!show) { if (n) n.remove(); return; }
+    if (!n) {
+      n = document.createElement("p"); n.id = "viewer-wp-note"; n.className = "viewer-wp-note";
+      n.textContent = "In-game waypoint lines reach about 1 region (400 ly). If the target is farther, the line may stop at a star on the way. Fly there, then paste again.";
+      const row = b.parentElement; row.insertAdjacentElement("afterend", n);
+    }
+  }
   function watch() {
     const content = document.getElementById("viewer-content"), st = document.getElementById("atlas-status"), results = document.getElementById("results");
-    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); stripRow(); }).observe(content, { childList: true });
-    window.addEventListener("hashchange", mountOpenIn);
+    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); stripRow(); wpNote(); }).observe(content, { childList: true });
+    window.addEventListener("hashchange", () => { mountOpenIn(); setTimeout(wpNote, 150); });
     if (st) new MutationObserver(syncStatus).observe(st, { childList: true, characterData: true, subtree: true });
     if (results) new MutationObserver(syncStatus).observe(results, { attributes: true, attributeFilter: ["aria-busy"], childList: true });
     if (results) new MutationObserver(syncRanks).observe(results, { childList: true, subtree: true });
@@ -467,6 +492,19 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     if (sortSel) sortSel.addEventListener("change", syncRanks);
     document.addEventListener("click", (e) => { if (e.target instanceof Element && e.target.closest("#toggle-quick")) setTimeout(fitQuickRun, 0); });
     window.addEventListener("resize", fitQuickRun);
+    // v161: "Navigate to derelict" on a system page: Near me, Heading there, this system as the target (nothing is sent anywhere)
+    document.addEventListener("click", (e) => {
+      const b = e.target instanceof Element && e.target.closest("#viewer-navigate");
+      if (!b) return;
+      const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
+      if (m && globalThis.dvNear && dvNear.navigateTo) dvNear.navigateTo(m[1].toUpperCase());
+    });
+    document.addEventListener("click", (e) => {   // v163: the X on a system page goes to the main menu (same as unselecting the card; Back returns to the system)
+      if (!(e.target instanceof Element) || !e.target.closest("#viewer-close")) return;
+      e.preventDefault();
+      const logo = document.querySelector("a.brand");   // the logo already opens the main menu (on a phone it also switches to the Viewer tab, where the home cards are)
+      if (logo) logo.click(); else location.hash = "#/";
+    });
     mountOpenIn(); stripRow();
     moveSpacing();
     mountContribute();

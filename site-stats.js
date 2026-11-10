@@ -77,7 +77,7 @@
   // Test passwords (gate.testers): paths /tester/<id>/first-use and /load[-contribute]. Hour precision from the API; exact seconds need the CSV export.
   async function testersBox(grid, p) {
     const box = document.createElement("div");
-    box.innerHTML = `<h4>Testers</h4><p class="site-muted">Loading…</p>`;
+    box.innerHTML = `<h4>Testers</h4><p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading") : "Loading…"}</p>`;
     grid.appendChild(box);
     const at = (h, first) => {  // first or last nonzero hour of a path, "YYYY-MM-DD HH:00"
       let best = null;
@@ -105,7 +105,7 @@
     if (busy) { again = true; return; }  // a range clicked while loading: render it when this one is done
     busy = true;
     const body = section.querySelector(".gc-body");
-    body.innerHTML = `<p class="site-muted">Loading visitor statistics…</p>`;
+    body.innerHTML = `<p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading visitor statistics") : "Loading…"}</p>`;
     try {
       const now = new Date(), start = hour(now.getTime() - range * 86400000), end = hour(now.getTime() + 3600000);
       const p = { start, end };
@@ -123,7 +123,7 @@
       const grid = body.querySelector(".gc-grid");
       for (const [page, title] of LISTS) {
         const box = document.createElement("div");
-        box.innerHTML = `<h4>${esc(title)}</h4><p class="site-muted">Loading…</p>`;
+        box.innerHTML = `<h4>${esc(title)}</h4><p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading") : "Loading…"}</p>`;
         grid.appendChild(box);
         try {
           const d = await api(`stats/${page}`, { ...p, limit: 6 });

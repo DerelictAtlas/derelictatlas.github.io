@@ -17,8 +17,5 @@ window.DV_LINKS_TO = [
 ];
 window.DV_DISCLAIMER = "Unofficial fan project. Not affiliated with Hello Games. No Man's Sky is a trademark of Hello Games Ltd. No game assets are published here; portal glyphs on the public site are lookalike drawings.";
 
-window.DV_CREDITS.push({ name: "Star positions", by: "this project", url: "", license: "includes musl pow, MIT",
-  what: "The Near me star map: star positions are worked out from the game's own code, in your browser. Checked against one Euclid and one Galaxy 9 system on the current build (25 of 25 distances matched)." });
-
-window.DV_CREDITS.push({ name: "Star positions", by: "this project", url: "", license: "includes musl pow, MIT",
-  what: "The Near me star map: star positions are worked out from the game's own code, in your browser. Checked against one Euclid and one Galaxy 9 system on the current build (25 of 25 distances matched)." });
+window.DV_CREDITS.push({ name: "musl libc (pow)", by: "musl libc authors", url: "https://musl.libc.org/", license: "MIT",
+  what: "Used in the Near me star map, which works out star positions in your browser." });

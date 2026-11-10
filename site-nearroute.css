@@ -134,3 +134,12 @@ dialog.nrt::backdrop { background: #02070b; }
   .nrt-big { font-size: 17px; }
 }
 @media (prefers-reduced-motion: reduce) { .nrt-bar span { transition: none; } }
+
+/* v163: phone (one column, .nrt-body scrolls): the panels keep their full height, so the sticky Start route bar spans the whole scroll
+   content (they used to shrink to the window height and the rows spilled below the bar). The bar floats at the bottom edge over the
+   content; at the end of the list it sits after the last row, so nothing is hidden behind it. */
+@media (max-width: 759px) {
+  .nrt-main, .nrt-side { flex: none; }
+  .nrt-body { padding-bottom: 0; scroll-padding-bottom: 80px; }
+  .nrt-foot { position: sticky; bottom: 0; z-index: 3; margin-top: 4px; padding: 10px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(transparent, #050d15 28%); }
+}
