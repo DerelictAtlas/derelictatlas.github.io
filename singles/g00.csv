@@ -1,5 +1,5 @@
 # nms-derelict-atlas singles format 1: galaxy 0
-# generator singles-action 1 (w29g scan wasm, tables 179082 bytes, map 83742 bytes, tables fingerprint b93f4648ae1ce158); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-10T04:01:23Z
+# generator singles-action 1 (w29g scan wasm, tables 179082 bytes, map 83742 bytes, tables fingerprint b93f4648ae1ce158); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-10T04:11:32Z
 # inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
 glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
 000100000008,CARGO_BUGS,11,25,10,3,3,0,34,18,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,R_S_CARG:6/3|B_BUG_BARR:0/0|R_BUG_CARG:7/0|R_S_BUG_BARR:0/1|B_BUG_BARR:0/0|R_BUG_CARG:5/0|B_BUG_CARG:1/0|R_BUG_CARG:4/0|B_BUG_CARG:0/0|R_BUG_BARR:1/2|R_END:1/4,147179f093865767
@@ -9,10 +9,12 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 000108602CAA,MEDI_TURRETS,10,11,13,3,3,3,16,32,Salvaged Fleet Trade Unit,C,1,Salvaged Fleet Mining Unit C,1,0,0,8,,,4747877e98437e59
 000109603CA8,CARGO_TURRETS,9,25,14,3,3,2,25,26,Salvaged Fleet Mining Unit,B,0,,0,0,,,,,5b3a30702f59f538
 000201604CAB,MEDI_TURRETS,10,14,19,2,2,5,16,31,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,e0422bf1d6312dc0
+000202605CAD,MEDI_TURRETS,9,15,11,3,4,3,19,22,C-Class Reactor,C,0,,1,0,2,9,,,76c364c0a2bd7d17
 000208602CAA,MEDI_TURRETS,10,15,3,4,3,3,19,9,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,5222b230300d2dec
 000209603CA8,MEDI_TURRETS,9,13,11,2,2,3,14,19,Salvaged Fleet Exploration Unit,C,0,,3,1,3.7,3.4.12,3,,3b2108d1346177cb
 00020A60CCAB,MEDI_TURRETS,10,18,8,4,3,3,16,14,Salvaged Fleet Beacon,B,0,,0,0,,,,,5a162bba6454425b
 000302608CA5,MEDI_TURRETS,9,12,8,4,3,5,19,24,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,3f32660412fb0265
+000304607CAF,CARGO_TURRETS,9,27,23,2,2,3,16,30,Salvaged Fleet Mining Unit,B,0,,2,0,3,11.21,,,b7fcbb33f51bf0d0
 000309603CA8,MEDI_TURRETS,10,11,12,3,2,2,16,14,Salvaged Fleet Fuel Unit,C,0,,2,0,0.6,1.7,,,ecebdc3a61b004d7
 000402608CA6,CARGO_TURRETS,11,33,22,3,3,2,42,35,Salvaged Fleet Mining Unit,C,0,,2,0,1.6,8.30,,,e2c6d6948358100e
 000403603CAE,MEDI_TURRETS,9,12,12,2,1,2,12,9,Salvaged Fleet Combat Unit,S,0,,0,0,,,,,b0f19bbbbbf91f31
@@ -42,6 +44,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 000A0B605CA9,CARGO_TURRETS,9,33,17,2,2,2,30,37,Salvaged Fleet Fuel Unit,C,0,,2,0,0.3,14.40,,,c9a157f6e91cbf4b
 000B02603CA9,MEDI_TURRETS,12,16,9,3,2,2,15,37,B-Class Reactor,B,0,,0,0,,,,,7e20fceebc15e9f6
 000B03609CAE,CARGO_TURRETS,8,18,11,3,3,3,12,15,Salvaged Fleet Exploration Unit,A,0,,1,1,7,28,28,R_HANG:0/1|R_CARG:8/2|B_CARG:0/0|R_S_CARG:4/0|R_S_CARG:3/1|R_BARR:1/5|R_S_BARR:1/2|R_END:1/0,3be59f34f6d7f963
+000B0460CCAB,CARGO_TURRETS,11,24,12,3,2,4,25,37,Salvaged Fleet Beacon,B,1,Salvaged Fleet Fuel Unit B,2,0,3.8,18.28,,,fb5d735123119888
 000B08602CA9,CARGO_TURRETS,7,24,12,1,0,5,19,28,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,2ac4fb06e6e63995
 000B08602CAA,CARGO_TURRETS,9,24,13,3,3,3,25,23,Salvaged Fleet Beacon,B,0,,1,0,6,34,,,f9587d7a44e4efea
 000B09603CA8,CARGO_TURRETS,9,32,18,4,4,4,24,21,Salvaged Fleet Combat Unit,A,0,,0,1,,,19,,9ea0f82a689d4cf4
@@ -102,6 +105,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 001805602CAA,CARGO_TURRETS,10,26,16,2,2,3,33,64,A-Class Reactor,A,0,,1,0,4,25,,,75d7be4f273ec8f1
 001809603CA8,MEDI_TURRETS,9,10,6,4,3,1,11,51,Salvaged Fleet Combat Unit,C,0,,1,0,8,13,,,adbc0965e2332724
 00180B605CA9,CARGO_TURRETS,9,22,10,1,0,3,23,19,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,3a14d36295d6b3d2
+001902606CAF,MEDI_TURRETS,11,16,15,2,1,6,20,22,Salvaged Fleet Mining Unit,S,0,,3,0,2.5.10,16.20.28,,,c4e2bd84a46caa69
 001902608CA6,MEDI_TURRETS,9,16,9,1,0,8,12,19,Salvaged Fleet Trade Unit,C,0,,1,0,8,24,,,ab16b13efd34fab6
 001903602CAA,MEDI_TURRETS,10,13,6,2,3,3,21,20,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,b77255eefb792b22
 001903603CAE,MEDI_TURRETS,10,20,12,2,2,3,21,43,Salvaged Hyperdrive Upgrade,C,0,,1,1,9,25,11,,77bd9b72d12d059e
@@ -151,6 +155,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 002503603CAE,MEDI_TURRETS,10,11,8,2,1,4,12,26,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,75cb488a3662c096
 002504609CA5,CARGO_TURRETS,11,25,14,2,1,1,29,12,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,49ab4c6496d4d4e5
 002505602CAA,CARGO_TURRETS,9,39,21,3,3,3,27,24,Salvaged Fleet Mining Unit,A,0,,1,0,8,51,,,b20b569959127838
+002506609CAF,MEDI_TURRETS,10,19,13,2,1,4,21,42,Salvaged Fleet Fuel Unit,C,0,,3,1,1.5.9,3.15.24,3,R_S_BARR:0/2|R_MEDI:6/1|B_BARR:1/0|R_MEDI:5/1|B_MEDI:0/0|R_BARR:1/5|B_MEDI:0/0|R_S_MEDI:1/0|R_HANG:1/1|R_END:4/3,b61885f361fd25ed
 002508602CAA,MEDI_TURRETS,9,18,12,3,4,3,14,35,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,0e9d274cf147c5f3
 002509603CA8,CARGO_TURRETS,11,31,16,4,3,1,36,15,Salvaged Fleet Beacon,C,0,,1,0,6,29,,,4d0aa79dfbe6f0ae
 00250A60CCAB,CARGO_TURRETS,8,18,17,2,1,4,13,33,Salvaged Fleet Fuel Unit,C,0,,0,1,,,27,,bc1ca5516349bbdf
@@ -220,6 +225,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 003408602CA9,MEDI_TURRETS,11,23,10,4,3,6,19,32,Salvaged Fleet Beacon,C,0,,1,0,2,19,,,8ea91fb5393c0410
 00340A60CCAB,CARGO_TURRETS,12,31,19,4,3,3,39,27,B-Class Reactor,B,0,,1,0,0,15,,,1e9aafb82167f781
 003456789ABB,MEDI_TURRETS,10,13,9,4,3,2,17,31,Salvaged Fleet Beacon,A,0,,0,0,,,,,2c1b3818689fff34
+003502606CAF,MEDI_TURRETS,9,19,21,2,1,3,17,19,C-Class Reactor,C,0,,4,0,0.8,0.25.29.31,,,678fde52ada26bc8
 003503603CAE,CARGO_TURRETS,7,31,14,4,3,4,17,17,Salvaged Fleet Beacon,C,0,,1,0,3,24,,,603b893eded6c020
 003504609CA5,MEDI_TURRETS,9,10,8,3,2,3,17,32,Salvaged Fleet Fuel Unit,C,1,Salvaged Fleet Combat Unit C,1,0,0,8,,,9465d1d27b587913
 003505602CAA,CARGO_TURRETS,9,21,16,2,1,7,9,37,Salvaged Fleet Beacon,C,0,,1,0,6,27,,,94496949b75b0f6e
@@ -261,6 +267,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 003D01604CAB,CARGO_TURRETS,9,44,17,2,1,3,26,26,Salvaged Fleet Mining Unit,C,0,,1,0,6,4,,,af7511c892ceaf0f
 003D02608CA6,CARGO_TURRETS,11,24,17,1,0,4,23,22,B-Class Reactor,B,0,,0,0,,,,,f828468d99d6b665
 003D03602CAA,MEDI_TURRETS,11,18,8,3,5,3,14,20,B-Class Reactor,B,1,Salvaged Fleet Trade Unit B,1,0,7,9,,,914b4bee5714eb3a
+003D0460CCAB,MEDI_TURRETS,10,11,17,4,3,1,21,26,Salvaged Fleet Mining Unit,C,0,,3,0,3.9,2.3.21,,,dd3f41da1517b6c4
 003D05602CAA,CARGO_TURRETS,11,25,14,3,2,4,21,11,Salvaged Fleet Beacon,C,0,,0,0,,,,,618b6e5d8345185c
 003D0560CCAC,CARGO_TURRETS,8,18,11,2,1,3,15,18,B-Class Reactor,B,1,Salvaged Fleet Beacon C,1,0,5,21,,,c43e9b8ca3c4d9cd
 003D0960CCA6,CARGO_TURRETS,10,24,10,2,1,5,18,29,Salvaged Fleet Exploration Unit,C,0,,2,0,3.9,0.33,,,d645797e119e38ea
@@ -270,6 +277,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 003E04609CA5,CARGO_TURRETS,9,31,12,4,3,2,11,10,Salvaged Fleet Exploration Unit,A,0,,2,1,0.5,11.35,42,,09fe458cc9643867
 003E05602CAA,MEDI_TURRETS,11,12,12,2,3,3,13,22,Salvaged Fleet Mining Unit,B,0,,0,0,,,,,5a35c79ccae10c4d
 003E0560CCAC,CARGO_TURRETS,9,28,17,2,1,4,19,14,B-Class Reactor,B,0,,0,0,,,,,c4c7f8c020717a1a
+003E06609CAF,CARGO_TURRETS,9,22,14,3,2,5,15,12,B-Class Reactor,B,0,,3,0,0.1.7,2.7.27,,,3360df19d674636e
 003E08602CA9,MEDI_TURRETS,10,11,10,3,4,4,17,19,Salvaged Fleet Trade Unit,C,0,,1,0,7,11,,,87b5ab6067be28cc
 003E08602CAA,CARGO_TURRETS,11,30,14,3,2,5,26,29,Salvaged Fleet Beacon,B,0,,1,0,4,14,,,92036ba4ec96f2c5
 003E0B605CA9,CARGO_TURRETS,10,15,18,2,1,4,14,20,Salvaged Hyperdrive Upgrade,C,0,,2,1,5.7,5.19,5,,386a4717ced6ef62
@@ -358,9 +366,11 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 004F08602CA9,CARGO_TURRETS,9,21,12,2,1,3,25,23,Salvaged Fleet Exploration Unit,C,0,,1,0,3,17,,,3d75fe1960e8cab8
 004F0A60CCAB,MEDI_TURRETS,10,10,14,3,4,5,22,41,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,1fc7a88bc572f584
 004F56789ABB,CARGO_TURRETS,10,22,17,3,2,4,20,23,Salvaged Fleet Exploration Unit,S,0,,0,0,,,,,ff96613ebbe36e79
+005002606CAF,CARGO_TURRETS,10,46,17,4,5,4,31,14,Salvaged Fleet Combat Unit,C,0,,3,0,5.6.7,0.49.60,,,e62096694d63f46e
 005002608CA5,CARGO_TURRETS,9,33,10,3,2,2,21,13,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,a2e1a04f8cb6d999
 005005602CAA,MEDI_TURRETS,10,10,10,3,3,4,14,24,Salvaged Fleet Exploration Unit,A,0,,0,0,,,,,bd7529f5149f6e66
 00500560CCAC,MEDI_TURRETS,10,15,17,3,3,2,14,25,Salvaged Fleet Beacon,S,0,,0,0,,,,,19ab4a5d2b9920c9
+005006609CAF,CARGO_TURRETS,9,17,20,2,1,3,21,17,Salvaged Fleet Exploration Unit,C,0,,3,0,0.3,0.7.26,,,a46caa0a6d0eaa5d
 005102603CA9,MEDI_TURRETS,9,8,18,4,3,4,13,32,Salvaged Fleet Mining Unit,C,0,,1,0,8,20,,,5ba4874d37b32b3b
 005103609CAE,MEDI_TURRETS,10,12,3,2,2,4,13,17,Salvaged Fleet Combat Unit,B,0,,1,0,7,4,,R_HANG:1/0|R_S_BARR:0/0|B_BARR:1/0|R_S_MEDI:1/0|R_BARR:0/2|R_MEDI:3/0|B_BARR:0/0|R_MEDI:4/1|B_MEDI:1/0|R_END:1/0,434fd5d51716f718
 00510560CCAC,MEDI_TURRETS,11,16,11,2,2,2,19,25,Salvaged Fleet Fuel Unit,B,0,,2,0,2,0.23,,,8c30cc566a48469e
@@ -372,6 +382,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 005303602CAA,CARGO_TURRETS,10,29,8,3,2,2,20,10,A-Class Reactor,A,0,,0,0,,,,,776a4887fe9c02d9
 005304609CA5,MEDI_TURRETS,11,14,11,3,4,3,18,54,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,b49dd2e660200987
 005401604CAB,CARGO_TURRETS,10,30,15,2,2,6,28,25,Salvaged Fleet Combat Unit,C,0,,2,0,5.7,19.37,,,ea2076cb8fb69afd
+005402605CAD,MEDI_FLOATERS,8,17,17,2,1,0,17,38,Salvaged Fleet Exploration Unit,B,0,,2,0,0.5,2.12,,,199e505ec596fa69
 005402608CA5,CARGO_TURRETS,11,22,15,4,3,3,23,63,Salvaged Fleet Exploration Unit,B,0,,1,0,6,1,,,2ac965aba8b6021e
 005402608CA6,MEDI_TURRETS,10,13,10,3,4,4,23,28,Salvaged Hyperdrive Upgrade,C,1,Salvaged Fleet Trade Unit C,0,0,,,,,1e5ce04fc8b075cc
 00540560CCA9,CARGO_TURRETS,11,30,12,2,3,2,22,21,Salvaged Fleet Beacon,A,0,,1,0,3,20,,,934011fd1b832c9a
@@ -387,6 +398,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 005509603CA8,CARGO_TURRETS,9,27,19,2,1,3,25,25,Salvaged Fleet Trade Unit,A,0,,3,0,6.7,34.41.42,,,8c4c90f9b1367ba2
 00550A60CCAB,MEDI_TURRETS,9,19,20,2,1,3,15,48,Salvaged Fleet Mining Unit,C,0,,2,0,0.6,14.17,,,130c502945b783e8
 00550B605CA9,MEDI_TURRETS,9,17,17,3,2,2,12,37,Salvaged Hyperdrive Upgrade,B,0,,2,0,3.4,6.11,,,ddb0b8c8b6fd8ffc
+00560460CCAB,CARGO_TURRETS,9,29,24,2,2,2,20,25,Salvaged Fleet Exploration Unit,C,0,,2,0,2.6,16.31,,,67364a4975d4334d
 005656789ABB,MEDI_TURRETS,12,16,13,3,3,3,23,31,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,b02391bac3f59978
 005703603CAE,MEDI_TURRETS,9,12,12,2,1,3,20,34,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,e33988c7cd5f4e16
 005705602CAA,MEDI_TURRETS,10,15,14,2,1,5,17,22,Salvaged Hyperdrive Upgrade,C,0,,2,0,1.2,26.27,,,0b43148edaed5cdb
@@ -436,8 +448,10 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 005D02608CA5,MEDI_TURRETS,12,15,11,2,1,6,10,35,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,aee97fce4f7e6818
 005D03603CAE,CARGO_TURRETS,9,17,10,2,3,4,20,32,Salvaged Fleet Fuel Unit,A,0,,0,0,,,,,aa1e9dba6475476b
 005D03609CAE,MEDI_TURRETS,10,17,15,2,2,6,14,37,Salvaged Fleet Mining Unit,C,0,,1,0,5,9,,R_S_MEDI:2/0|R_MEDI:4/0|B_BARR:0/0|R_HANG:2/1|R_S_BARR:2/4|R_BARR:0/9|B_MEDI:2/0|R_MEDI:3/0|B_MEDI:0/0|R_END:2/1,61ccdaaf8d1b1d52
+005D0460CCAB,CARGO_TURRETS,9,24,22,1,0,4,17,46,Salvaged Fleet Trade Unit,C,0,,2,0,0.1,5.17,,,413db2601d145adb
 005D0A60CCAB,CARGO_TURRETS,9,19,13,4,3,5,19,43,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,871d9c34e1576ec8
 005D56789ABB,MEDI_FLOATERS,8,7,7,2,2,0,17,30,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,d7f405d28dc5db79
+005E02605CAD,CARGO_TURRETS,10,31,10,4,3,3,39,29,Salvaged Fleet Fuel Unit,B,0,,1,0,7,25,,,7385107b7d2e272e
 005E03602CAA,CARGO_TURRETS,9,22,10,2,2,3,12,44,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,6b77e65821fe2118
 005E08602CAA,MEDI_TURRETS,9,10,9,3,2,4,13,14,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,8afa03ff044560f1
 005E0A60CCAB,CARGO_TURRETS,9,23,12,4,3,4,20,9,Salvaged Fleet Beacon,C,0,,1,0,1,21,,,60269a24b2fe2070
@@ -533,6 +547,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 006F0A60CCAB,MEDI_TURRETS,9,13,10,2,1,3,19,20,Salvaged Fleet Trade Unit,C,0,,1,0,1,2,,,b482c7df8cf48f8e
 006F56789ABB,MEDI_FLOATERS,11,16,12,4,4,0,21,17,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,37862027bb3d9cd0
 007003603CAE,MEDI_TURRETS,9,13,15,4,3,4,13,17,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,de0d48348b8d299b
+00700460CCAB,CARGO_TURRETS,10,20,10,2,2,8,30,35,Salvaged Fleet Exploration Unit,B,0,,2,0,3.6,7.17,,,ccb9bbd602c38654
 007005602CAA,MEDI_TURRETS,10,9,11,3,3,2,16,18,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,5da024538b2ead6f
 00700560CCAC,CARGO_TURRETS,8,27,10,2,3,3,17,32,Salvaged Fleet Beacon,A,0,,1,0,4,3,,,dbae49775b8836f6
 007008602CAA,MEDI_TURRETS,8,14,8,2,1,6,15,24,Salvaged Fleet Beacon,C,0,,1,0,5,12,,,feb30728499756bf
@@ -545,7 +560,9 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 007156789ABB,CARGO_TURRETS,9,26,28,3,2,2,30,76,Salvaged Hyperdrive Upgrade,B,0,,3,3,3.5.6,26.28.38,26.28.38,,83096f010d14a442
 007203603CAE,CARGO_TURRETS,10,51,17,2,3,3,44,33,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,e502723abffbaa52
 007204609CA5,CARGO_TURRETS,11,31,11,2,2,2,28,28,Salvaged Fleet Exploration Unit,C,0,,1,0,3,26,,,396590e1338a7d67
+00720460CCAB,CARGO_TURRETS,10,34,20,2,2,3,27,54,Salvaged Fleet Beacon,C,0,,2,0,1.5,5.29,,,778523c8164eecf4
 007208602CA9,CARGO_TURRETS,8,13,14,3,2,2,15,17,Salvaged Fleet Mining Unit,B,0,,1,0,7,18,,,d609776e449cc869
+007302606CAF,CARGO_TURRETS,9,29,16,3,3,5,18,56,Salvaged Fleet Exploration Unit,B,0,,3,0,0.2,8.13.14,,,a9c8ffce07c7cbd1
 007303609CAE,MEDI_TURRETS,11,12,7,3,2,3,20,11,Salvaged Fleet Combat Unit,C,0,,0,0,,,,R_HANG:0/1|R_MEDI:4/0|B_MEDI:0/0|R_BARR:1/3|B_MEDI:0/0|R_MEDI:3/1|B_BARR:0/0|R_MEDI:1/0|B_MEDI:0/0|R_S_BARR:1/2|R_END:2/0,91af3aba903de8bb
 007305602CAA,MEDI_TURRETS,11,15,9,3,4,4,16,26,Salvaged Fleet Fuel Unit,A,0,,3,0,2.6,11.12.19,,,640ae096d26c6131
 007305602CAC,MEDI_TURRETS,11,7,16,2,1,7,18,44,Salvaged Hyperdrive Upgrade,B,0,,1,0,8,14,,,7da6d004adc9fa81
@@ -594,6 +611,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 007B05602CAC,CARGO_TURRETS,9,17,9,2,2,3,16,22,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,d6412ac5a3eedc2c
 007B08602CA9,MEDI_TURRETS,9,10,16,1,0,5,20,54,Salvaged Fleet Fuel Unit,B,0,,1,0,6,8,,,4324bd41bb4c70e2
 007B08602CAA,MEDI_TURRETS,9,9,8,2,1,3,19,20,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,c27cedf9c3553ba4
+007C02606CAF,MEDI_TURRETS,10,21,16,4,3,3,26,38,Salvaged Fleet Exploration Unit,B,1,Salvaged Hyperdrive Upgrade B,2,0,2.9,4.24,,,73e01c9ef0b0795f
 007C02608CA5,CARGO_TURRETS,11,24,11,3,2,5,21,58,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,6d2135d6409c294d
 007C08602CAA,MEDI_TURRETS,9,9,13,3,2,3,13,12,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,360fc0344da104dd
 007D01604CAB,MEDI_TURRETS,10,4,18,2,2,2,10,89,Salvaged Fleet Exploration Unit,A,0,,1,0,0,17,,,206b4e4cca9c8885
@@ -633,10 +651,12 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 008209603CA8,CARGO_TURRETS,11,16,17,2,4,2,25,30,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,a6e7887c076b2c77
 00820A60CCAB,CARGO_TURRETS,10,24,25,2,1,2,25,97,Salvaged Hyperdrive Upgrade,A,0,,1,0,3,22,,,1994fabdaf71920e
 008301604CAB,MEDI_TURRETS,9,10,11,2,1,2,17,53,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,6a0d3ab128d127f2
+008302606CAF,CARGO_TURRETS,10,38,12,3,3,4,36,34,Salvaged Fleet Fuel Unit,B,0,,3,0,0.2.4,0.11.37,,,c4192afd5523056c
 008302608CA5,MEDI_TURRETS,10,9,23,2,1,8,23,46,Salvaged Fleet Exploration Unit,A,0,,0,0,,,,,f87e26e4b797487f
 008302608CA6,CARGO_TURRETS,9,15,9,2,2,5,22,20,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,88a6a66f2aef1d38
 008303603CAE,CARGO_TURRETS,12,33,11,3,2,3,40,18,Salvaged Fleet Mining Unit,A,0,,1,0,0,6,,,d767eb737c7be485
 008303609CAE,CARGO_TURRETS,8,21,12,2,1,4,23,38,Salvaged Fleet Combat Unit,A,1,Salvaged Fleet Beacon A,0,0,,,,R_S_BARR:0/5|R_S_CARG:6/0|R_HANG:0/0|R_BARR:0/3|R_S_CARG:5/0|R_CARG:6/1|B_CARG:1/0|R_END:3/3,bf97b3a7f28b95b2
+008304607CAF,CARGO_TURRETS,10,26,15,1,0,5,22,18,Salvaged Fleet Trade Unit,C,0,,2,0,6.9,13.31,,,9845fb01ea96fd26
 008304609CA5,CARGO_TURRETS,9,21,16,2,1,2,21,40,Salvaged Hyperdrive Upgrade,C,0,,2,0,0.3,0.18,,,2f5c4dc39f607b8e
 008309603CA8,MEDI_TURRETS,8,17,12,2,1,3,19,16,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,88c74dd19ecc6a87
 00830B605CA9,CARGO_TURRETS,9,16,13,4,3,2,17,33,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,6842a978f850d3c6
@@ -664,6 +684,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 008756789ABB,CARGO_TURRETS,8,22,24,2,3,5,19,45,Salvaged Fleet Combat Unit,B,0,,1,0,6,35,,,6478e36327cd6f1c
 008802603CA9,CARGO_TURRETS,8,25,16,2,3,4,14,11,Salvaged Fleet Trade Unit,C,0,,1,0,1,13,,,2dddf15f6c4e076e
 008802608CA6,MEDI_TURRETS,10,15,11,4,3,3,27,33,Salvaged Fleet Exploration Unit,A,0,,1,0,9,24,,,cc94ab65e547dc73
+008804607CAF,CARGO_TURRETS,11,40,28,4,3,3,21,45,Salvaged Hyperdrive Upgrade,C,0,,5,3,5.7.8,5.26.29.41.51,2.26.29,,39b6489674026f86
 00880560CCA9,MEDI_TURRETS,9,15,13,2,1,4,20,44,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,abf5cc8882c88a00
 008808602CAA,MEDI_TURRETS,11,18,21,3,2,4,17,62,Salvaged Fleet Combat Unit,B,0,,4,0,0.1.5,1.13.15.31,,,4b110b983dbf7ca0
 008902608CA6,CARGO_TURRETS,8,26,14,2,1,3,30,29,Salvaged Fleet Mining Unit,B,1,B-Class Reactor B,1,1,1,12,10,,63ac43e881b89fae
@@ -679,6 +700,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 008B0560CCA9,CARGO_TURRETS,9,20,11,3,2,2,18,26,Salvaged Hyperdrive Upgrade,C,0,,1,0,5,20,,,c21f4f707ae71661
 008C02603CA9,MEDI_TURRETS,11,16,11,4,3,3,19,42,Salvaged Fleet Fuel Unit,B,0,,1,0,4,1,,,1e7154a406974038
 008C02608CA6,CARGO_TURRETS,11,30,14,1,0,4,21,28,Salvaged Fleet Exploration Unit,C,0,,1,0,6,29,,,dba04007ea8bb5bf
+008C04607CAF,MEDI_TURRETS,9,14,16,2,1,3,14,29,Salvaged Fleet Exploration Unit,C,0,,4,0,1.3.5,0.3.6.26,,,a63a7632ba648a72
 008C04609CA5,MEDI_TURRETS,8,12,6,3,3,3,23,17,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,fd7d2800b4e5f9ee
 008C05602CAC,MEDI_TURRETS,10,12,9,3,2,3,17,14,C-Class Reactor,C,0,,1,0,5,17,,,138fb93e072e0669
 008C0560CCAC,CARGO_TURRETS,7,30,11,1,0,3,14,41,S-Class Reactor,S,0,,1,0,1,11,,,b6600a199ae3da6b
@@ -706,19 +728,23 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00910560CCA9,MEDI_TURRETS,8,13,7,3,2,4,14,8,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,4fe0210e5cbeae34
 00910960CCA6,MEDI_TURRETS,9,18,18,3,2,2,15,71,Salvaged Fleet Beacon,B,0,,3,0,0.2.6,1.16.35,,,cfea48b3e40e718b
 009156789ABB,CARGO_TURRETS,7,12,13,3,4,3,11,30,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,d502654b5a9dcaa0
+009202606CAF,CARGO_TURRETS,8,36,14,2,1,4,26,22,Salvaged Fleet Fuel Unit,B,0,,3,2,1.3.7,12.24.45,6.30,,abd9bb8e1468e34a
 009203602CAA,CARGO_TURRETS,9,22,18,2,1,5,18,38,Salvaged Fleet Beacon,C,0,,0,0,,,,,c86c38fb7d26e8b2
 009208602CAA,CARGO_TURRETS,10,21,9,4,3,5,22,18,Salvaged Fleet Trade Unit,C,1,Salvaged Hyperdrive Upgrade C,1,0,9,26,,,6026cc856ae80cbe
 009256789ABB,MEDI_FLOATERS,11,12,21,2,1,0,25,25,Salvaged Fleet Mining Unit,C,1,Salvaged Fleet Beacon C,0,0,,,,,1b92830a278f318f
 009301604CAB,MEDI_TURRETS,10,15,11,2,1,6,16,19,Salvaged Fleet Mining Unit,S,0,,0,0,,,,,6878cb084412d920
 009302603CA9,CARGO_TURRETS,10,36,9,2,3,4,28,17,Salvaged Fleet Fuel Unit,C,0,,1,0,3,42,,,0d7683f00c8e0117
+009302605CAD,MEDI_BUGS,11,6,4,3,2,0,22,23,Salvaged Fleet Mining Unit,B,0,,2,1,0.7,6.9,6,,a5e580d906ccd456
 009303609CAE,CARGO_TURRETS,11,24,15,2,2,3,22,28,Salvaged Fleet Mining Unit,C,0,,3,0,0.3.6,4.13.16,,R_S_CARG:3/3|R_BARR:1/4|B_CARG:2/0|R_HANG:1/0|R_S_BARR:1/2|B_BARR:0/0|R_CARG:6/5|B_CARG:0/0|R_S_CARG:8/1|B_CARG:1/0|R_END:1/0,6426fcc19f6ac3bb
 00930560CCA9,CARGO_TURRETS,8,25,17,4,3,4,19,15,C-Class Reactor,C,0,,0,0,,,,,f6a2ae679311ab10
+009306609CAF,CARGO_TURRETS,9,28,7,3,2,5,21,17,Salvaged Fleet Mining Unit,B,0,,3,0,1.6,14.24.29,,,fea294f4e01d7f49
 009308602CAA,CARGO_TURRETS,10,30,11,3,4,2,18,19,Salvaged Fleet Mining Unit,S,0,,6,2,1.4.7,8.9.10.11.22.35,11.35,,93e39ebb87f5ba88
 009402603CA9,MEDI_TURRETS,10,10,10,2,2,4,14,24,Salvaged Fleet Mining Unit,C,0,,1,0,3,1,,,fde16da2f5a3e1f6
 009402608CA6,CARGO_TURRETS,9,16,14,2,1,3,10,9,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,bdcd181001de3195
 00940560CCA9,MEDI_TURRETS,8,11,12,2,2,3,15,10,Salvaged Hyperdrive Upgrade,S,0,,1,1,6,15,20,,73d91503e6375ece
 009408602CAA,CARGO_TURRETS,10,14,9,4,3,4,23,30,Salvaged Fleet Trade Unit,C,0,,1,0,1,1,,,ffe066a5c225a89e
 009409603CA8,CARGO_TURRETS,9,22,18,2,2,3,13,34,Salvaged Hyperdrive Upgrade,C,0,,1,0,4,2,,,cec10f9690d3f4c4
+009502606CAF,MEDI_TURRETS,10,17,16,3,2,3,19,57,Salvaged Hyperdrive Upgrade,B,0,,3,0,1.3.9,0.26.30,,,18048adfaa904088
 009505602CAA,CARGO_TURRETS,9,26,21,4,3,3,18,46,Salvaged Fleet Exploration Unit,B,0,,2,0,0.6,0.38,,,8c1daa391b5c5dba
 00950A60CCAB,MEDI_TURRETS,10,10,10,2,1,2,9,22,Salvaged Hyperdrive Upgrade,A,0,,0,0,,,,,0f85cffe6a0b8114
 009602608CA5,CARGO_TURRETS,9,35,12,2,1,3,25,17,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,7e2df95ac7ce87c0
@@ -749,12 +775,14 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 009C02603CA9,MEDI_TURRETS,8,12,8,2,1,3,25,10,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,a76d68f952c709d9
 009C0A60CCAB,CARGO_TURRETS,9,35,19,1,0,3,34,59,Salvaged Fleet Beacon,C,0,,1,0,7,37,,,cb3d8d6a3e77c463
 009D01604CAB,MEDI_TURRETS,10,18,9,2,3,4,16,24,C-Class Reactor,C,0,,0,0,,,,,40da0205c21cde83
+009D02605CAD,CARGO_TURRETS,8,33,15,2,1,4,27,38,Salvaged Fleet Mining Unit,C,0,,2,0,5,38.41,,,826067979ab4c138
 009D0560CCAC,MEDI_TURRETS,10,9,12,2,2,3,18,8,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,3c5393bdb8c5ff51
 009D08602CAA,MEDI_TURRETS,9,10,18,2,1,6,15,47,Salvaged Fleet Trade Unit,C,0,,1,0,1,10,,,3ff62ff0fdb86579
 009E01604CAB,CARGO_TURRETS,9,27,13,3,2,3,25,22,Salvaged Fleet Mining Unit,B,0,,0,0,,,,,90a8c3b6061698e7
 009E02603CA9,MEDI_TURRETS,10,12,16,2,1,6,14,10,Salvaged Fleet Trade Unit,A,0,,0,0,,,,,1ed5c120aa7bf351
 009E03602CAA,CARGO_TURRETS,10,12,10,3,2,5,17,26,Salvaged Fleet Mining Unit,B,0,,0,0,,,,,b49b8dabce23a2ef
 009E03603CAE,CARGO_TURRETS,8,36,18,4,3,2,31,52,Salvaged Fleet Fuel Unit,C,0,,4,0,3.5.7,23.34.36.51,,,054f0d5eb5dda190
+009E04607CAF,CARGO_TURRETS,10,29,15,2,1,3,13,76,Salvaged Fleet Fuel Unit,C,0,,2,0,0.9,5.36,,,efda616c8c4882d4
 009E0B605CA9,MEDI_TURRETS,10,17,12,4,4,2,24,41,Salvaged Hyperdrive Upgrade,C,1,Salvaged Fleet Trade Unit C,0,0,,,,,d44136f2f7a2e27b
 009E56789ABB,MEDI_FLOATERS,10,13,9,2,2,0,16,26,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,6838d0f1651e0a57
 009F02608CA5,CARGO_TURRETS,9,27,5,2,1,2,29,27,B-Class Reactor,B,0,,3,1,2.7,4.18.24,24,,c4dccaa17b54ca10
@@ -789,6 +817,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00A401604CAB,CARGO_TURRETS,9,30,16,2,1,7,19,33,Salvaged Fleet Mining Unit,C,0,,3,1,3.4.6,24.25.37,24,,6c85e0edb51c1123
 00A402603CA9,MEDI_TURRETS,11,18,12,3,5,2,20,6,Salvaged Hyperdrive Upgrade,C,1,Salvaged Fleet Mining Unit C,1,0,4,9,,,06a1456049f9e01a
 00A456789ABB,CARGO_TURRETS,10,26,11,2,2,3,16,22,Salvaged Fleet Combat Unit,B,0,,2,1,4.6,1.29,7,,e8d7d6ae1de294d8
+00A502605CAD,MEDI_BUGS,10,4,5,1,0,0,28,20,Salvaged Fleet Exploration Unit,C,0,,2,0,0.2,1.2,,,9e82305dd99e8187
 00A503602CAA,MEDI_TURRETS,9,15,18,2,1,3,17,45,Salvaged Fleet Beacon,A,0,,0,0,,,,,61c9333a985dff85
 00A504609CA5,MEDI_TURRETS,9,10,7,2,1,3,9,23,Salvaged Fleet Fuel Unit,C,0,,1,0,2,5,,,49b6bae6da7e8ac7
 00A505602CAA,CARGO_TURRETS,8,14,24,3,2,4,12,66,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,5ce78896f4e6b207
@@ -844,6 +873,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00AF03603CAE,MEDI_TURRETS,8,9,14,3,2,4,9,17,Salvaged Fleet Combat Unit,C,0,,0,1,,,22,,d5e42a8195302625
 00AF03609CAE,MEDI_TURRETS,9,16,11,4,3,2,12,17,Salvaged Fleet Mining Unit,A,1,Salvaged Fleet Fuel Unit A,0,0,,,,R_MEDI:5/1|R_BARR:1/5|B_BARR:1/0|R_MEDI:6/1|R_HANG:0/0|R_S_BARR:0/4|R_MEDI:2/0|B_BARR:0/0|R_END:1/0,40ca82e91021927f
 00AF0560CCAC,MEDI_TURRETS,9,8,12,1,0,3,8,11,Salvaged Fleet Beacon,C,0,,1,0,0,17,,,d5fda7d971981055
+00AF06609CAF,CARGO_TURRETS,9,21,20,2,2,8,26,33,Salvaged Fleet Fuel Unit,A,0,,3,1,1.5.8,7.20.34,20,,b8549022091ff945
 00AF08602CA9,MEDI_TURRETS,10,9,9,2,1,3,15,10,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,ffa60fe6ef8a155e
 00B001604CAB,MEDI_TURRETS,11,15,13,3,2,4,12,19,Salvaged Fleet Exploration Unit,C,0,,1,0,2,25,,,5adffa84d6b8b349
 00B003602CAA,CARGO_TURRETS,10,22,13,3,2,5,23,37,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,3903f6c049cab61d
@@ -894,6 +924,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00B708602CA9,MEDI_TURRETS,9,13,15,2,1,4,15,29,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,b26f7414e8604cd3
 00B709603CA8,MEDI_TURRETS,10,11,11,3,3,3,17,18,Salvaged Fleet Fuel Unit,B,0,,0,1,,,14,,6895786cf188961f
 00B70B605CA9,MEDI_TURRETS,10,10,11,4,3,2,14,21,Salvaged Hyperdrive Upgrade,A,0,,0,0,,,,,0ab6e6728bb3b736
+00B802605CAD,MEDI_FLOATERS,13,21,7,4,3,0,25,49,Salvaged Hyperdrive Upgrade,C,0,,2,0,2.8,6.11,,,8bf3af1e5c97b560
 00B802608CA6,CARGO_TURRETS,10,28,13,1,0,6,23,14,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,d950024130c818f4
 00B803603CAE,CARGO_TURRETS,10,25,17,2,1,2,21,59,Salvaged Fleet Combat Unit,C,0,,1,1,0,10,23,,8bf43deb12193468
 00B803609CAE,MEDI_TURRETS,9,14,11,3,3,1,12,59,Salvaged Fleet Beacon,C,0,,0,0,,,,R_S_BARR:1/4|R_BARR:1/4|B_MEDI:0/0|R_MEDI:4/1|R_MEDI:4/1|B_MEDI:0/0|R_S_MEDI:1/0|R_HANG:2/0|R_END:1/1,039edde854721c19
@@ -906,14 +937,17 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00B905602CAC,CARGO_TURRETS,9,36,8,2,2,2,27,15,Salvaged Fleet Trade Unit,B,0,,3,0,0.2.5,1.3.36,,,ae37b81a67188fcb
 00B90960CCA6,CARGO_FLOATERS,10,26,22,2,3,0,25,49,Salvaged Fleet Trade Unit,C,0,,3,0,3.4.7,12.24.34,,,7f2d44e9c4a38f3a
 00BA02603CA9,CARGO_TURRETS,10,19,15,2,1,5,15,58,Salvaged Fleet Exploration Unit,B,0,,1,0,1,16,,,d7121444c70770e0
+00BA02605CAD,CARGO_TURRETS,10,33,10,3,2,2,17,57,Salvaged Fleet Trade Unit,A,0,,2,2,4,24.25,25.37,,ce3d22fa73bcddf5
 00BA02608CA5,CARGO_TURRETS,11,42,14,3,2,4,41,18,Salvaged Fleet Combat Unit,C,0,,2,0,4.7,3.5,,,ba7925fc3916a4a7
 00BA03603CAE,MEDI_TURRETS,9,12,7,2,1,2,17,10,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,93b7bc3878e87ac7
 00BA03609CAE,MEDI_TURRETS,9,20,7,2,2,3,17,9,Salvaged Fleet Combat Unit,B,0,,1,0,3,4,,R_HANG:1/0|R_MEDI:3/0|B_BARR:1/0|R_BARR:3/5|R_MEDI:6/0|B_BARR:1/0|R_S_MEDI:0/0|R_S_BARR:3/2|R_END:2/0,24ce4c2efcdd3108
+00BA04607CAF,MEDI_TURRETS,11,23,10,2,1,3,18,16,B-Class Reactor,B,0,,3,2,0.3.6,18.22.24,24.26,,1edb7b014208ec0d
 00BA0560CCAC,CARGO_TURRETS,9,45,25,2,1,1,31,58,Salvaged Fleet Exploration Unit,B,0,,2,1,2.6,15.62,39,,64bf482db59185ae
 00BA08602CAA,CARGO_TURRETS,10,32,21,3,2,3,31,65,Salvaged Fleet Beacon,A,0,,0,0,,,,,d133d983759bdf47
 00BB02603CA9,MEDI_TURRETS,11,20,11,4,3,2,26,28,Salvaged Fleet Beacon,A,0,,2,0,10,22.24,,,fbde406c13dc3d79
 00BB02608CA5,MEDI_TURRETS,9,18,10,1,0,5,12,10,Salvaged Fleet Fuel Unit,C,0,,2,0,0.4,1.21,,,307a36a83d92a346
 00BB03603CAE,CARGO_TURRETS,9,42,19,2,1,2,37,55,Salvaged Fleet Combat Unit,C,0,,1,1,1,14,57,,37e6e0b1bcd26ffb
+00BB0460CCAB,CARGO_TURRETS,7,17,18,2,2,2,16,10,Salvaged Fleet Mining Unit,A,0,,3,0,0.5,6.10.11,,,e69143c9e0a2c539
 00BB05602CAA,MEDI_TURRETS,8,9,14,2,1,5,23,54,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,57af771f35afabe4
 00BB0560CCA9,CARGO_TURRETS,9,24,7,2,1,6,19,15,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,b49d839d5f3f1aa5
 00BB08602CAA,MEDI_TURRETS,11,11,8,3,2,2,14,15,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,ebad00cc423bd229
@@ -934,6 +968,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00BF04609CA5,CARGO_TURRETS,9,22,23,2,2,3,19,55,Salvaged Fleet Exploration Unit,C,0,,1,0,6,38,,,43807c6909e306eb
 00BF09603CA8,CARGO_TURRETS,10,33,21,2,2,6,25,20,Salvaged Hyperdrive Upgrade,B,0,,4,0,1.7,4.5.31.32,,,bd74037932760aaa
 00C001604CAB,CARGO_TURRETS,8,18,22,3,2,5,15,26,Salvaged Fleet Exploration Unit,C,0,,1,0,0,6,,,258585683aaeeef6
+00C002605CAD,CARGO_TURRETS,10,26,16,2,1,2,20,42,Salvaged Fleet Exploration Unit,C,0,,2,0,3.7,14.30,,,b4dcc9b11b5f4f3c
 00C003603CAE,MEDI_TURRETS,8,11,12,2,3,2,14,14,Salvaged Fleet Combat Unit,S,0,,1,0,4,9,,,395f8c56d3324c7c
 00C005602CAA,MEDI_TURRETS,9,12,15,2,2,2,9,42,Salvaged Fleet Combat Unit,B,0,,1,0,5,22,,,7d0d549a951b46f8
 00C005602CAC,CARGO_TURRETS,9,27,17,3,2,3,21,26,Salvaged Fleet Fuel Unit,B,0,,1,0,5,27,,,0bf7091fdb4ab303
@@ -973,6 +1008,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00C60560CCAC,MEDI_TURRETS,9,15,12,3,2,2,10,43,C-Class Reactor,C,0,,0,0,,,,,938a4a9fd0d28fdc
 00C60A60CCAB,CARGO_TURRETS,7,15,12,2,3,5,17,35,Salvaged Fleet Fuel Unit,C,0,,1,1,1,6,6,,28ce31617e8b6b00
 00C60B605CA9,MEDI_TURRETS,9,14,16,2,1,5,16,42,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,d894ea3acee64eac
+00C702605CAD,MEDI_TURRETS,9,13,22,3,2,2,25,23,Salvaged Fleet Beacon,B,0,,2,0,1.5,7.10,,,97fe8a25e5ab4d4f
 00C703603CAE,CARGO_TURRETS,10,25,13,4,4,2,21,27,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,4950f9eb3c3d15ff
 00C705602CAA,CARGO_TURRETS,9,19,14,2,4,4,20,19,Salvaged Fleet Fuel Unit,B,0,,3,0,1.2.3,2.11.13,,,8dbfc232371a05a4
 00C70560CCAC,MEDI_TURRETS,11,19,8,2,1,2,23,48,B-Class Reactor,B,0,,2,0,5,13.23,,,5b0b7bca7fe5ba99
@@ -1023,8 +1059,10 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00D00960CCA6,CARGO_FLOATERS,9,35,16,2,1,0,29,24,Salvaged Fleet Beacon,C,0,,2,0,0.3,9.23,,,52b79438899caab4
 00D056789ABB,MEDI_FLOATERS,9,12,15,2,1,0,16,10,Salvaged Fleet Fuel Unit,S,0,,1,0,4,26,,,618821c4c04042da
 00D102603CA9,MEDI_TURRETS,10,8,6,4,5,4,16,15,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,ba2b6bdb4f2f0570
+00D102605CAD,MEDI_FLOATERS,11,18,9,4,3,0,33,30,Salvaged Fleet Fuel Unit,B,0,,2,0,7,8.10,,,e99d4a08104d7162
 00D103602CAA,CARGO_TURRETS,10,13,8,2,3,7,24,8,Salvaged Fleet Trade Unit,C,0,,2,0,6,12.19,,,3d4980dfb8d88199
 00D10960CCA6,CARGO_BUGS,10,22,9,2,1,0,20,19,Salvaged Fleet Fuel Unit,B,0,,2,0,3,8.9,,,2b61574025dc5ed4
+00D202606CAF,MEDI_TURRETS,10,9,7,3,3,3,15,30,Salvaged Fleet Combat Unit,A,0,,3,0,0.3.7,5.12.15,,,994729de78fd91f7
 00D204609CA5,MEDI_TURRETS,9,12,11,1,0,6,15,17,Salvaged Fleet Exploration Unit,C,0,,2,1,8,18.19,18,,469f418f5c31bdce
 00D20560CCA9,MEDI_TURRETS,10,11,11,3,3,3,22,49,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,e9c5d63f8d6189e4
 00D20960CCA6,CARGO_TURRETS,9,20,16,2,3,2,23,35,Salvaged Fleet Combat Unit,B,0,,3,0,0.4,8.14.20,,,4d2a93cf0c7d8e67
@@ -1038,6 +1076,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00D502603CA9,CARGO_TURRETS,10,45,12,2,1,3,39,31,Salvaged Fleet Fuel Unit,A,0,,1,0,4,17,,,69146ef6d3b40884
 00D602603CA9,CARGO_TURRETS,9,39,15,2,1,4,31,47,Salvaged Fleet Mining Unit,C,0,,1,0,3,27,,,413ed52186629233
 00D603602CAA,CARGO_TURRETS,9,17,16,4,3,5,18,18,Salvaged Fleet Trade Unit,B,0,,2,1,3.6,3.22,0,,fb1d654e6c0a8e95
+00D604607CAF,CARGO_TURRETS,11,18,15,4,3,5,22,39,Salvaged Fleet Beacon,A,0,,3,0,1.5,8.16.19,,,1dc865d688931c52
 00D604609CA5,MEDI_TURRETS,10,18,13,2,1,6,16,30,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,e53d5f0a32f31111
 00D605602CAA,MEDI_TURRETS,9,16,15,2,1,7,13,27,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,5e5f9bf95b805dcc
 00D608602CA9,MEDI_TURRETS,9,10,22,4,3,3,25,66,B-Class Reactor,B,1,Salvaged Hyperdrive Upgrade C,1,0,6,9,,,aea7019cdfd0fdf6
@@ -1052,6 +1091,8 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00D809603CA8,MEDI_TURRETS,9,15,9,2,2,2,12,18,Salvaged Fleet Beacon,B,1,Salvaged Fleet Mining Unit B,0,0,,,,,952841204b922ca9
 00D80960CCA6,MEDI_TURRETS,11,20,9,2,1,4,23,37,Salvaged Fleet Fuel Unit,C,0,,2,0,2.6,1.10,,,6fccdf57efc90163
 00D80B605CA9,MEDI_TURRETS,10,5,11,2,3,3,16,15,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,702f09b5eb89881c
+00D902605CAD,CARGO_TURRETS,11,45,27,3,4,4,29,35,Salvaged Fleet Mining Unit,A,0,,1,0,8,3,,,0064948099731db6
+00D902606CAF,CARGO_TURRETS,10,19,16,2,1,3,23,48,Salvaged Fleet Combat Unit,A,0,,2,0,1.6,9.23,,,c176ea8850fa5da9
 00D903609CAE,MEDI_TURRETS,9,13,15,3,2,2,18,18,Salvaged Fleet Mining Unit,C,0,,0,0,,,,R_S_BARR:1/1|R_MEDI:4/1|B_BARR:0/0|R_BARR:0/10|R_HANG:0/1|R_S_MEDI:0/0|R_MEDI:3/1|B_BARR:1/0|R_END:4/1,5a24464df114f78a
 00D908602CA9,MEDI_TURRETS,10,16,9,4,3,5,21,24,Salvaged Fleet Trade Unit,A,0,,1,0,9,18,,,bd5fc637b4e40886
 00D908602CAA,MEDI_TURRETS,10,6,21,2,1,7,10,80,Salvaged Fleet Exploration Unit,B,0,,2,0,5.6,4.18,,,060c3cef6aeb9b5b
@@ -1124,6 +1165,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00E556789ABB,CARGO_TURRETS,10,22,20,3,3,5,28,20,Salvaged Hyperdrive Upgrade,B,0,,1,0,0,9,,R_CARG:12/5|B_CARG:0/0|R_S_BARR:0/3|R_CARG:3/2|B_CARG:1/0|R_S_CARG:3/2|B_BARR:0/0|R_BARR:2/5|R_HANG:1/0|R_END:0/3,6f4dd0d045d6f164
 00E603603CAE,MEDI_TURRETS,9,16,9,4,3,2,19,48,Salvaged Fleet Beacon,A,0,,0,0,,,,,c1557b454216e5a2
 00E604609CA5,MEDI_TURRETS,10,11,7,2,1,3,11,18,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,6a440674a55e4c74
+00E60460CCAB,CARGO_TURRETS,10,24,11,3,3,5,30,44,Salvaged Hyperdrive Upgrade,A,0,,2,0,1.7,4.19,,,d2afa8284dc9c8c8
 00E605602CAA,CARGO_TURRETS,7,21,14,3,2,3,13,28,Salvaged Hyperdrive Upgrade,C,0,,1,0,2,6,,,a5d27a5bc565cdb7
 00E605602CAC,MEDI_TURRETS,9,7,14,2,1,3,15,11,Salvaged Fleet Beacon,A,0,,1,0,1,9,,,1932b4b3bf44f47f
 00E608602CAA,CARGO_TURRETS,10,33,17,2,2,2,23,76,Salvaged Fleet Exploration Unit,C,0,,4,0,3.4.6.7,23.28.39.47,,,cd2459dd3097f440
@@ -1150,15 +1192,18 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00EC05602CAC,CARGO_TURRETS,8,10,12,2,5,2,14,28,Salvaged Fleet Mining Unit,C,1,Salvaged Fleet Beacon C,2,0,2.6,8.16,,,5a68201eb64a482d
 00EC0560CCAC,CARGO_TURRETS,10,26,12,3,2,3,21,30,Salvaged Hyperdrive Upgrade,A,0,,1,1,3,12,12,,f2c46aa1c8bfa988
 00ED01604CAB,CARGO_TURRETS,9,23,12,2,1,4,11,36,Salvaged Fleet Beacon,C,0,,0,0,,,,,c57eddbf82347d55
+00ED04607CAF,CARGO_TURRETS,9,25,14,3,2,1,18,28,Salvaged Hyperdrive Upgrade,C,0,,3,0,4,21.24.26,,,87564159bf387f0b
 00ED04609CA5,CARGO_TURRETS,11,37,28,2,1,3,33,68,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,21da4ecea70855f3
 00ED0560CCAC,CARGO_TURRETS,8,18,8,3,4,2,12,21,Salvaged Hyperdrive Upgrade,C,1,Salvaged Fleet Fuel Unit C,0,0,,,,,d0fafeb6f97f0e27
 00ED0B605CA9,CARGO_TURRETS,9,29,6,2,2,4,23,16,Salvaged Fleet Trade Unit,C,1,Salvaged Fleet Combat Unit C,0,0,,,,,2131c16c68091d50
 00EE01604CAB,MEDI_TURRETS,10,13,10,2,2,2,14,25,Salvaged Fleet Exploration Unit,C,0,,1,0,2,0,,,07c33518a2a044c2
+00EE02605CAD,CARGO_TURRETS,11,31,11,2,1,9,43,29,Salvaged Fleet Trade Unit,B,0,,1,0,2,8,,,37f99c24f5b9af70
 00EE02608CA5,MEDI_TURRETS,9,11,15,3,2,3,13,14,Salvaged Fleet Mining Unit,C,1,Salvaged Fleet Combat Unit C,0,0,,,,,a27c982ef3aa0ba0
 00EE02608CA6,CARGO_TURRETS,10,42,20,3,2,5,31,42,Salvaged Fleet Beacon,B,0,,2,0,0.7,10.42,,,2eb0c656fc4235b3
 00EE0560CCAC,CARGO_TURRETS,9,12,18,4,4,5,24,30,Salvaged Fleet Mining Unit,S,0,,2,0,0.5,6.13,,R_S_BARR:1/3|B_CARG:1/0|R_CARG:3/3|B_CARG:0/0|R_CARG:1/0|R_S_CARG:3/3|R_HANG:1/0|R_BARR:0/8|R_END:2/1,138dfb58e6958e36
 00EE08602CAA,CARGO_TURRETS,10,27,6,4,4,3,17,21,Salvaged Hyperdrive Upgrade,C,0,,1,0,4,19,,,9b863133ba0be02b
 00EE56789ABB,CARGO_TURRETS,10,23,19,2,1,3,22,27,Salvaged Fleet Combat Unit,C,0,,2,0,0,2.7,,,b476de69fbc537dc
+00EF02605CAD,MEDI_TURRETS,10,12,20,3,2,5,18,52,Salvaged Fleet Fuel Unit,C,0,,2,0,0.9,10.28,,,cf06c7778ae9d10d
 00EF03603CAE,MEDI_TURRETS,10,11,18,4,4,3,20,60,Salvaged Hyperdrive Upgrade,C,0,,2,0,0.8,3.18,,,567cb9f8fc045e17
 00EF0560CCA9,MEDI_TURRETS,9,10,9,2,1,3,18,39,A-Class Reactor,A,0,,0,0,,,,,3efeee4fdddccc81
 00EF08602CAA,CARGO_TURRETS,10,25,9,3,3,2,26,31,Salvaged Fleet Fuel Unit,A,0,,0,0,,,,,9048773bdfa5d699
@@ -1169,6 +1214,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00F101604CAB,CARGO_TURRETS,9,18,13,2,1,2,21,30,Salvaged Fleet Exploration Unit,C,0,,1,0,7,20,,,73ca298219b99ace
 00F102608CA6,MEDI_TURRETS,8,9,14,3,4,3,10,9,Salvaged Fleet Beacon,C,1,Salvaged Fleet Fuel Unit C,0,0,,,,,7be695d3f81bc65c
 00F103603CAE,MEDI_TURRETS,9,14,12,1,0,4,14,36,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,172e86cc2ad68975
+00F10460CCAB,MEDI_TURRETS,9,13,13,3,3,5,18,52,Salvaged Hyperdrive Upgrade,C,0,,4,0,2.4.5.7,6.15.23.25,,,92e17d3c767abeed
 00F105602CAA,MEDI_TURRETS,10,15,9,4,3,2,16,29,Salvaged Fleet Trade Unit,C,0,,1,0,2,5,,,6bc8d9e672ad6847
 00F108602CA9,MEDI_TURRETS,9,11,16,2,1,3,18,24,Salvaged Fleet Exploration Unit,A,0,,0,0,,,,,651fe499c0676954
 00F201604CAB,CARGO_TURRETS,9,18,16,2,1,4,21,34,Salvaged Hyperdrive Upgrade,C,0,,0,1,,,32,,0eb50e940e375e49
@@ -1177,6 +1223,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00F20560CCAC,MEDI_TURRETS,10,19,11,2,1,1,19,33,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,24c9a950d81e9974
 00F208602CA9,MEDI_TURRETS,8,9,8,2,1,5,15,15,Salvaged Fleet Combat Unit,A,0,,0,0,,,,,714e8746c70c1bd1
 00F20B605CA9,MEDI_TURRETS,10,10,8,2,2,3,18,26,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,f123341aeccc1981
+00F302606CAF,CARGO_TURRETS,10,34,14,2,2,6,25,27,Salvaged Fleet Fuel Unit,C,0,,2,0,4.6,30.36,,,2219e565972cba70
 00F304609CA5,CARGO_TURRETS,10,43,11,3,2,8,22,24,Salvaged Hyperdrive Upgrade,C,0,,2,0,4,20.26,,,4a31c014b2475a08
 00F305602CAC,CARGO_TURRETS,8,18,12,2,2,6,20,64,Salvaged Fleet Beacon,C,0,,1,0,2,15,,,b58f82ff4ddede0e
 00F402608CA6,MEDI_TURRETS,10,14,6,1,0,3,20,18,Salvaged Fleet Mining Unit,C,1,Salvaged Hyperdrive Upgrade C,0,0,,,,,031bb9c36d74cb91
@@ -1190,6 +1237,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 00F60560CCA9,MEDI_TURRETS,10,12,11,4,3,3,17,13,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,fc52964ce3cc0559
 00F608602CAA,MEDI_TURRETS,9,12,14,4,3,6,12,18,Salvaged Fleet Trade Unit,C,0,,0,1,,,17,,96e69dcf3975a4f1
 00F701604CAB,CARGO_TURRETS,10,21,20,3,2,7,26,20,B-Class Reactor,B,0,,0,0,,,,,504bd8141f72d013
+00F702605CAD,MEDI_TURRETS,10,12,15,2,1,5,20,21,Salvaged Fleet Trade Unit,C,0,,2,0,0.6,0.9,,,178b6e86555ce6ae
 00F702608CA5,MEDI_TURRETS,11,14,12,4,3,5,30,35,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,c54cac218b1f458a
 00F708602CA9,MEDI_TURRETS,9,10,11,3,4,2,16,37,Salvaged Fleet Fuel Unit,C,1,Salvaged Fleet Exploration Unit C,0,0,,,,,399a022da81f93cf
 00F708602CAA,CARGO_TURRETS,9,39,17,2,1,6,17,34,Salvaged Fleet Fuel Unit,B,0,,2,0,0,12.19,,,835e01ee111aca47
@@ -1256,6 +1304,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01040560CCAC,MEDI_TURRETS,9,7,8,4,5,4,12,21,B-Class Reactor,B,0,,1,0,6,14,,,d96d4f719711ca8c
 010408602CAA,MEDI_TURRETS,10,11,15,3,3,4,11,22,Salvaged Fleet Exploration Unit,C,0,,1,0,5,12,,,35569be407d48b7d
 01040B605CA9,CARGO_TURRETS,10,17,10,2,4,2,12,30,Salvaged Fleet Exploration Unit,C,0,,1,0,2,3,,,abb4bef173fb4fee
+010502605CAD,MEDI_FLOATERS,11,11,10,3,2,0,16,24,Salvaged Fleet Combat Unit,C,0,,2,1,4.10,7.18,7,,5ec32833c7751d7f
 010502608CA5,CARGO_TURRETS,9,27,9,3,3,2,17,28,Salvaged Fleet Beacon,C,0,,2,0,1.3,6.11,,,73c1160abd05c180
 010505602CAA,CARGO_TURRETS,10,30,20,3,2,3,21,24,Salvaged Hyperdrive Upgrade,C,0,,2,0,4.5,25.31,,,aaa0ff304d0d78ba
 01050560CCA9,CARGO_TURRETS,10,40,18,2,2,3,33,47,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,f77a4ee5d64fcf24
@@ -1294,6 +1343,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 010B0B605CA9,MEDI_TURRETS,9,9,10,4,3,3,22,38,Salvaged Fleet Trade Unit,C,1,Salvaged Fleet Mining Unit C,0,0,,,,,d8466f47408d595f
 010B56789ABB,MEDI_SLIME,8,3,0,1,0,0,16,20,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,5f4400f2fb2d2c9e
 010C01604CAB,CARGO_TURRETS,10,29,18,4,4,2,19,58,Salvaged Hyperdrive Upgrade,A,0,,1,0,7,38,,,fd80a26d22287e43
+010C02605CAD,CARGO_TURRETS,11,39,11,3,2,4,34,16,Salvaged Fleet Combat Unit,C,0,,4,0,0.2.8,8.12.16.41,,,10e2b28c3c76d1d1
 010C02608CA6,CARGO_TURRETS,9,24,23,4,3,5,27,49,Salvaged Fleet Exploration Unit,C,0,,1,0,3,17,,,df3424e6c9dbee38
 010C04609CA5,CARGO_TURRETS,10,26,5,4,3,2,36,30,Salvaged Fleet Beacon,C,0,,1,2,2,9,9.25,R_S_BARR:1/1|B_CARG:1/0|R_CARG:11/1|R_BARR:1/2|R_CARG:9/1|B_BARR:1/0|R_S_CARG:1/0|B_CARG:0/0|R_HANG:1/0|R_END:0/0,6c57bcf22f9c2caf
 010C05602CAA,MEDI_TURRETS,8,6,10,2,1,3,10,42,Salvaged Fleet Beacon,C,0,,0,0,,,,,0d1e677d849323eb
@@ -1337,6 +1387,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01160560CCAC,MEDI_TURRETS,10,8,11,4,5,4,18,31,Salvaged Fleet Beacon,B,0,,0,0,,,,,b3563ad969a1dc17
 011608602CAA,MEDI_TURRETS,9,13,12,3,4,3,17,56,Salvaged Fleet Exploration Unit,A,0,,2,0,2.6,7.14,,,0079bbb4537a4b1f
 011702603CA9,CARGO_TURRETS,8,23,12,2,3,2,17,33,Salvaged Fleet Exploration Unit,B,0,,2,0,0.4,3.18,,,76f276ba8c5345c1
+011702605CAD,MEDI_BUGS,13,8,7,3,2,0,30,26,Salvaged Fleet Combat Unit,B,0,,2,0,4.12,3.8,,,f92d8ab9f2fbb35b
 011704609CA5,MEDI_TURRETS,11,17,11,2,1,3,18,33,Salvaged Fleet Mining Unit,C,0,,1,0,3,5,,,3d9b0fa43a2993f7
 011705602CAA,CARGO_TURRETS,9,25,22,2,2,4,26,27,Salvaged Fleet Mining Unit,B,0,,2,0,5,25.43,,,f5a2f9dba027ec28
 011801604CAB,MEDI_TURRETS,9,10,10,3,4,2,12,19,C-Class Reactor,C,0,,1,0,7,15,,,87cbd9f783c5a91b
@@ -1354,6 +1405,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 011A09603CA8,MEDI_TURRETS,9,14,11,3,4,3,14,22,Salvaged Fleet Beacon,A,1,B-Class Reactor B,1,0,8,15,,,0abc4f1104c70276
 011B02608CA6,MEDI_TURRETS,8,12,11,3,2,2,10,19,C-Class Reactor,C,0,,2,0,0.4,3.4,,,4b75d5ff3f3ec98e
 011B0560CCA9,CARGO_TURRETS,10,32,24,4,3,1,38,51,S-Class Reactor,S,0,,2,0,1,18.21,,,110ca449d18fdfaf
+011B06609CAF,CARGO_TURRETS,9,33,19,2,1,3,19,34,Salvaged Fleet Fuel Unit,B,0,,2,0,1.5,12.43,,,f8917e2bf9578595
 011B0B605CA9,CARGO_TURRETS,11,37,15,4,3,2,32,44,Salvaged Fleet Beacon,A,0,,3,0,3.7.9,3.14.39,,,41ef121062663ed5
 011C02608CA6,CARGO_TURRETS,8,27,12,2,2,2,14,37,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,5674073325d7db68
 011C08602CA9,MEDI_TURRETS,9,10,14,2,2,2,25,16,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,a11ae27af2bcc18b
@@ -1369,6 +1421,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01210560CCAC,CARGO_TURRETS,10,41,15,2,1,5,27,28,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,7c8f48924b5cba66
 012108602CAA,MEDI_TURRETS,9,16,9,2,1,9,21,14,Salvaged Fleet Combat Unit,C,0,,1,1,3,14,14,,1d3e324f7527aa7e
 012109603CA8,CARGO_TURRETS,9,24,21,3,2,3,22,21,Salvaged Fleet Combat Unit,C,1,A-Class Reactor A,2,0,4.6,4.39,,,720eb3ceb2393f68
+012202605CAD,CARGO_TURRETS,9,23,21,2,2,2,16,29,Salvaged Fleet Trade Unit,C,0,,2,0,5.7,17.36,,,f0d1074cedacbd18
 012202608CA6,MEDI_TURRETS,10,17,14,4,3,2,14,38,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,f5cef9906880161f
 012203603CAE,MEDI_TURRETS,10,12,14,2,3,9,11,28,Salvaged Fleet Exploration Unit,A,0,,0,0,,,,,06a612c07c950669
 012208602CAA,CARGO_TURRETS,9,31,16,1,0,3,23,22,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,5aac6479b9345003
@@ -1418,6 +1471,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01310B605CA9,MEDI_TURRETS,9,17,15,4,3,3,16,22,Salvaged Fleet Trade Unit,C,0,,1,0,8,22,,,836f3d039e07b961
 013208602CAA,MEDI_TURRETS,9,11,9,2,1,4,14,21,Salvaged Hyperdrive Upgrade,B,1,Salvaged Fleet Fuel Unit B,0,1,,,8,,468a3d740cade999
 013302603CA9,MEDI_TURRETS,9,13,9,3,2,6,15,36,B-Class Reactor,B,0,,1,1,4,2,2,,9235d74767a721eb
+013302605CAD,MEDI_TURRETS,11,15,26,2,3,3,21,58,Salvaged Fleet Trade Unit,C,0,,1,0,10,30,,,0e01070d4e54be6a
 013304609CA5,CARGO_TURRETS,11,18,15,2,1,6,27,48,Salvaged Fleet Beacon,C,0,,0,0,,,,,36fd7c8a696210f9
 013305602CAC,CARGO_TURRETS,10,21,17,2,1,7,12,34,Salvaged Fleet Fuel Unit,C,0,,1,0,1,8,,,b93e41350b4f3cb2
 01330560CCAC,MEDI_TURRETS,10,13,11,2,2,3,11,26,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,8d3d3bcf4fc5b0a6
@@ -1425,6 +1479,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 013401604CAB,MEDI_TURRETS,10,12,12,2,3,5,17,35,Salvaged Fleet Fuel Unit,C,0,,2,0,3.5,15.21,,,3d7f54c9bb941c1b
 01340560CCA9,CARGO_TURRETS,9,21,12,3,2,5,27,23,Salvaged Fleet Beacon,C,0,,0,0,,,,,0b6b023ed5946637
 01340560CCAC,CARGO_TURRETS,9,35,12,2,1,4,29,22,Salvaged Hyperdrive Upgrade,C,1,Salvaged Fleet Fuel Unit C,0,0,,,,,e33734d382e51675
+013406609CAF,CARGO_TURRETS,11,27,10,2,3,5,24,26,Salvaged Fleet Combat Unit,A,0,,2,0,5.7,13.15,,,0eade68e8fea03f9
 013501604CAB,MEDI_TURRETS,9,12,16,2,1,5,15,25,S-Class Reactor,S,0,,0,0,,,,,3ecc3701c858d224
 013504609CA5,CARGO_TURRETS,9,19,12,2,1,5,19,16,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,1bfed3a1722a9f19
 013509603CA8,MEDI_TURRETS,10,14,12,2,1,4,15,31,B-Class Reactor,B,0,,1,1,2,11,25,,10fe018b5513982a
@@ -1449,6 +1504,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 013B08602CAA,MEDI_TURRETS,9,7,13,3,2,4,15,39,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,R_S_MEDI:0/0|R_S_BARR:1/3|R_BARR:0/5|B_MEDI:0/0|R_HANG:0/0|R_MEDI:3/0|B_MEDI:0/0|R_MEDI:1/0|R_END:2/5,b0ad6502b21e4970
 013C04609CA5,MEDI_TURRETS,10,17,8,2,1,7,22,5,Salvaged Fleet Beacon,C,0,,0,0,,,,,76b432cc6ee7ccd2
 013D01604CAB,MEDI_TURRETS,10,14,11,2,1,5,18,35,Salvaged Fleet Mining Unit,C,0,,1,0,7,4,,,9cb0027ffadf706e
+013D02606CAF,CARGO_TURRETS,11,44,18,3,4,3,28,29,Salvaged Fleet Beacon,S,0,,3,0,6.9.10,39.51.58,,,ae3a231e52cdca88
 013D02608CA6,CARGO_TURRETS,9,22,11,4,3,6,21,17,Salvaged Fleet Mining Unit,C,0,,2,0,0.6,2.29,,,4aa18fe4fbd2dcb0
 013D08602CA9,CARGO_TURRETS,9,30,12,2,2,6,19,13,Salvaged Fleet Combat Unit,B,0,,0,0,,,,,6fb9ebb30f4a6a63
 013E01604CAB,CARGO_TURRETS,9,29,14,2,1,4,24,28,B-Class Reactor,B,0,,0,1,,,11,,24cedf01424f4216
@@ -1465,6 +1521,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01410560CCAC,MEDI_TURRETS,10,14,6,2,1,2,17,16,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,0f8536f7ef4d2ab1
 014201604CAB,MEDI_TURRETS,10,14,9,3,2,2,20,25,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,48ce853b4dbd90c3
 014205602CAC,MEDI_TURRETS,11,14,10,3,2,2,19,11,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,a3722ee1d8602068
+014302605CAD,MEDI_FLOATERS,9,14,16,3,2,0,15,26,Salvaged Fleet Trade Unit,C,0,,2,0,5,13.18,,,b958e7f96f59dfbf
 014303603CAE,MEDI_TURRETS,10,13,19,4,3,2,20,53,Salvaged Fleet Beacon,B,0,,1,0,1,3,,,8d6870c5c78197d5
 014305602CAA,CARGO_TURRETS,8,27,14,2,2,4,18,41,Salvaged Hyperdrive Upgrade,A,0,,0,0,,,,,d6b258c4ed538921
 014305602CAC,CARGO_TURRETS,11,19,13,3,4,2,24,29,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,effbe24b367638e5
@@ -1525,9 +1582,11 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 015002603CA9,CARGO_TURRETS,8,19,7,1,0,3,11,19,Salvaged Hyperdrive Upgrade,B,0,,2,0,1.2,5.11,,,89efeb70fba81ac9
 015003603CAE,MEDI_TURRETS,10,17,11,3,3,2,16,25,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,6a804df52a65c5dc
 015101604CAB,MEDI_TURRETS,11,14,12,4,3,1,17,62,Salvaged Fleet Fuel Unit,B,1,Salvaged Fleet Beacon B,0,1,,,13,,f30d66200e3d41c8
+01510460CCAB,CARGO_TURRETS,11,49,25,4,3,3,43,30,Salvaged Fleet Combat Unit,C,0,,2,0,5.8,29.56,,,183b330a3785415c
 015105602CAC,MEDI_TURRETS,8,10,14,2,2,4,14,17,A-Class Reactor,A,0,,0,0,,,,,94372ed293de5d49
 015109603CA8,CARGO_TURRETS,7,17,14,1,0,4,10,29,Salvaged Hyperdrive Upgrade,S,0,,0,0,,,,,7091e4bec09bed82
 015202603CA9,MEDI_TURRETS,9,12,9,3,2,3,9,13,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,1bb4f93805810f75
+015202605CAD,MEDI_BUGS,9,9,6,2,1,0,18,23,Salvaged Fleet Combat Unit,C,0,,2,0,0.5,1.6,,,02f20f0cf78dd820
 015204609CA5,CARGO_TURRETS,11,21,16,4,3,4,23,28,Salvaged Fleet Mining Unit,C,0,,2,0,9,26.35,,,a5716295b32ddb70
 015205602CAA,CARGO_TURRETS,10,24,13,3,3,2,22,11,Salvaged Hyperdrive Upgrade,A,0,,1,0,6,4,,,edc248e2c700ff06
 01520560CCAC,CARGO_TURRETS,10,32,23,2,1,3,22,97,Salvaged Fleet Mining Unit,C,0,,1,0,4,31,,,b55688b2a0a06c4b
@@ -1562,6 +1621,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 015B05602CAC,CARGO_TURRETS,8,35,12,1,0,4,23,4,Salvaged Fleet Trade Unit,S,0,,1,0,1,8,,,fc8992315f8f4b49
 015B0560CCAC,CARGO_TURRETS,11,25,17,2,1,3,22,23,Salvaged Fleet Fuel Unit,C,0,,1,0,1,10,,,6d5949d6693d2e90
 015C01604CAB,MEDI_TURRETS,10,7,14,3,2,2,12,26,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,b2d9cddaf507d488
+015C02606CAF,CARGO_TURRETS,10,45,15,3,3,4,35,27,B-Class Reactor,B,0,,1,0,4,18,,,405f25dfc0cf3c0f
 015C02608CA6,CARGO_TURRETS,9,35,16,2,2,2,18,30,Salvaged Fleet Combat Unit,B,1,Salvaged Fleet Fuel Unit B,0,0,,,,,1cadff2cda3e5684
 015C03603CAE,MEDI_TURRETS,9,18,13,2,1,2,13,40,B-Class Reactor,B,0,,1,0,1,16,,,15f950d80298b383
 015D02608CA6,MEDI_TURRETS,8,13,7,2,1,2,18,30,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,abab39d7cfe6f88f
@@ -1614,6 +1674,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 016808602CA9,CARGO_TURRETS,10,27,19,1,0,6,30,54,Salvaged Fleet Trade Unit,C,0,,1,1,2,21,27,,9367ed53eef66286
 016904609CA5,CARGO_TURRETS,9,21,15,3,2,5,27,19,Salvaged Fleet Exploration Unit,A,0,,2,0,1.5,10.35,,,2248d5e679cf3576
 016905602CAC,CARGO_TURRETS,9,24,26,1,0,2,25,49,Salvaged Fleet Fuel Unit,B,0,,2,0,8,40.45,,,9641e98d8476721d
+016A02606CAF,MEDI_TURRETS,9,18,11,2,1,4,18,10,Salvaged Fleet Beacon,B,0,,2,0,1.6,2.28,,,be0944324cfcdbcf
 016A05602CAC,CARGO_TURRETS,11,46,13,4,3,4,31,14,Salvaged Hyperdrive Upgrade,C,0,,1,0,2,28,,,f9882ec18f8744cc
 016A0560CCAC,CARGO_TURRETS,11,47,26,4,3,4,34,25,Salvaged Fleet Combat Unit,C,0,,2,0,6.9,40.61,,,f8cf4776c45d3864
 016A09603CA8,MEDI_TURRETS,12,15,11,4,3,5,26,48,C-Class Reactor,C,0,,2,0,7.9,6.10,,,d3c65736b67d5190
@@ -1627,8 +1688,10 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 016C0560CCAC,MEDI_TURRETS,10,19,10,3,4,3,16,31,Salvaged Fleet Fuel Unit,A,0,,3,1,3.4.5,5.15.26,26,,2cec23dfa057d8cf
 016C08602CAA,MEDI_TURRETS,10,15,14,1,0,2,23,16,Salvaged Fleet Exploration Unit,A,0,,0,1,,,28,,838a87698782ff77
 016C0B605CA9,MEDI_TURRETS,11,11,7,2,1,2,16,18,Salvaged Fleet Fuel Unit,A,0,,0,0,,,,,69ea2b12cede7cc3
+016D02606CAF,MEDI_TURRETS,10,11,18,3,4,3,20,34,Salvaged Fleet Combat Unit,C,0,,3,0,0.3.9,7.11.22,,,9b0eef0dfe705e93
 016D02608CA6,MEDI_TURRETS,9,11,8,1,0,5,22,8,Salvaged Fleet Trade Unit,A,0,,0,0,,,,,f8b8d4dac77e1fba
 016D05602CAA,CARGO_TURRETS,9,30,18,3,2,6,27,27,Salvaged Fleet Fuel Unit,C,0,,0,1,,,11,,ba96176d47c6d92a
+016D06609CAF,CARGO_TURRETS,10,26,20,4,3,3,16,50,B-Class Reactor,B,0,,2,0,6.8,26.38,,,47fe75b97ee6b8dd
 016D0B605CA9,MEDI_TURRETS,10,7,8,2,2,2,15,29,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,25376205113f7f15
 016E01604CAB,MEDI_TURRETS,10,17,8,2,4,3,25,19,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,d3edf56ca90030c2
 016E02603CA9,MEDI_TURRETS,9,8,10,3,2,2,17,17,B-Class Reactor,B,0,,0,0,,,,,fe4891f60d493de2
@@ -1660,6 +1723,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 017309603CA8,CARGO_TURRETS,9,20,12,4,4,2,22,22,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,604521701ddbfe79
 01740B605CA9,CARGO_TURRETS,9,22,10,3,2,5,20,39,Salvaged Fleet Beacon,C,0,,1,0,4,29,,,a217af2d2602da77
 017502608CA6,MEDI_TURRETS,8,11,18,3,2,4,14,26,Salvaged Fleet Fuel Unit,C,0,,1,0,0,24,,,40dffec5a0a5d390
+01750460CCAB,CARGO_TURRETS,10,44,19,4,3,3,31,14,Salvaged Fleet Combat Unit,C,0,,5,2,1.3,1.12.15.17.20,12.17,,00f383c65d37d559
 017508602CA9,MEDI_TURRETS,10,10,16,3,2,4,18,23,Salvaged Fleet Beacon,C,0,,1,0,2,9,,,8732db950b395c2d
 017508602CAA,CARGO_TURRETS,10,18,8,2,2,5,22,21,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,89ddb9396d466be7
 01750B605CA9,MEDI_TURRETS,10,16,10,3,2,3,17,16,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,9b81471971f7c665
@@ -1698,6 +1762,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 017E04609CA5,CARGO_TURRETS,10,30,12,2,1,8,28,29,Salvaged Fleet Exploration Unit,C,0,,2,0,3.6,23.35,,,e4de64f1761262d3
 017E08602CA9,MEDI_TURRETS,9,16,17,2,2,6,15,24,Salvaged Fleet Combat Unit,A,0,,0,0,,,,,c46748ec2eadac76
 017F08602CA9,CARGO_TURRETS,12,42,14,4,3,2,29,16,Salvaged Fleet Combat Unit,C,1,Salvaged Fleet Exploration Unit C,1,1,3,0,0,,f9e5395693263ad1
+018002605CAD,MEDI_FLOATERS,10,12,17,2,1,0,16,32,Salvaged Fleet Fuel Unit,C,0,,2,0,1.6,4.10,,,35a0665d54691828
 018005602CAA,MEDI_TURRETS,9,8,15,4,3,2,18,24,Salvaged Fleet Exploration Unit,S,0,,0,0,,,,,172ab8419ad9d0e8
 018009603CA8,MEDI_TURRETS,11,10,13,4,4,3,17,44,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,80b28470ac7dfdba
 018101604CAB,MEDI_TURRETS,10,7,12,4,3,3,22,35,Salvaged Hyperdrive Upgrade,C,0,,1,0,8,18,,,104311c373757bcf
@@ -1713,6 +1778,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 018402608CA6,MEDI_TURRETS,11,16,10,4,4,2,19,25,A-Class Reactor,A,0,,1,0,10,18,,,855a9c16995cced6
 018404609CA5,MEDI_TURRETS,10,12,17,2,1,3,14,41,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,ca45bc4ebb5f279b
 018405602CAC,CARGO_TURRETS,9,24,12,1,0,5,21,19,Salvaged Fleet Beacon,B,0,,0,0,,,,,41188d07c8b36ee8
+018406609CAF,MEDI_TURRETS,10,14,13,2,1,4,11,25,Salvaged Fleet Fuel Unit,C,0,,4,0,0.2.4,0.3.4.10,,,a28c188e0ae468f6
 018501604CAB,CARGO_TURRETS,9,18,16,2,2,2,21,37,C-Class Reactor,C,1,Salvaged Fleet Exploration Unit A,1,1,3,14,5,,ad9e47bf111ada15
 018502608CA6,CARGO_TURRETS,10,26,20,2,1,3,19,26,Salvaged Fleet Trade Unit,A,0,,2,0,5.7,32.38,,,3a941411a66783df
 018508602CA9,CARGO_TURRETS,9,22,18,2,1,5,22,24,Salvaged Hyperdrive Upgrade,C,0,,1,0,1,10,,,eb5215fe6d08dbd2
@@ -1721,9 +1787,12 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01860560CCAC,CARGO_TURRETS,9,25,15,3,2,3,18,27,Salvaged Fleet Beacon,C,0,,1,0,3,21,,,58ce68a819025253
 018703603CAE,MEDI_TURRETS,9,7,12,2,1,2,19,24,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,54a6c042b1824682
 018708602CA9,MEDI_TURRETS,9,9,12,4,3,2,16,16,Salvaged Fleet Fuel Unit,S,0,,0,0,,,,,e6b419f44b64ee3d
+018802605CAD,CARGO_TURRETS,11,30,20,2,1,3,19,37,Salvaged Fleet Beacon,C,0,,4,0,3.6,11.21.22.29,,,bfff37fc15ca2c67
+018902605CAD,CARGO_TURRETS,10,25,20,4,3,5,17,24,Salvaged Fleet Combat Unit,C,0,,2,1,3.5,12.28,12,,a93abff3172c3797
 018905602CAC,MEDI_TURRETS,9,10,15,2,2,1,24,44,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,9b5bb60977d8043d
 018908602CA9,MEDI_TURRETS,9,14,12,2,1,4,17,37,Salvaged Hyperdrive Upgrade,C,0,,1,0,2,7,,,59320e64a4d6aaf3
 018A01604CAB,MEDI_TURRETS,10,8,10,4,5,4,17,49,Salvaged Fleet Beacon,C,0,,0,0,,,,,c02ec5edabbaa973
+018A02605CAD,CARGO_TURRETS,10,25,14,3,4,3,30,57,Salvaged Fleet Exploration Unit,B,0,,2,0,7.8,29.37,,,3ef4c4fbc579c8cb
 018A04609CA5,CARGO_TURRETS,11,26,19,3,4,3,20,48,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,e31b5cbadfc91b95
 018A0560CCAC,CARGO_TURRETS,8,22,8,2,1,3,33,20,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,6a383f9054225e5f
 018A08602CAA,MEDI_TURRETS,8,10,11,1,0,4,12,17,Salvaged Fleet Combat Unit,C,0,,1,0,6,13,,,0f0972c4ee87de5d
@@ -1731,8 +1800,10 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 018B05602CAA,CARGO_TURRETS,9,22,13,2,1,2,22,11,Salvaged Fleet Mining Unit,A,0,,2,2,0.6,1.22,1.22,,5ad48f11c6ee6175
 018B09603CA8,MEDI_TURRETS,9,10,12,2,1,7,10,26,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,8371afbf647fe33a
 018C01604CAB,MEDI_TURRETS,11,12,16,1,0,3,20,23,Salvaged Fleet Combat Unit,C,0,,2,0,0.6,6.26,,,0accfb098d4cc5cf
+018C02605CAD,CARGO_TURRETS,9,22,15,1,0,3,23,58,Salvaged Fleet Trade Unit,S,0,,2,0,2,16.25,,,051edbebddb9e4cb
 018C03603CAE,CARGO_TURRETS,7,18,13,2,2,3,8,35,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,dd5e5e9e604f74a1
 018C04609CA5,MEDI_TURRETS,10,16,14,3,2,2,19,57,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,a682b9dde5446169
+018C0460CCAB,CARGO_TURRETS,11,32,17,4,5,3,32,51,Salvaged Fleet Mining Unit,B,0,,2,0,2.10,1.44,,,b8228ec481853116
 018D02603CA9,MEDI_TURRETS,11,22,14,4,3,4,13,34,Salvaged Fleet Fuel Unit,B,0,,1,1,0,1,1,,738718b972ceeba0
 018D02608CA6,CARGO_TURRETS,10,20,8,1,0,5,23,37,Salvaged Fleet Combat Unit,B,0,,2,0,6.8,18.23,,,5f5db8cb46b10628
 018D03603CAE,CARGO_TURRETS,10,36,14,3,2,3,37,19,Salvaged Hyperdrive Upgrade,C,0,,2,0,4.6,31.35,,,38986316137208bd
@@ -1764,6 +1835,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 019403603CAE,MEDI_TURRETS,9,10,9,4,3,2,12,38,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,8735b65087bbe452
 019404609CA5,CARGO_TURRETS,8,18,14,2,1,2,12,30,Salvaged Fleet Beacon,C,0,,1,1,1,14,14,,95ef1006974946bf
 019405602CAC,MEDI_TURRETS,11,9,11,4,3,3,17,15,C-Class Reactor,C,0,,0,0,,,,,49941533a5f4f0ea
+019406609CAF,MEDI_TURRETS,9,18,19,2,1,6,22,115,Salvaged Fleet Beacon,C,0,,2,0,0.6,3.13,,,f7053eea550d58dc
 019408602CA9,CARGO_TURRETS,7,21,14,1,0,3,17,63,Salvaged Fleet Fuel Unit,S,0,,0,0,,,,,8133e62d67d7ed6b
 01940B605CA9,CARGO_TURRETS,10,27,8,2,1,3,35,21,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,ba608ace83ff9786
 019501604CAB,CARGO_TURRETS,9,25,11,2,1,1,21,54,Salvaged Fleet Beacon,A,0,,1,0,8,32,,,c313bccaca9e6e58
@@ -1779,6 +1851,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 019901607CA7,MEDI_TURRETS,11,17,16,2,3,2,18,34,Salvaged Fleet Exploration Unit,S,0,,4,0,4.10,4.22.24.26,,,1aa3f22f06bb7445
 019902608CA6,MEDI_TURRETS,8,12,19,2,2,1,17,18,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,dd2f3f9cece08147
 01990560CCAC,MEDI_TURRETS,10,11,8,2,1,6,13,20,Salvaged Fleet Mining Unit,B,0,,1,0,4,11,,,bdd5deb55a716b33
+019A02605CAD,CARGO_TURRETS,11,35,10,4,3,5,35,32,Salvaged Hyperdrive Upgrade,C,0,,1,0,10,42,,,dd8c7459f84e84ad
 019A04609CA5,MEDI_TURRETS,10,10,15,3,4,2,12,19,Salvaged Fleet Beacon,C,0,,1,0,0,1,,,ee4f2000a95a4fff
 019A05602CAA,MEDI_TURRETS,9,19,7,3,2,3,23,40,Salvaged Fleet Exploration Unit,C,0,,1,0,8,19,,,8d361fa0816e62f4
 019A0560CCA9,CARGO_TURRETS,10,19,17,3,2,3,27,18,Salvaged Fleet Beacon,C,0,,0,0,,,,,d4b0082a06a42c0b
@@ -1845,6 +1918,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01AC05602CAA,MEDI_TURRETS,9,8,8,4,3,6,17,15,Salvaged Fleet Trade Unit,C,0,,2,1,2.5,1.14,14,,87d25e8a3001220d
 01AC08602CA9,MEDI_TURRETS,10,10,14,3,2,4,18,12,Salvaged Hyperdrive Upgrade,C,0,,1,0,4,3,,,993420c32c2ed18c
 01AD01607CA7,CARGO_TURRETS,9,20,16,2,1,3,23,14,C-Class Reactor,C,0,,3,0,2.6.8,8.28.30,,,42c550b7292de2bc
+01AD02606CAF,CARGO_TURRETS,11,32,16,4,3,5,24,41,A-Class Reactor,A,0,,1,0,3,24,,,d135c84bc51c0f2a
 01AD05602CAA,CARGO_TURRETS,9,17,19,2,2,5,21,35,Salvaged Fleet Exploration Unit,B,1,Salvaged Hyperdrive Upgrade B,0,0,,,,,b8433806a2e5bf62
 01AD0560CCA9,MEDI_TURRETS,9,18,9,3,3,2,13,21,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,3ce4bca8088a2418
 01AD08602CAA,MEDI_TURRETS,9,10,10,2,1,5,19,30,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,d089d64b9b438b9b
@@ -1861,13 +1935,16 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01B103603CAE,MEDI_TURRETS,11,14,7,4,3,4,22,28,Salvaged Fleet Mining Unit,B,0,,1,0,2,0,,,22084c760b345902
 01B108602CAA,CARGO_TURRETS,10,20,19,2,1,4,34,25,Salvaged Fleet Trade Unit,B,0,,0,0,,,,,5d1866682653beb1
 01B109603CA8,MEDI_TURRETS,9,16,13,2,1,2,16,17,Salvaged Fleet Fuel Unit,C,0,,1,0,1,15,,,0c68ed5a2e710abc
+01B206609CAF,CARGO_TURRETS,8,17,25,1,0,4,16,14,Salvaged Fleet Mining Unit,C,0,,3,0,3.6.7,5.8.40,,,120eaaa05d945f5b
 01B208602CA9,CARGO_TURRETS,9,30,19,3,4,3,24,20,Salvaged Fleet Beacon,C,0,,1,0,8,43,,,906ca8ba3641d01e
 01B20B605CA9,CARGO_TURRETS,9,40,15,4,3,3,34,10,Salvaged Fleet Combat Unit,A,0,,1,0,5,37,,,a527f86f03529d0c
 01B302603CA9,CARGO_TURRETS,9,45,9,2,2,4,27,23,Salvaged Fleet Beacon,C,0,,0,1,,,18,,d4431a38fdd5503e
 01B30560CCA9,CARGO_TURRETS,10,35,18,2,1,2,20,26,Salvaged Fleet Trade Unit,B,0,,3,2,5.7,17.31.35,39.48,,c211da10d3303cb8
 01B308602CAA,MEDI_TURRETS,12,12,5,4,5,2,11,23,Salvaged Hyperdrive Upgrade,C,0,,1,0,7,8,,,7f0136ec1d1a4190
 01B309603CA8,MEDI_TURRETS,10,10,12,4,4,2,14,27,Salvaged Fleet Trade Unit,A,0,,1,0,2,19,,,6d2e18194e0b34c3
+01B402606CAF,MEDI_TURRETS,9,13,6,2,1,4,19,50,Salvaged Fleet Fuel Unit,C,0,,2,0,2.7,5.15,,,ef0b4a0b745a2a38
 01B404609CA5,MEDI_TURRETS,9,15,7,4,3,2,15,15,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,a25b018bbf51c07a
+01B406609CAF,CARGO_TURRETS,9,25,14,2,1,3,24,46,C-Class Reactor,C,0,,3,0,1.4.7,11.25.38,,,9ce1bd35747faecb
 01B408602CA9,MEDI_TURRETS,8,9,9,3,2,3,18,21,Salvaged Fleet Combat Unit,B,0,,1,0,2,1,,,c51344a6f9ab8490
 01B501604CAB,CARGO_TURRETS,9,30,15,3,2,5,21,14,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,4ba46f02aa32b3c8
 01B505602CAC,CARGO_TURRETS,10,19,17,3,3,3,17,27,Salvaged Fleet Mining Unit,A,0,,2,0,5.9,22.27,,,1e63d107d6fb4932
@@ -1883,6 +1960,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01B802608CA6,MEDI_TURRETS,10,12,15,4,4,3,27,18,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,05395331c8b04783
 01B80560CCAC,CARGO_TURRETS,11,32,13,2,2,4,22,47,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,ec3a2008e3f80bce
 01B902603CA9,CARGO_TURRETS,11,32,11,4,6,2,24,10,Salvaged Fleet Fuel Unit,C,0,,3,2,0.8.10,8.31.35,16.31,,7950f723f2aa9350
+01B906609CAF,CARGO_TURRETS,10,29,13,2,1,2,24,14,Salvaged Fleet Trade Unit,C,0,,3,0,2.4.6,6.37.39,,,4e1a040444f5b472
 01B908602CA9,CARGO_TURRETS,10,22,17,3,2,3,25,64,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,65d1875eae330af9
 01B908602CAA,CARGO_TURRETS,11,22,10,2,1,3,25,14,Salvaged Fleet Exploration Unit,C,0,,1,0,3,11,,,e48e7ab6b62072eb
 01BA04609CA5,CARGO_TURRETS,9,22,22,2,1,5,17,78,Salvaged Fleet Exploration Unit,C,0,,1,1,3,27,4,,3fce63ec1ffd9041
@@ -1927,11 +2005,13 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01C408602CAA,CARGO_TURRETS,9,21,16,2,1,2,19,22,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,51982d55457dbb56
 01C40B605CA9,MEDI_TURRETS,12,11,12,2,3,4,20,28,Salvaged Fleet Mining Unit,B,0,,0,0,,,,,401fe731e523e013
 01C501604CAB,CARGO_TURRETS,9,27,20,2,2,3,28,32,Salvaged Fleet Trade Unit,C,0,,3,0,2.3.4,16.19.21,,,3b2ee31ed923c1fb
+01C502605CAD,CARGO_TURRETS,12,26,16,3,3,3,27,50,C-Class Reactor,C,0,,1,0,9,33,,,78f75811caddf013
 01C50560CCA9,CARGO_TURRETS,7,24,15,1,0,5,15,17,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,e7ea1ed1533a8285
 01C508602CAA,MEDI_TURRETS,10,10,12,3,3,5,16,40,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,c787f12713cb55d5
 01C601604CAB,CARGO_TURRETS,10,32,13,2,1,3,36,44,Salvaged Fleet Mining Unit,C,0,,1,0,9,36,,,2d1083e1c5deadaf
 01C603603CAE,CARGO_TURRETS,9,18,15,2,1,2,13,22,Salvaged Fleet Exploration Unit,C,0,,2,0,3.6,11.23,,,9b19584932bd868c
 01C604609CA5,CARGO_TURRETS,10,29,16,2,2,2,18,30,Salvaged Fleet Trade Unit,A,0,,1,1,3,17,17,,34038b33332aa696
+01C60460CCAB,CARGO_TURRETS,10,37,18,2,1,5,35,14,Salvaged Fleet Combat Unit,S,0,,2,0,6.9,36.52,,,4ffac3804516fcd4
 01C60560CCA9,CARGO_TURRETS,9,22,14,4,4,3,23,40,Salvaged Fleet Combat Unit,C,0,,2,0,1,14.16,,,2ba6dd7330e641aa
 01C608602CA9,CARGO_TURRETS,9,27,14,2,1,5,25,28,Salvaged Hyperdrive Upgrade,C,0,,2,0,3.4,9.16,,,4c9819b9ea253e56
 01C608602CAA,MEDI_TURRETS,10,10,11,2,3,6,20,20,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,2253ab589571f0b0
@@ -2040,6 +2120,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01E601604CAB,CARGO_TURRETS,9,19,13,3,2,3,23,42,Salvaged Fleet Fuel Unit,C,0,,2,0,5.7,13.22,,,25bb4284d58160f2
 01E602608CA6,CARGO_TURRETS,11,15,11,2,3,6,23,25,Salvaged Fleet Combat Unit,A,0,,1,0,6,18,,,2976455c24609843
 01E605602CAA,CARGO_TURRETS,11,37,11,3,3,3,34,34,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,8f0e050b05f5a08e
+01E606609CAF,MEDI_TURRETS,12,10,19,2,2,2,9,69,Salvaged Fleet Trade Unit,A,1,Salvaged Hyperdrive Upgrade A,2,0,7.9,17.22,,,7708d34c2512ae3a
 01E701604CAB,MEDI_TURRETS,10,14,7,3,2,2,20,11,Salvaged Fleet Exploration Unit,C,0,,1,1,2,4,20,,bd87ab4ecbfae195
 01E702603CA9,CARGO_TURRETS,8,20,14,2,2,6,15,20,Salvaged Fleet Trade Unit,A,0,,1,0,7,26,,,fff951b5785531a2
 01E704609CA5,MEDI_TURRETS,9,9,13,3,2,3,17,43,Salvaged Fleet Mining Unit,B,0,,1,0,7,14,,,8c8ca4438c67828a
@@ -2048,12 +2129,16 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01E80560CCAC,MEDI_TURRETS,10,9,8,3,3,2,10,28,A-Class Reactor,A,0,,0,0,,,,,491f7c6cf7eb2ddd
 01E808602CAA,MEDI_TURRETS,10,13,12,4,3,2,15,27,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,d7f16d8184298cfb
 01E901604CAB,CARGO_TURRETS,11,36,17,3,2,3,41,13,Salvaged Fleet Trade Unit,B,0,,2,1,1,12.16,11,,68493981ec735203
+01E902606CAF,CARGO_TURRETS,10,31,14,2,2,2,18,39,Salvaged Fleet Mining Unit,A,0,,2,1,5.7,26.30,24,,916d11666cde6c78
 01E903603CAE,CARGO_TURRETS,11,52,27,3,3,2,26,52,Salvaged Hyperdrive Upgrade,C,0,,3,0,1.3.4,19.34.74,,,e3989814213c4dbf
 01E90560CCAC,CARGO_TURRETS,9,22,18,3,2,4,19,28,Salvaged Fleet Exploration Unit,C,0,,2,0,1.4,2.24,,,f453b1ecbe2d814c
 01E909603CA8,MEDI_TURRETS,8,6,19,2,1,4,14,17,Salvaged Fleet Mining Unit,B,0,,1,0,6,14,,,498b98e2d7fbd2de
 01E90B605CA9,MEDI_TURRETS,9,14,16,4,3,2,19,38,Salvaged Fleet Fuel Unit,C,0,,2,0,3.6,6.20,,,56f02a809aca04a1
 01EA02603CA9,MEDI_TURRETS,10,11,8,3,4,6,17,29,Salvaged Fleet Exploration Unit,A,0,,1,0,5,7,,,57f9030bb0db9df6
+01EA02605CAD,MEDI_TURRETS,10,11,11,2,2,2,18,40,Salvaged Fleet Fuel Unit,B,0,,2,1,2.6,0.4,4,,b84497d82ac6447d
 01EA0560CCAC,CARGO_TURRETS,8,19,10,1,0,3,20,19,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,b434b6c9212325b2
+01EB02605CAD,MEDI_TURRETS,9,18,13,3,2,7,21,26,Salvaged Fleet Exploration Unit,C,1,Salvaged Fleet Fuel Unit C,2,0,3.7,18.26,,,2388ad44277c6a3b
+01EB02606CAF,CARGO_TURRETS,11,28,22,2,1,3,16,33,Salvaged Hyperdrive Upgrade,C,0,,2,0,5.6,34.49,,,ddbdfb438cf25865
 01EB0B605CA9,MEDI_TURRETS,11,12,1,2,1,2,19,19,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,d718143e40965ab8
 01EC01604CAB,CARGO_TURRETS,8,32,11,3,3,2,20,40,Salvaged Fleet Combat Unit,B,0,,1,0,0,4,,,60f806dbc7621b82
 01EC04609CA5,CARGO_TURRETS,10,30,18,2,2,7,20,51,Salvaged Fleet Fuel Unit,B,0,,2,0,0.2,4.25,,,cc16fcde37de3de8
@@ -2065,9 +2150,11 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01ED04609CA5,CARGO_TURRETS,10,37,13,2,1,2,30,45,Salvaged Fleet Trade Unit,S,0,,2,0,2.4,13.40,,,c6bde9509b5fa0dc
 01ED0560CCAC,CARGO_TURRETS,9,17,20,3,2,4,13,29,C-Class Reactor,C,0,,2,0,4.5,0.35,,,baa7cd4059dabea2
 01ED0B605CA9,MEDI_TURRETS,11,9,7,2,1,4,17,35,B-Class Reactor,B,0,,0,0,,,,,4f1ee563a1e62fc0
+01EE0460CCAB,CARGO_TURRETS,9,28,20,4,3,6,25,23,A-Class Reactor,A,0,,3,1,1.3.5,23.27.33,21,,dbac5b01e4f1d4e6
 01EE05602CAA,CARGO_TURRETS,11,29,15,4,3,3,19,17,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,b5791917d3ea40d6
 01EE0560CCAC,CARGO_TURRETS,9,29,13,2,1,3,16,43,Salvaged Fleet Mining Unit,B,0,,3,0,2.5,0.21.29,,,b78a2daba0b4cdc3
 01EE09603CA8,CARGO_TURRETS,10,28,12,2,1,3,23,93,Salvaged Fleet Fuel Unit,C,0,,2,0,2.5,15.36,,,fc144d3f131afba4
+01EF02605CAD,MEDI_FLOATERS,9,9,14,3,2,0,23,45,Salvaged Fleet Combat Unit,C,0,,1,0,2,3,,,0e48dfba89ba00bd
 01EF09603CA8,CARGO_TURRETS,10,24,16,4,3,4,31,21,Salvaged Fleet Beacon,C,0,,0,0,,,,,64de1cf4fc736203
 01F002603CA9,CARGO_TURRETS,10,32,15,4,3,2,23,28,Salvaged Hyperdrive Upgrade,C,0,,1,0,0,42,,,c29daaea359003d8
 01F003603CAE,CARGO_TURRETS,10,43,18,2,2,2,37,31,Salvaged Fleet Trade Unit,C,0,,3,0,1.7,7.46.51,,,d793ecf4d86b583d
@@ -2106,10 +2193,12 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 01F909603CA8,MEDI_TURRETS,10,15,15,2,1,6,14,32,Salvaged Hyperdrive Upgrade,A,0,,2,0,6.8,4.6,,,ffa910902935ae57
 01FA02603CA9,CARGO_TURRETS,9,21,19,2,1,5,15,44,Salvaged Fleet Trade Unit,C,0,,1,0,5,28,,,4afd509fbda4a41b
 01FA04609CA5,CARGO_TURRETS,9,26,19,1,0,6,16,19,Salvaged Fleet Mining Unit,A,0,,2,0,4,30.31,,,f63e96057990804d
+01FA0460CCAB,CARGO_TURRETS,10,39,15,2,1,6,32,16,Salvaged Hyperdrive Upgrade,C,0,,2,0,7.9,44.50,,,8b4e11274e0473a2
 01FA05602CAA,CARGO_TURRETS,10,23,18,3,2,4,26,28,Salvaged Fleet Exploration Unit,C,1,Salvaged Fleet Mining Unit C,2,1,7,20.29,20,,a146cd63787f9227
 01FA09603CA8,CARGO_TURRETS,10,30,14,4,5,3,26,27,C-Class Reactor,C,0,,1,0,4,21,,,d1d1a2a3fcba3efa
 01FB05602CAA,CARGO_TURRETS,10,31,10,4,3,2,15,27,Salvaged Fleet Trade Unit,A,0,,1,0,5,22,,,304bb586be83d368
 01FC01604CAB,CARGO_TURRETS,9,34,18,2,3,4,39,37,Salvaged Fleet Fuel Unit,C,0,,2,0,1.3,4.24,,,2fa95235bd3c535b
+01FC02606CAF,CARGO_TURRETS,11,28,9,2,2,6,22,8,Salvaged Fleet Exploration Unit,A,0,,2,1,0.6,11.30,30,,4698233018d998c4
 01FC03603CAE,MEDI_TURRETS,10,13,23,3,2,4,22,80,Salvaged Fleet Mining Unit,C,0,,0,0,,,,,1bad62a7d834c7df
 01FC0560CCA9,CARGO_TURRETS,9,35,11,4,3,4,19,20,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,da8404b92e9087cc
 01FC0B605CA9,MEDI_TURRETS,11,12,11,3,4,4,17,58,Salvaged Fleet Fuel Unit,A,0,,1,0,8,14,,,5224750667b35df4
@@ -2134,6 +2223,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 02040B605CA9,MEDI_TURRETS,10,12,12,2,3,7,14,36,Salvaged Hyperdrive Upgrade,C,0,,0,0,,,,,ab412c7c95335e17
 020501604CAB,CARGO_TURRETS,9,31,16,2,1,2,20,44,Salvaged Fleet Fuel Unit,B,0,,0,1,,,20,,81cef463f385d878
 020502603CA9,CARGO_TURRETS,12,28,12,3,2,8,24,12,Salvaged Fleet Mining Unit,B,0,,3,1,0.5.7,3.5.19,3,,49d82de651d9bac8
+020502606CAF,CARGO_TURRETS,10,35,16,2,2,6,44,17,Salvaged Hyperdrive Upgrade,B,0,,2,0,0.6,12.50,,,d7f4246f10e8ad4e
 020502608CA6,MEDI_TURRETS,10,14,21,2,1,10,19,45,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,ca10e93b380225a4
 020505602CAA,MEDI_TURRETS,10,11,10,3,3,2,24,9,B-Class Reactor,B,0,,0,0,,,,,aef600a6ec57da85
 020602603CA9,MEDI_TURRETS,11,14,10,2,3,6,15,25,Salvaged Fleet Fuel Unit,C,0,,2,0,2.6,15.17,,,839b3ff8446e2de0
@@ -2141,6 +2231,7 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 020702603CA9,CARGO_TURRETS,9,17,14,2,4,2,10,16,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,1327d08c085d7a8f
 020709603CA8,CARGO_TURRETS,8,29,20,1,0,2,21,16,Salvaged Fleet Combat Unit,A,0,,2,0,2,12.20,,,9bc9a374779ed7d1
 02070B605CA9,CARGO_TURRETS,10,30,21,2,3,7,19,31,Salvaged Fleet Exploration Unit,C,0,,1,0,3,13,,,2bd9a279cad30bf7
+020802605CAD,CARGO_TURRETS,9,17,9,4,3,3,13,20,Salvaged Fleet Mining Unit,A,0,,2,0,0.1,6.12,,,b09cbf82ddea3e87
 020802608CA6,MEDI_TURRETS,9,4,9,4,3,2,17,25,B-Class Reactor,B,1,Salvaged Fleet Beacon A,1,0,6,12,,,86b4d2ee4e4cc426
 020803603CAE,MEDI_TURRETS,10,13,8,2,1,3,21,36,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,2d49629f0f264a1a
 020805602CAA,CARGO_TURRETS,10,39,15,1,0,6,42,18,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,45595d10b9c6974a
@@ -2151,11 +2242,13 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 020A01604CAB,CARGO_TURRETS,9,28,28,2,1,3,26,30,Salvaged Fleet Trade Unit,C,0,,0,0,,,,,ba53a0b0aef8fb92
 020A08602CAA,CARGO_TURRETS,9,18,12,2,1,7,15,44,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,,276c0cf77bba62e6
 020A0B605CA9,MEDI_TURRETS,11,9,7,2,2,3,21,24,Salvaged Fleet Trade Unit,C,0,,1,0,6,8,,,93f66f1f85f53892
+020B02605CAD,CARGO_TURRETS,9,33,20,1,0,4,26,53,Salvaged Fleet Mining Unit,C,0,,1,0,4,20,,,adfb6106ce88b1a0
 020B05602CAA,MEDI_TURRETS,11,15,13,4,4,3,16,49,Salvaged Fleet Fuel Unit,A,0,,1,0,8,14,,,8b6a23349831432d
 020C02608CA6,MEDI_TURRETS,10,12,12,4,3,3,15,48,Salvaged Fleet Combat Unit,A,0,,0,0,,,,,aa4c3ec71c593741
 020C08602CAA,MEDI_TURRETS,10,10,8,3,4,3,22,36,Salvaged Fleet Beacon,C,0,,0,0,,,,,2040c42633a74aa0
 020C0B605CA9,CARGO_TURRETS,12,36,14,3,2,3,32,32,Salvaged Fleet Mining Unit,A,0,,0,0,,,,,ff5542fe979cab78
 020D09603CA8,CARGO_TURRETS,9,36,15,2,1,3,28,36,Salvaged Fleet Fuel Unit,C,0,,2,0,3.8,26.44,,,1a330fe91d8f8a0c
+020E02606CAF,MEDI_TURRETS,10,15,13,3,2,2,19,22,Salvaged Fleet Fuel Unit,C,0,,3,2,1.3,2.6.20,3.6,,fb4bb8bc924a7995
 020E03603CAE,MEDI_TURRETS,9,10,21,2,3,4,20,45,Salvaged Fleet Mining Unit,B,0,,1,0,6,9,,,3badd7e281da2cad
 020E05602CAA,MEDI_TURRETS,9,11,11,2,1,2,14,56,Salvaged Fleet Fuel Unit,C,0,,0,0,,,,,e30aa3eb83ca6859
 020E08602CAA,CARGO_TURRETS,12,38,14,2,1,5,42,17,Salvaged Fleet Fuel Unit,C,0,,2,0,7,4.22,,,c7a9cc35a600dbd1
@@ -2196,8 +2289,10 @@ glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_loc
 022002603CA9,MEDI_TURRETS,11,10,22,3,2,2,13,104,Salvaged Fleet Exploration Unit,B,0,,0,0,,,,,2527026c35862b4a
 022008602CAA,MEDI_TURRETS,10,14,13,2,2,4,17,22,Salvaged Fleet Combat Unit,B,0,,2,1,4.7,7.18,7,,3aee3a073c90eec1
 02210B605CA9,CARGO_TURRETS,9,35,27,3,4,4,35,22,Salvaged Fleet Fuel Unit,C,0,,1,0,5,10,,,2d28d9b69a6c624f
+022202605CAD,CARGO_TURRETS,11,35,26,2,1,4,36,57,Salvaged Fleet Trade Unit,C,0,,4,0,0.2.8,13.20.24.51,,,c907003083de659e
 02220B605CA9,CARGO_TURRETS,9,24,14,3,2,1,19,47,Salvaged Hyperdrive Upgrade,A,0,,1,0,5,37,,,b28edd4926c86d65
 022302603CA9,CARGO_TURRETS,10,37,17,2,3,6,25,25,Salvaged Fleet Mining Unit,B,0,,1,0,3,28,,,8b6c6941727794b2
+022302605CAD,CARGO_TURRETS,10,23,21,2,2,4,22,48,Salvaged Fleet Fuel Unit,C,0,,1,0,3,16,,,60073cf56f4aaac8
 022305602CAA,MEDI_TURRETS,10,14,18,1,0,3,17,33,Salvaged Fleet Combat Unit,C,0,,0,0,,,,,cdbfee4548e27e82
 02230B605CA9,CARGO_TURRETS,8,13,8,1,0,3,14,35,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,,6ae2923e42f89636
 022402603CA9,MEDI_TURRETS,10,17,6,2,2,8,17,17,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,,9ddfd459457bfe72
