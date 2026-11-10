@@ -1,4 +1,4 @@
-# nms-derelict-atlas index format 6: 331526 systems; map > 0 = full map in views/top100.json.gz; map = bits of the map lists it is in (1 most crates + footlockers, 2 most frigate modules, 4 kept for an S-class end reward, 16384 map from before the lists (kept); all lists: stats/systems.json map_lists); built from regions/ (the verified source); empty optional fields = not computed yet; game_build mixed (7.05 13D5060D, 7.10 D1C71557, 7.10-b26295378 D393C678): see the game_build column; plus 971930 slim systems (module count only, '# slim_modules' lines of the region files; totals in stats/systems.json)
+# nms-derelict-atlas index format 6: 331577 systems; map > 0 = full map in views/top100.json.gz; map = bits of the map lists it is in (1 most crates + footlockers, 2 most frigate modules, 4 kept for an S-class end reward, 16384 map from before the lists (kept); all lists: stats/systems.json map_lists); built from regions/ (the verified source); empty optional fields = not computed yet; game_build mixed (7.05 13D5060D, 7.10 D1C71557, 7.10-b26295378 D393C678): see the game_build column; plus 1024117 slim systems (module count only, '# slim_modules' lines of the region files; totals in stats/systems.json)
 glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,game_build
 000102605CA8,0,MEDI_MAZE,7,10,8,2,1,0,0,15,20,Salvaged Fleet Mining Unit,A,0,,0,0,,,,7.05 13D5060D
 000102608CA5,0,MEDI_FLOATERS,10,12,24,2,1,0,0,15,126,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,7.10-b26295378 D393C678
@@ -1741,6 +1741,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 002B0960ACA7,0,MEDI_TURRETS,10,14,12,2,2,3,0,27,55,Salvaged Hyperdrive Upgrade,C,0,,1,0,1,12,,7.05 13D5060D
 002B0A605CA9,0,MEDI_SLIME,9,5,0,4,3,0,0,30,11,Salvaged Fleet Trade Unit,S,0,,0,0,,,,7.05 13D5060D
 002B0A606CAA,0,MEDI_BUGS,13,7,2,2,4,0,0,26,16,Salvaged Fleet Mining Unit,B,0,,0,0,,,,7.05 13D5060D
+002B0B604CA2,0,CARGO_FLOATERS,13,64,15,4,3,0,128,45,32,Salvaged Fleet Trade Unit,B,0,,3,1,2.9,25.28.78,78,7.10-b26295378 D393C678
 002C02605CA8,0,MEDI_BUGS,10,4,7,2,1,0,0,32,14,A-Class Reactor,A,0,,0,0,,,,7.05 13D5060D
 002C02608CA5,0,CARGO_BUGS,11,29,10,3,2,0,0,30,45,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,7.10-b26295378 D393C678
 002C02609CAA,0,MEDI_TURRETS,11,19,12,2,2,4,0,11,37,Salvaged Fleet Beacon,C,0,,0,0,,,,7.05 13D5060D
@@ -3204,6 +3205,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 004F0960ACA7,0,MEDI_FLOATERS,10,12,10,4,3,0,0,18,11,Salvaged Fleet Trade Unit,A,0,,1,0,5,5,,7.05 13D5060D
 004F0A605CA9,0,CARGO_SLIME,11,23,1,4,3,0,0,33,29,Salvaged Fleet Beacon,B,0,,1,0,8,13,,7.05 13D5060D
 004F0A606CAA,0,CARGO_TURRETS,7,28,15,2,3,3,0,23,32,Salvaged Fleet Mining Unit,C,0,,1,0,1,8,,7.05 13D5060D
+004F0D5FFCAB,0,CARGO_FLOATERS,12,49,26,4,4,0,2048,33,35,Salvaged Fleet Trade Unit,S,0,,2,0,1.3,2.6,,7.10-b26295378 D393C678
 005002605CA8,0,CARGO_TURRETS,10,30,11,2,1,4,0,24,16,Salvaged Fleet Fuel Unit,A,0,,1,0,8,39,,7.05 13D5060D
 005002609CAA,0,CARGO_BUGS,9,19,6,1,0,0,0,17,25,Salvaged Fleet Trade Unit,C,0,,0,0,,,,7.05 13D5060D
 005003603CAA,0,MEDI_BUGS,12,6,6,4,3,0,0,24,19,Salvaged Fleet Combat Unit,B,0,,0,0,,,,7.05 13D5060D
@@ -7841,6 +7843,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 00C20960ACA7,0,MEDI_BUGS,11,8,7,3,5,0,0,28,20,Salvaged Fleet Exploration Unit,C,0,,0,0,,,,7.05 13D5060D
 00C20A605CA9,0,CARGO_MAZE,7,21,8,2,2,0,0,18,11,Salvaged Fleet Trade Unit,B,0,,0,0,,,,7.05 13D5060D
 00C20A606CAA,0,CARGO_BUGS,11,26,8,3,3,0,0,17,21,Salvaged Fleet Beacon,B,0,,2,2,2,5.10,5.10,7.05 13D5060D
+00C2FE604CA6,0,CARGO_FLOATERS,12,56,30,3,2,0,0,37,60,Salvaged Hyperdrive Upgrade,C,0,,1,0,4,39,,7.10-b26295378 D393C678
 00C302605CA8,0,CARGO_BUGS,9,22,13,2,1,0,0,30,26,Salvaged Fleet Beacon,C,0,,0,0,,,,7.05 13D5060D
 00C302608CA5,0,MEDI_FLOATERS,8,6,20,2,2,0,0,18,30,Salvaged Fleet Trade Unit,C,0,,0,1,,,3,7.10-b26295378 D393C678
 00C302609CAA,0,CARGO_SLIME,10,26,7,2,1,0,0,27,22,Salvaged Fleet Mining Unit,C,0,,0,1,,,4,7.05 13D5060D
@@ -14764,7 +14767,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 018506604CA9,0,CARGO_MAZE,7,24,11,3,2,0,0,21,23,Salvaged Fleet Beacon,B,0,,1,0,4,18,,7.05 13D5060D
 018506607CAA,0,CARGO_BUGS,10,16,6,2,1,0,0,,,Salvaged Fleet Beacon,C,0,,1,0,0,1,,7.05 13D5060D
 01850660ACAA,0,MEDI_BUGS,10,8,6,1,0,0,0,13,18,Salvaged Fleet Combat Unit,B,0,,1,1,4,11,11,7.05 13D5060D
-01850660BCA9,0,CARGO_FLOATERS,7,52,18,1,0,0,16386,29,30,Salvaged Fleet Exploration Unit,C,0,,6,1,1.2.4.5,13.14.23.32.47.60,4,7.05 13D5060D
+01850660BCA9,0,CARGO_FLOATERS,7,52,18,1,0,0,16384,29,30,Salvaged Fleet Exploration Unit,C,0,,6,1,1.2.4.5,13.14.23.32.47.60,4,7.05 13D5060D
 018507604CAB,0,CARGO_SLIME,9,21,11,2,2,0,0,21,16,Salvaged Fleet Exploration Unit,C,0,,2,0,0.1,3.17,,7.05 13D5060D
 018507605CAD,0,MEDI_TURRETS,8,13,13,2,1,8,0,15,58,Salvaged Fleet Mining Unit,B,0,,0,0,,,,7.05 13D5060D
 018508606CA8,0,MEDI_TURRETS,10,14,14,3,2,2,0,,,Salvaged Fleet Mining Unit,C,0,,0,0,,,,7.05 13D5060D
@@ -16568,7 +16571,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 01BA03605CAC,0,CARGO_TURRETS,7,20,15,2,2,5,0,9,79,Salvaged Fleet Fuel Unit,B,0,,0,0,,,,7.05 13D5060D
 01BA04603CA9,0,MEDI_BUGS,10,4,6,2,1,0,0,18,14,Salvaged Fleet Trade Unit,A,0,,0,0,,,,7.05 13D5060D
 01BA04606CAC,0,MEDI_TURRETS,9,14,19,3,4,6,0,,,Salvaged Fleet Trade Unit,B,0,,0,0,,,,7.05 13D5060D
-01BA04607CAE,0,CARGO_MAZE,7,13,35,2,1,0,80,13,137,Salvaged Fleet Trade Unit,B,0,,1,0,2,46,,7.05 13D5060D
+01BA04607CAE,0,CARGO_MAZE,7,13,35,2,1,0,64,13,137,Salvaged Fleet Trade Unit,B,0,,1,0,2,46,,7.05 13D5060D
 01BA04608CA6,0,CARGO_TURRETS,9,20,17,3,2,6,0,16,24,Salvaged Fleet Mining Unit,B,0,,0,0,,,,7.05 13D5060D
 01BA04608CAD,0,CARGO_BUGS,10,28,6,2,1,0,0,18,19,Salvaged Fleet Mining Unit,C,0,,1,0,3,7,,7.05 13D5060D
 01BA0460ACA7,0,CARGO_TURRETS,8,19,14,3,2,7,0,12,17,Salvaged Fleet Beacon,C,0,,1,0,1,12,,7.05 13D5060D
@@ -17001,6 +17004,7 @@ glyphs,galaxy,preset,rooms,crates,footlockers,floors,stairs,hangars,map,briefcas
 01C60A606CAA,0,MEDI_BUGS,10,10,9,2,2,0,0,28,20,Salvaged Fleet Combat Unit,C,0,,0,0,,,,7.05 13D5060D
 01C702605CA8,0,CARGO_FLOATERS,10,19,15,3,3,0,0,31,28,Salvaged Fleet Beacon,A,0,,1,0,4,31,,7.05 13D5060D
 01C702609CAA,0,MEDI_TURRETS,10,10,12,4,3,3,0,20,23,Salvaged Fleet Trade Unit,C,0,,2,0,0.1,5.7,,7.05 13D5060D
+01C703602CB2,0,CARGO_FLOATERS,13,36,10,4,3,0,65536,41,54,Salvaged Hyperdrive Upgrade,C,0,,1,0,6,19,,7.10-b26295378 D393C678
 01C703603CAA,0,CARGO_FLOATERS,10,39,20,4,3,0,0,18,45,Salvaged Fleet Exploration Unit,C,0,,1,0,2,22,,7.05 13D5060D
 01C703604CA7,0,CARGO_BUGS,12,30,5,4,3,0,0,22,31,Salvaged Hyperdrive Upgrade,B,0,,0,0,,,,7.05 13D5060D
 01C703604CAE,0,CARGO_FLOATERS,11,48,17,2,1,0,0,45,48,Salvaged Fleet Trade Unit,C,0,,2,0,8.9,57.63,,7.05 13D5060D
