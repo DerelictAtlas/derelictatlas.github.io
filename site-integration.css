@@ -761,3 +761,8 @@ a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .4
    (padding 8 px), so the grid track grew to the svg and it sat 1-4 px right and down. No padding, flex centring. */
 .app-header .header-tools .icon-button { padding: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .app-header .header-tools .icon-button svg { display: block; flex: none; margin: 0; vertical-align: top; }
+
+/* v160: two figures (Systems in the atlas / Scanned) */
+.site-scanned-note { margin: -4px 0 8px; font-size: 12px; color: var(--muted, #94a9bc); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+html.dv-sysmin .site-scanned-note { display: none; }
+.si-tiles4.si-two { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }

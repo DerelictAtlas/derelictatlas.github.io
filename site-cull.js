@@ -2,6 +2,8 @@
  * Policy (user, decided): every scanned system counts. Per region and per scan session the browser uploads full rows for at
  * least 1 in 10 scanned systems (ceil(n/10), best by modules) plus every system that enters a top-100 list. The others are
  * reported only as a "scanned" bit in a per-region bitmap and one module character each.
+ * v160: when stats/systems.json rules.cap_reached === true (past the 1,000,000 bar) only the top-100 entrants are kept as full rows; every other scanned system
+ * is a bit + module character only (the keep share of 1 in 10 drops to 0). Fail safe: file or key missing = false = the 1-in-10 rule. dvCull.capped() / setCap(bool).
  * v158: relay 1.4 answers (scanned uploads are off, bad scanned part) handled in badRequest/answer. v157: see the "v157" notes below (400 handling, decided set, probe after switch-off, counted set).
  * Switched on only by DV_CONFIG.relayScanned === true (same pattern as relayFinder / relayPerf: relay 1.3 answers 400 to the
  * unknown key "scanned" for the WHOLE batch, so it stays false until the Pi runs relay 1.4). Off = today's behaviour, nothing changes.
@@ -18,6 +20,29 @@
   const cfg = () => globalThis.DV_CONFIG || {};
   let off = false;                                     // v157: switched off (no new culling) after relay 1.3's key error; the pending bits are KEPT and one scanned-only probe is tried later
   let probeAt = 0, offStep = 0, bad400 = 0;
+  // v160: past-the-cap flag. Only a real boolean true from stats/systems.json turns it on; a failed fetch keeps the last value (start: false).
+  // It is read at release time (region end), so a flip in the middle of a session is safe: top-100 entrants were sent at once and never wait for it.
+  let cap = false, capAt = 0;
+  // v160: the two figures. atlas = kept rows (regions + singles), scanned = everything counted (community.total). No community block = {com:false}: callers show today's single number.
+  // v160b: goals are 1M (the atlas cap), then 10M, then every 10M after that (20M, 30M ...); compact = 1.23M / 449k for narrow places
+  const compact = (n) => (n >= 999500 ? String(Math.round(n / 1e4) / 100) + "M" : n >= 1e3 ? String(Math.round(n / 1e3)) + "k" : String(Math.round(n)));
+  const nextGoal = (t, cap) => (t < cap ? cap : t < 1e7 ? 1e7 : (Math.floor(t / 1e7) + 1) * 1e7);
+  const figures = (s) => {
+    const c = s && s.community, t = c ? Number(c.total) : 0;
+    if (!(t > 0)) return { com: false };
+    const cap = Number(s.rules && s.rules.atlas_cap) || Number(c.atlas_cap) || 1000000, atlas = Math.max(0, t - (Number(c.scanned_no_row) || 0));
+    const goal = nextGoal(t, cap);
+    return { com: true, atlas, scanned: t, cap, over: t >= cap, goal, goalText: compact(goal), compact, pct: Math.min(100, t / goal * 100), scannedText: t.toLocaleString("en-US"), scannedShort: compact(t), atlasText: atlas.toLocaleString("en-US") };
+  };
+  const setCap = (v) => { cap = v === true; capAt = Date.now(); };
+  const capRefresh = () => {
+    try {
+      if (typeof fetch !== "function") return Promise.resolve(cap);
+      return fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null))
+        .then((s) => { if (s && s.rules && "cap_reached" in s.rules) setCap(s.rules.cap_reached); else if (s) setCap(false); return cap; })
+        .catch(() => cap);
+    } catch (_) { return Promise.resolve(cap); }
+  };
   const flagOk = () => cfg().relayScanned === true && !!String(cfg().scanRelay || "");
   const on = () => flagOk() && !off;
   const MAX_REG = 32, MAX_BYTES = 65536, MAX_BITS = 8192, MAX_IDX = 0x428, DIV = 10, IDLE_MS = 60000, NEAR_IDLE_MS = 15000, HOLD_MAX = 4000;
@@ -162,7 +187,7 @@
     let keep;
     if (all || !on()) keep = cells;
     else {
-      const k = Math.ceil(grp.n / DIV);                                // n = every system scanned in this region this session
+      const k = cap ? 0 : Math.ceil(grp.n / DIV);                      // n = every system scanned in this region this session; v160: past the cap only top-100 entrants are rows
       keep = cells.filter((c) => !c.top).sort(better).slice(0, k);     // top-100 entrants were sent at once and come on top of the k
       stat.culled += cells.length - keep.length;
     }
@@ -224,8 +249,10 @@
 
   const reg = (src, h) => srcs.set(src, h || {});
   setInterval(() => { try { sweep(Date.now()); } catch (_) {} }, 10000);
+  setTimeout(() => { try { capRefresh(); } catch (_) {} }, 0);
+  setInterval(() => { try { capRefresh(); } catch (_) {} }, 600000);   // v160: refreshed every 10 minutes while the page is open
   // the page goes to the background or closes: decide now so the kept rows join the batch the page hands over
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") end(); });
   addEventListener("pagehide", () => end());
-  globalThis.dvCull = { on, ready, badRequest, counted: (a) => counted.has(String(a).toUpperCase()), culled: (a) => decided.get(String(a).toUpperCase()) === 0, decidedSize: () => decided.size, metaOf, reg, add, end, has, take, giveBack, body, answer, disable, fpOf, modChar, stats: () => Object.assign({ held: held.size, heldRows, pendingBits: pbits, hold: Math.max(0, hold - Date.now()), on: on(), flag: cfg().relayScanned }, stat), big: () => pbits >= MAX_BITS / 2 };
+  globalThis.dvCull = { figures, capped: () => cap, setCap, capRefresh, on, ready, badRequest, counted: (a) => counted.has(String(a).toUpperCase()), culled: (a) => decided.get(String(a).toUpperCase()) === 0, decidedSize: () => decided.size, metaOf, reg, add, end, has, take, giveBack, body, answer, disable, fpOf, modChar, stats: () => Object.assign({ held: held.size, heldRows, pendingBits: pbits, hold: Math.max(0, hold - Date.now()), on: on(), flag: cfg().relayScanned }, stat), big: () => pbits >= MAX_BITS / 2 };
 })();

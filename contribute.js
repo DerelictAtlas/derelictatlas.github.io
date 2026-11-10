@@ -84,6 +84,25 @@
   let speed = jsonGet(SPEED_KEY, phone ? "gentle" : "balanced");
   if (!SPEEDS[speed]) speed = "balanced";
   let sortBy = jsonGet(SORT_KEY, "modules");
+  // ---- v159 "Which derelicts": Complete (default) scans every system; Fast first scans only the ticked derelict types and leaves the
+  // others UNSCANNED and UNMARKED (no done mark, no scanned bit, not counted: they stay on the work list). The type of a system is
+  // known from its address alone (site-preset.js), so a skipped system costs no scan time. Only WHICH systems are scanned changes.
+  const WHICH_KEY = "dv.contrib.which", DEF_SKIP = ["MEDI_TURRETS", "CARGO_TURRETS"];
+  const PRE = globalThis.dvPreset || null, TYPES = PRE ? PRE.NAMES : [];
+  // typical numbers for the table: ms per scan in a desktop browser (headless Chrome, measured 2026-11-10, no throttling; see FINDINGS 11.3)
+  // and salvaged frigate modules per system (scanner app database, 277k systems). Your device replaces the first after 10 scans of a type.
+  const TYPICAL_MS = { MEDI_TURRETS: 1870, CARGO_TURRETS: 1010, MEDI_FLOATERS: 574, CARGO_FLOATERS: 399, MEDI_SLIME: 276, CARGO_SLIME: 198, MEDI_BUGS: 190, CARGO_BUGS: 166, MEDI_MAZE: 76, CARGO_MAZE: 63 };
+  const TYPICAL_MODS = { MEDI_TURRETS: 0.615, CARGO_TURRETS: 1.023, MEDI_FLOATERS: 0.600, CARGO_BUGS: 0.799, MEDI_BUGS: 0.327, CARGO_FLOATERS: 1.187, CARGO_SLIME: 0.462, MEDI_SLIME: 0.157, MEDI_MAZE: 0.525, CARGO_MAZE: 0.873 };
+  let which = (() => {
+    const j = jsonGet(WHICH_KEY, null) || {};
+    const skip = Array.isArray(j.skip) ? j.skip.filter((x) => TYPES.includes(x)) : DEF_SKIP.slice();
+    return { mode: PRE && j.mode === "fast" ? "fast" : "complete", skip: skip.length >= TYPES.length ? DEF_SKIP.slice() : skip };
+  })();
+  let skipFlag = new Uint8Array(16);
+  function whichApply() { skipFlag = new Uint8Array(16); if (which.mode === "fast") for (const t of which.skip) { const i = TYPES.indexOf(t); if (i >= 0) skipFlag[i] = 1; } for (const l of work) l.dead = 0; }
+  const fastOn = () => which.mode === "fast" && !!PRE;
+  whichApply();
+  const typeMs = {};   // preset -> {n, sum}: scans of this session on this device
   const SPEED_NAME = { gentle: "Gentle", balanced: "Balanced", max: "Maximum" };
   const SPEED_NOTE = { gentle: "Gentle: light on the battery, your device stays quick for other things.",
     balanced: "Balanced: uses about half of your device's power.",
@@ -97,10 +116,16 @@
     const total = com ? Number(com.total) : (Number(s.total_systems) || 0) + (Number(s.singles) || 0), cap = Number(s.rules && s.rules.atlas_cap) || (com && Number(com.atlas_cap)) || CAP, pct = Math.min(100, total / cap * 100);
     { const cnt = $("cb-counted"), only = com ? Number(com.scanned_no_row) || 0 : 0; if (cnt) { cnt.hidden = !only; cnt.textContent = only ? `${fmt(only)} of them were scanned and counted without a stored row (module count only).` : ""; }
       const row = $("cs-counted-row"); if (row) { row.hidden = !only; if ($("cs-counted")) $("cs-counted").textContent = fmt(only); } }
-    $("cb-total").textContent = fmt(total);
-    if ($("cs-total")) { $("cs-total").textContent = fmt(total); $("cs-singles").textContent = fmt(Number(s.singles) || 0); }
-    $("cb-bar-fill").style.width = pct.toFixed(2) + "%";
-    $("cb-bar").setAttribute("aria-valuenow", pct.toFixed(1));
+    const fg = globalThis.dvCull && globalThis.dvCull.figures ? globalThis.dvCull.figures(s) : { com: false };   // v160: two figures when the stats have a community block
+    $("cb-total").textContent = fg.com ? fg.scannedText : fmt(total);
+    { const sp = $("cb-big-sub"); if (sp) sp.innerHTML = fg.com ? `scanned, next goal <b>${fg.goalText}</b>` : `of <b>1,000,000</b> systems in the atlas`; const at = $("cb-atlasline"); if (at) { at.hidden = !fg.com; if (fg.com) at.innerHTML = `<b>${fg.atlasText}</b> systems in the atlas (kept results)`; } }
+    if ($("cs-total")) { $("cs-total").textContent = fg.com ? fg.atlasText : fmt(total); const sr = $("cs-scanned-row"); if (sr) { sr.hidden = !fg.com; if (fg.com) $("cs-scanned").textContent = fg.scannedText; } $("cs-singles").textContent = fmt(Number(s.singles) || 0); }
+    const pb = fg.com ? fg.pct : pct;   // v160b: the bar fills toward the next goal (1M, then 10M, 20M ...)
+    $("cb-bar-fill").style.width = pb.toFixed(2) + "%";
+    $("cb-bar").setAttribute("aria-valuenow", pb.toFixed(1));
+    { const tk = document.querySelectorAll(".cb-ticks span"); if (tk.length === 4) tk.forEach((x, i) => { x.textContent = fg.com ? fg.compact(fg.goal * (i + 1) / 4) : ["250k", "500k", "750k", "1M"][i]; }); }
+    if (globalThis.dvCull && globalThis.dvCull.setCap) globalThis.dvCull.setCap(!!(s.rules && s.rules.cap_reached === true));   // v160: the same file, no extra fetch
+    { const pc = $("cb-postcap"); if (pc) { pc.hidden = !(s.rules && s.rules.cap_reached === true); } }
     $("cb-togo").textContent = s.rules && s.rules.cap_reached
       ? "The atlas has reached a million systems: from now on only systems that break into a top-100 list are saved."
       : `${pct.toFixed(1)} % of the way. ${fmt(Math.max(0, cap - total))} systems to go.`;
@@ -144,18 +169,29 @@
   }
   // a random region, then its systems in order from a random start: contributors spread out, one region at a time
   let cursor = null, lastLine = null, stopAfter = false;   // stopAfter: finish the current region, then stop (user 2026-10-31)
+  // v159: the preset (derelict type) index of every system of a line, worked out once per line (about 2 to 4 ms) and kept
+  const preOf = (l) => { if (!l.pre) { const a = new Uint8Array(l.idx.length); for (let k = 0; k < a.length; k++) a[k] = PRE.index(addressOf(l, l.idx[k])); l.pre = a; } return l.pre; };
+  const lineHas = (l) => { const pre = preOf(l); for (let k = 0; k < l.idx.length; k++) if (!skipFlag[pre[k]] && free(addressOf(l, l.idx[k]))) return true; return false; };
+  function pickLine() {
+    if (!fastOn()) { const open = work.filter((l) => l.idx.some((i) => free(addressOf(l, i)))); return open.length ? open[Math.floor(Math.random() * open.length)] : null; }
+    // Fast first: a random line, kept only when it still holds a system of a ticked type (lines that do not are remembered as dead)
+    for (let t = 0; t < 60; t++) { const l = work[Math.floor(Math.random() * work.length)]; if (l && !l.dead) { if (lineHas(l)) return l; l.dead = 1; } }
+    const open = work.filter((l) => !l.dead && (lineHas(l) || !(l.dead = 1)));
+    return open.length ? open[Math.floor(Math.random() * open.length)] : null;
+  }
   function nextAddress() {
     for (let tries = 0; tries < 50; tries++) {
       if (!cursor || cursor.left <= 0) {
         if (stopAfter) return null;
-        const open = work.filter((l) => l.idx.some((i) => free(addressOf(l, i))));
-        if (!open.length) return null;
-        const line = open[Math.floor(Math.random() * open.length)];
+        const line = pickLine();
+        if (!line) return null;
         cursor = { line, pos: Math.floor(Math.random() * line.idx.length), left: line.idx.length }; lastLine = line;
       }
+      const fast = fastOn(), pre = fast ? preOf(cursor.line) : null;
       while (cursor.left > 0) {
-        const a = addressOf(cursor.line, cursor.line.idx[cursor.pos % cursor.line.idx.length]);
+        const k = cursor.pos % cursor.line.idx.length, a = addressOf(cursor.line, cursor.line.idx[k]);
         cursor.pos++; cursor.left--;
+        if (fast && skipFlag[pre[k]]) continue;   // a skipped type: not taken, not marked, stays on the work list
         if (free(a)) return a;
       }
     }
@@ -207,6 +243,7 @@
       failStreak = 0;
       if (Number(d.ms) > 0) { scanMs.push(Number(d.ms)); if (scanMs.length > 300) scanMs.shift(); }
       done.add(a); dev.scanned++; session.scanned++; dirty++;
+      if (d.status === 0 && d.row && d.row.preset && Number(d.ms) > 0) { const t = typeMs[d.row.preset] || (typeMs[d.row.preset] = { n: 0, sum: 0 }); t.n++; t.sum += Number(d.ms); }
       let item;
       if (d.status === 0) {
         const r = d.row || {}, m = r.frigate_modules, t = (r.crates || 0) + (r.footlockers || 0) + (r.briefcases || 0) + (r.tall_lockers || 0);
@@ -236,7 +273,7 @@
       }
       session.feed.unshift(item);
       if (session.feed.length > FEED_MAX) session.feed.length = FEED_MAX;
-      feedAdd(item);
+      feedPush(item);
     } else {
       dev.errors++;
       lastError = d.ok ? "scanner status " + d.status : String(d.error || "unknown error");
@@ -246,7 +283,7 @@
       if (++failStreak >= 6) { halt("paused", `The scanner keeps failing (${lastError}). Check the connection and press ▶ SCAN. Error log below.`); return; }
       if (isNetwork(lastError)) { render(); setTimeout(() => feed(s), 2000 * failStreak); return; }
     }
-    if (dirty >= 20) save();
+    if (dirty >= 20 && Date.now() - lastSave > 8000) save();   // v159: the saved state (done list up to 40,000 addresses) is written at most every 8 s
     if (outbox.length >= BATCH || (globalThis.dvCull && globalThis.dvCull.big())) flush();
     render();
     feed(s);
@@ -752,8 +789,9 @@
     } else loadMapKeys();
   }
 
+  let lastSave = 0;
   function save() {
-    dirty = 0;
+    dirty = 0; lastSave = Date.now();
     if (!owner) return;   // only the scanning tab writes
     const ms = session.ms + (running() ? Date.now() - session.startedAt : 0);
     jsonSet(SESSION_KEY, { scanned: session.scanned, found: session.found, mods: session.mods, ms, feed: session.feed.slice(0, FEED_MAX), state: running() ? "scanning" : state, at: Date.now() });
@@ -812,10 +850,82 @@
     if (top0 > 2) { ul.firstElementChild.style.animation = "none"; ul.scrollTop = top0 + (ul.scrollHeight - h0); }
   }
 
+  // ---- v159 Which derelicts: the panel, the table and the estimate ----
+  let tally = null, tallyRun = 0, whichAt = 0;
+  const typeLabel = (t) => t.replace("_", " ").toLowerCase().replace(/^(medi|cargo)/, (m) => m.toUpperCase());
+  const GEN_W = [0.66, 0.33, 1.0, 0.25, 0.15, 0.66, 0.33, 1.0, 0.25, 0.15];   // generator weights, same order as site-preset.js NAMES
+  function tallyStart() {   // how many waiting systems each type has (all lines, in 8 ms slices so the page stays smooth)
+    if (!PRE || !work.length) return;
+    const run = ++tallyRun, counts = new Array(TYPES.length).fill(0);
+    let i = 0;
+    const step = () => {
+      if (run !== tallyRun) return;
+      const t0 = performance.now();
+      while (i < work.length && performance.now() - t0 < 8) {
+        const l = work[i++], pre = preOf(l);
+        for (let k = 0; k < pre.length; k++) { const a = addressOf(l, l.idx[k]); if (!done.has(a) && !known.has(a)) counts[pre[k]]++; }
+      }
+      if (i < work.length) setTimeout(step, 30); else { tally = counts; whichAt = 0; whichRender(); }
+    };
+    step();
+  }
+  const skippedN = () => (tally ? tally.reduce((a, n, i) => a + (skipFlag[i] ? n : 0), 0) : null);
+  const msOf = (t) => { const x = typeMs[t]; return x && x.n >= 10 ? { v: x.sum / x.n, own: true } : { v: TYPICAL_MS[t] || 600, own: false }; };
+  function whichRender() {
+    const box = $("cb-which");
+    if (!box) return;
+    if (!PRE) { box.hidden = true; return; }
+    whichAt = Date.now();
+    const fast = fastOn();
+    $("cb-which-sum").textContent = fast ? `Fast first · ${which.skip.length} type${which.skip.length === 1 ? "" : "s"} skipped` : "Complete";
+    document.querySelectorAll("#cb-which-mode button").forEach((b) => b.classList.toggle("on", b.dataset.m === (fast ? "fast" : "complete")));
+    const wsum = GEN_W.reduce((a, b) => a + b, 0), cnt = TYPES.map((t, i) => (tally ? tally[i] : GEN_W[i] / wsum * 1000));
+    const tot = cnt.reduce((a, b) => a + b, 0) || 1, ms = TYPES.map((t) => msOf(t)), tms = cnt.reduce((a, n, i) => a + n * ms[i].v, 0) || 1;
+    const rows = TYPES.map((t, i) => ({ t, i, share: cnt[i] / tot * 100, time: cnt[i] * ms[i].v / tms * 100, s: ms[i].v / 1000, own: ms[i].own, mpm: TYPICAL_MODS[t] / (ms[i].v / 60000) }));
+    const body = $("cb-which-body");
+    if (!body.contains(document.activeElement)) body.innerHTML = rows.slice().sort((a, b) => b.mpm - a.mpm).map((r) => `<tr><td><input type="checkbox" id="cbw-${r.t}" data-t="${r.t}" ${!fast || !skipFlag[r.i] ? "checked" : ""} ${fast ? "" : "disabled"} aria-label="Scan ${typeLabel(r.t)}"></td>`
+      + `<td><label for="cbw-${r.t}">${typeLabel(r.t)}</label></td><td>${r.share.toFixed(1)}%</td><td>${r.time.toFixed(0)}%</td><td>${r.s.toFixed(r.s < 1 ? 2 : 1)}${r.own ? "" : "*"}</td><td><b>${r.mpm.toFixed(r.mpm < 10 ? 1 : 0)}</b></td></tr>`).join("");
+    // estimate: systems and modules per scan-minute of the ticked types against all types, from the same numbers
+    const rate = (sel) => { let n = 0, m = 0, mod = 0; rows.forEach((r) => { if (sel(r)) { n += cnt[r.i]; m += cnt[r.i] * r.s; mod += cnt[r.i] * TYPICAL_MODS[r.t]; } }); return n ? { sys: 60 * n / m, mods: 60 * mod / m, n } : null; };
+    const all = rate(() => true), part = rate((r) => !skipFlag[r.i]);
+    const est = $("cb-which-est");
+    if (fast && all && part) {
+      const skip = Math.round(cnt.reduce((a, n, i) => a + (skipFlag[i] ? n : 0), 0) / tot * 100);
+      est.textContent = `Fast first skips ${skip}% of the waiting systems and scans about ${(part.sys / all.sys).toFixed(1)} times as many systems per minute (${part.sys.toFixed(0)} against ${all.sys.toFixed(0)} per scan-minute of one worker). `
+        + `Salvaged frigate modules found per scan-minute: ${part.mods.toFixed(1)} against ${all.mods.toFixed(1)}.${tally ? "" : " Counting the waiting systems..."}`;
+    } else est.textContent = tally || !work.length ? "" : "Counting the waiting systems...";
+    $("cb-which-src").textContent = `Share: share of the systems waiting on the work list${tally ? "" : " (expected until they are counted)"}. Time: share of the scan time. Sec: seconds one worker needs${Object.keys(typeMs).length ? "; your device's own value once a type has 10 scans, otherwise *typical for a desktop browser" : " (*typical for a desktop browser, not a phone)"}. Mod/min: salvaged frigate modules found per minute of scanning, one worker.`;
+  }
+  function whichSetup() {
+    const box = $("cb-which");
+    if (!box) return;
+    if (!PRE) { box.hidden = true; return; }
+    document.querySelectorAll("#cb-which-mode button").forEach((b) => b.addEventListener("click", () => {
+      which.mode = b.dataset.m === "fast" ? "fast" : "complete"; jsonSet(WHICH_KEY, which); whichApply();
+      if (which.mode === "fast") tallyStart();
+      whichRender(); render();
+    }));
+    $("cb-which-body").addEventListener("change", (e) => {
+      const c = e.target.closest("input[data-t]");
+      if (!c) return;
+      const ticked = TYPES.filter((t) => (t === c.dataset.t ? c.checked : !which.skip.includes(t)));
+      if (!ticked.length) { c.checked = true; return; }   // at least one type stays ticked
+      which.skip = TYPES.filter((t) => !ticked.includes(t)); jsonSet(WHICH_KEY, which); whichApply();
+      whichAt = 0; whichRender(); render();
+    });
+    box.addEventListener("toggle", () => { if (box.open && !tally) tallyStart(); });
+  }
+
   // ---- page ----
   const dur = (ms) => { const s = Math.round(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, "0")}m` : s >= 60 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s` : s ? `${s}s` : "—"; };
   let waitingAt = 0, waitingVal = 0;
-  function waitingCached() { if (Date.now() - waitingAt > 3000) { waitingVal = countWaiting(); waitingAt = Date.now(); } return waitingVal; }
+  // v159: while scanning the full count (all addresses of the work list) is redone once a minute, in between the systems scanned since are subtracted
+  let waitingBase = 0;
+  function waitingCached() {
+    const now = Date.now();
+    if (!waitingAt || now - waitingAt > (running() ? 60000 : 3000)) { waitingVal = countWaiting(); waitingAt = now; waitingBase = dev.scanned; }
+    return running() ? Math.max(0, waitingVal - (dev.scanned - waitingBase)) : waitingVal;
+  }
   const STATE = { elsewhere: "Scanning in another tab", loading: "Getting ready…", ready: "Ready", scanning: "Scanning", paused: "Paused", stopped: "Stopped", done: "Finished", nowork: "Nothing to scan right now", error: "The scanner could not start" };
   // user 2026-11-04 "while scanning and i scroll below the live list, it pushes me down": keep the card at the top of the
   // screen still while the page updates (manual anchoring; Safari has none; native anchoring is off in contribute.css)
@@ -830,14 +940,19 @@
     if (a && a.isConnected) { const d = a.getBoundingClientRect().top - t0; if (Math.abs(d) >= 1) window.scrollBy(0, d); }
     return r;
   }
-  function render() { return anchored(renderNow); }
+  // v159: while scanning, the page is redrawn at most 4 times a second (not once per finished system: with fast types and several workers that was
+  // 10 to 30 redraws a second, measured 13 ms each in desktop Chrome and 80 ms in a 6x throttled one). Everything else redraws at once.
+  let rT = 0, feedQ = [];
+  function feedPush(it) { feedQ.push(it); }
+  function rflush() { if (rT) { clearTimeout(rT); rT = 0; } return anchored(() => { if (feedQ.length) { const q = feedQ; feedQ = []; for (const it of q) feedAddNow(it); } renderNow(); }); }
+  function render() { if (running()) { if (!rT) rT = setTimeout(rflush, 250); return undefined; } return rflush(); }
   function renderNow() {
     const liveMs = running() ? Date.now() - session.startedAt : 0, ms = session.ms + liveMs, rate = session.scanned / Math.max(1, ms) * 60000;
     $("cb-state").textContent = STATE[state] || state;
     const csr = $("cs-rate"); if (csr) csr.textContent = running() && session.scanned ? `${rate >= 10 ? Math.round(rate) : rate.toFixed(1)} / min` : "—";
     const n = pool.length;
-    $("cb-detail").textContent = note || (state === "scanning" ? `${SPEED_NAME[speed]} speed · ${fmt(waitingCached())} systems waiting in ${fmt(work.length)} regions`
-      : state === "done" ? "Every system in the work list has been scanned on this device. Thank you! New systems are added with each atlas update."
+    $("cb-detail").textContent = note || (state === "scanning" ? `${SPEED_NAME[speed]} speed · ${fmt(waitingCached())} systems waiting in ${fmt(work.length)} regions${fastOn() && skippedN() != null ? ` · ${fmt(skippedN())} skipped for now (Fast first)` : ""}`
+      : state === "done" ? (fastOn() && skippedN() > 0 ? `Every ticked type in the work list has been scanned. Thank you! ${fmt(skippedN())} skipped systems are still waiting: choose Complete under Which derelicts to scan them.` : "Every system in the work list has been scanned on this device. Thank you! New systems are added with each atlas update.")
       : state === "nowork" ? "New systems are added to the work list with each atlas update."
       : work.length ? `${fmt(waitingCached())} systems waiting in ${fmt(work.length)} regions` : "");
     $("cb-radar").classList.toggle("on", running());
@@ -852,7 +967,8 @@
     $("cb-region").setAttribute("aria-pressed", String(stopAfter));
     $("cb-region").textContent = stopAfter ? `⏭ Stopping after this region${left ? ` · ${fmt(left)} left` : ""} (undo)` : `⏭ Stop after region${left ? ` · ${fmt(left)} left` : ""}`;
     document.querySelectorAll("#cb-speed button").forEach((b) => b.classList.toggle("on", b.dataset.s === speed));
-    $("cb-speed-note").textContent = SPEED_NOTE[speed];
+    $("cb-speed-note").textContent = SPEED_NOTE[speed] + (phone && speed === "gentle" && SPEEDS.balanced > 1 ? ` Gentle uses 1 of your ${cores} cores. Balanced uses ${SPEEDS.balanced} and scans up to ${SPEEDS.balanced} times faster (more heat and battery; plugged in is best).` : "");
+    if (Date.now() - whichAt > 5000) whichRender();
     $("cb-elsewhere").hidden = state !== "elsewhere";
     $("cb-lsys").textContent = fmt(session.scanned);
     $("cb-lfound").textContent = fmt(session.found);
@@ -996,6 +1112,7 @@
       if (running()) { stopPool(); startPool(); }
       render();
     }));
+    whichSetup();
     document.querySelectorAll("#cb-sort button").forEach((b) => b.addEventListener("click", () => { sortBy = b.dataset.v; jsonSet(SORT_KEY, sortBy); render(); }));
     $("cb-copylog").addEventListener("click", (e) => { try { navigator.clipboard.writeText(logText()).then(() => { e.target.textContent = "Copied"; }); } catch (_) {} });
     // "Open" scans the system in the viewer at once (site-scan.js reads this flag)
@@ -1065,6 +1182,7 @@
     work = version ? parseWork(text) : [];
     await refreshLists();
     workReady = true;
+    whichApply(); if (fastOn()) tallyStart(); whichRender();
     classify();
     let total = 0;
     for (const l of work) for (const i of l.idx) if (!known.has(addressOf(l, i))) total++;

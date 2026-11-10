@@ -1,6 +1,6 @@
 import {hasBit,mapListBit} from './atlas-features.js';
 import {matchesReward} from './reward-types.js';
-export const VERSION = '158 (2026-11-10)';
+export const VERSION = '160 (2026-11-10)';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const known = n => n == null ? '—' : n;
 export const glyphsOf = address => '0' + address.slice(3,6) + address.slice(8);
@@ -90,7 +90,7 @@ export function systemQuery(f) {
 }
 const TOP_REW={C:1,B:2,A:3,S:4},TOP_ALIAS={crates:'salvage_crates',stairs:'stair_pieces',hangars:'hangar_pieces'};
 function topNum(r,k){const x=r[TOP_ALIAS[k]||k];return x==null||x===''||!Number.isFinite(Number(x))?null:Math.trunc(Number(x));}
-function topVal(k,r){if(k==='total'){const c=topNum(r,'crates'),f=topNum(r,'footlockers');return c===null||f===null?null:c+f;}if(k==='hangar'){const h=topNum(r,'hangars');return h===null?null:h>0?1:0;}if(k==='reward')return TOP_REW[String(r.reward_class||'').toUpperCase()]||null;return topNum(r,k);}
+function topVal(k,r){if(k==='total'){const c=topNum(r,'crates'),f=topNum(r,'footlockers');return c===null||f===null?null:c+f;}if(k==='containers'){const a=[topNum(r,'crates'),topNum(r,'footlockers'),topNum(r,'briefcases'),topNum(r,'tall_lockers')];return a.some(x=>x===null)?null:a[0]+a[1]+a[2]+a[3];}if(k==='hangar'){const h=topNum(r,'hangars');return h===null?null:h>0?1:0;}if(k==='reward')return TOP_REW[String(r.reward_class||'').toUpperCase()]||null;return topNum(r,k);}
 export function topKey(l,r){const out=[];for(const [k,d] of [[l.value,l.direction],...(l.then||[])]){const v=l.value?topVal(k,r):null;out.push(...(v===null?[1,0]:[0,d==='highest'?-v:v]));}return out;}
 function topCompare(l,a,b){if(l.rank)return (l.rank.get(a.address)??1e9)-(l.rank.get(b.address)??1e9);const x=topKey(l,a),y=topKey(l,b);for(let i=0;i<Math.min(x.length,y.length);i++)if(x[i]!==y[i])return x[i]<y[i]?-1:1;return a.address<b.address?-1:a.address>b.address?1:0;}
 if(typeof globalThis!=='undefined')globalThis.dvTopKey=topKey;

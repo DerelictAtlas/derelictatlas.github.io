@@ -437,7 +437,22 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
       goal.querySelector("b").textContent = n.toLocaleString("en-US");
       goal.querySelector(".long").textContent = ` / ${cap.toLocaleString("en-US")} systems`;
       goal.querySelector(".short").textContent = cap === 1000000 ? " / 1M" : ` / ${cap.toLocaleString("en-US")}`;
-      goal.querySelector("a").title = `${n.toLocaleString("en-US")} of ${cap.toLocaleString("en-US")} systems in the atlas (${pct.toFixed(1)} %). Help it get there: Contribute!`;
+      { const fg = globalThis.dvCull && globalThis.dvCull.figures ? globalThis.dvCull.figures(s) : { com: false };   // v160: two figures
+        if (fg.com) {
+          goal.querySelector("i").style.width = fg.pct.toFixed(2) + "%";   // v160b: toward the next goal (1M, 10M, 20M ...)
+          goal.querySelector("b").textContent = fg.scannedText;
+          goal.querySelector(".long").textContent = ` scanned / ${fg.goalText} goal · ${fg.atlasText} in the atlas`;
+          goal.querySelector(".short").textContent = ` / ${fg.goalText}`;
+          goal.querySelector("b").innerHTML = `<span class="long">${fg.scannedText}</span><span class="short">${fg.scannedShort}</span>`;   // full number on wide screens, 1.23M on phones
+        }
+        let note = document.getElementById("site-scanned-note");
+        if (fg.com && count && heading) {
+          if (!note) { note = document.createElement("div"); note.id = "site-scanned-note"; note.className = "site-scanned-note"; heading.after(note); }
+          note.textContent = `Scanned ${fg.scannedText} (goal ${fg.goalText})`;
+        } else if (note) note.remove(); }
+      { const fg2 = globalThis.dvCull && globalThis.dvCull.figures ? globalThis.dvCull.figures(s) : { com: false };
+        goal.querySelector("a").title = fg2.com ? `${fg2.scannedText} scanned of the next goal ${fg2.goalText} (${fg2.pct.toFixed(1)} %); ${fg2.atlasText} systems in the atlas. Help it get there: Contribute!`
+          : `${n.toLocaleString("en-US")} of ${cap.toLocaleString("en-US")} systems in the atlas (${pct.toFixed(1)} %). Help it get there: Contribute!`; }
     });
   }
 

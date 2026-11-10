@@ -170,7 +170,7 @@ async function renderSystems(reset=false){
   $('filter-chips').querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{filters[b.dataset.clear]=typeof defaults[b.dataset.clear]==='boolean'?false:'';renderSystems(true);});
   $('source-status').textContent=`${dataState.source} · ${rows.length.toLocaleString()} systems`;
   {const tl=$('top-list-line');if(String(filters.sort).startsWith('top:')){const o=$('sort').querySelector(`option[value="${filters.sort}"]`);const txt=`Top 100: ${(o?.title||o?.textContent||'').replace(/\s*\(systems with loot values\)/,'')} · ${shown.length.toLocaleString()} ${shown.length===1?'system':'systems'}`;$('source-status').textContent=txt;if(tl){tl.hidden=false;tl.textContent=txt;}}else if(tl)tl.hidden=true;}
-  if(!firstMode||stats?.total_systems!=null)$('system-count').textContent=Number(stats?.total_systems!=null?(stats.community&&Number(stats.community.total)>0?Number(stats.community.total):Number(stats.total_systems)+(globalThis.dvSinglesN||0)):rows.length).toLocaleString();
+  if(!firstMode||stats?.total_systems!=null)$('system-count').textContent=Number(stats?.total_systems!=null?(stats.community&&Number(stats.community.total)>0?Math.max(0,Number(stats.community.total)-(Number(stats.community.scanned_no_row)||0)):Number(stats.total_systems)+(globalThis.dvSinglesN||0)):rows.length).toLocaleString();
   save('filters',filters);
   return true;
 }

@@ -17,6 +17,7 @@
 <script src="site-finder.js"></script>
 <script src="site-perf.js"></script>
 <script src="site-cull.js"></script>
+<script src="site-preset.js"></script>
 <script src="contribute.js" defer></script>
 </head>
 <body class="contribute-page">
@@ -41,13 +42,15 @@
 
     <section class="cb-card cb-progress" aria-labelledby="cb-progress-title">
       <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h2 id="cb-progress-title">Road to 1,000,000 systems</h2></div>
-      <div class="cb-big"><strong id="cb-total">—</strong><span>of <b>1,000,000</b> systems in the atlas</span></div>
+      <div class="cb-big"><strong id="cb-total">—</strong><span id="cb-big-sub">of <b>1,000,000</b> systems in the atlas</span></div>
+      <p class="cb-small cb-atlasline" id="cb-atlasline" hidden></p>
       <div class="cb-track">
         <div class="cb-bar" role="progressbar" aria-labelledby="cb-progress-title" aria-valuemin="0" aria-valuemax="100" id="cb-bar"><span id="cb-bar-fill"></span></div>
         <div class="cb-ticks" aria-hidden="true"><span style="left:25%">250k</span><span style="left:50%">500k</span><span style="left:75%">750k</span><span style="left:100%">1M</span></div>
       </div>
       <p class="cb-muted" id="cb-togo">Loading atlas statistics…</p>
       <p class="cb-small" id="cb-counted" hidden></p>
+      <p class="cb-small" id="cb-postcap" hidden>Past one million: only top-100 finds are kept as full results; every scan is still counted.</p>
     </section>
 
     <section class="cb-card cb-scanner" id="cb-scanner" aria-labelledby="cb-state">
@@ -63,6 +66,14 @@
       <div class="cb-sub">Speed</div>
       <div class="cb-seg" id="cb-speed" role="group" aria-label="Speed"><button type="button" data-s="gentle">Gentle</button><button type="button" data-s="balanced">Balanced</button><button type="button" data-s="max">Maximum</button></div>
       <p class="cb-small" id="cb-speed-note"></p>
+      <details class="cb-which" id="cb-which">
+        <summary>Which derelicts <span id="cb-which-sum">Complete</span></summary>
+        <div class="cb-seg" id="cb-which-mode" role="group" aria-label="Which derelicts"><button type="button" data-m="complete">Complete</button><button type="button" data-m="fast">Fast first</button></div>
+        <p class="cb-small">Complete scans every derelict. Fast first scans only the types ticked below and leaves the others for later: they are not scanned, not marked and not counted, and they stay on the work list. What is uploaded does not change.</p>
+        <div class="cb-which-wrap"><table class="cb-which-table"><thead><tr><th>Scan</th><th>Type</th><th title="Share of the systems waiting on the work list">Share</th><th title="Share of the scan time">Time</th><th title="Seconds one worker needs for one system">Sec</th><th title="Salvaged frigate modules found per minute of scanning, one worker">Mod/min</th></tr></thead><tbody id="cb-which-body"></tbody></table></div>
+        <p class="cb-small" id="cb-which-est" aria-live="polite"></p>
+        <p class="cb-small" id="cb-which-src"></p>
+      </details>
       <div class="cb-elsewhere" id="cb-elsewhere" hidden><p>This browser is already scanning in another tab. One tab at a time keeps your device cool and the counts right.</p><button id="cb-takeover" type="button">Scan here instead</button></div>
       <div class="cb-finder" id="cb-finder" hidden>
         <label for="cb-finder-name">Scout name (optional): shown as “Atlas scout” on the systems you add first</label>
@@ -162,6 +173,7 @@
       <div class="cb-card-head"><svg class="cb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h2 id="cs-title">Atlas scanning</h2></div>
       <dl class="cs-stats">
         <div><dt>Systems in the atlas</dt><dd id="cs-total">—</dd></div>
+        <div id="cs-scanned-row" hidden><dt>Scanned</dt><dd id="cs-scanned">—</dd></div>
         <div><dt>Added by visitors</dt><dd id="cs-singles">—</dd></div>
         <div id="cs-counted-row" hidden><dt>Counted only</dt><dd id="cs-counted">—</dd></div>
         <div><dt>Waiting to be scanned</dt><dd id="cs-waiting">—</dd></div>

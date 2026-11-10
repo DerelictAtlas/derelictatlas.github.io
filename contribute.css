@@ -263,3 +263,22 @@ dialog.cbv::backdrop { background: #02070bcc; }
 @media (max-height: 460px) { .cbv-sub, .cbv .nm-cap { display: none; } .cbv-head h2 { font-size: 18px; } dialog.cbv { padding: 8px 12px; gap: 4px; } .cbv-x { width: 36px; height: 36px; } }
 
 html.cbv-open { overflow: hidden; }
+
+/* v159 Which derelicts */
+.cb-which { margin: 14px 0 0; border: 1px solid var(--line, #7395b340); border-radius: 10px; padding: 0 12px 12px; }
+.cb-which > summary { min-height: 44px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted, #94a9bc); }
+.cb-which > summary span { margin-left: auto; font-weight: 700; color: var(--accent, #55d9dc); text-align: right; }
+.cb-which-wrap { margin-top: 10px; max-width: 100%; overflow-x: auto; }
+.cb-which-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cb-which-table th { text-align: right; font-weight: 600; color: var(--muted, #94a9bc); padding: 4px 3px; white-space: nowrap; }
+.cb-which-table td { text-align: right; padding: 0 3px; white-space: nowrap; border-top: 1px solid var(--line, #7395b340); }
+.cb-which-table th:nth-child(2), .cb-which-table td:nth-child(2) { text-align: left; width: 100%; }
+.cb-which-table th:first-child, .cb-which-table td:first-child { text-align: center; }
+.cb-which-table td:first-child input { width: 22px; height: 22px; margin: 0; vertical-align: middle; }
+.cb-which-table td:first-child { padding: 0 6px; min-width: 40px; height: 40px; }
+.cb-which-table td label { display: block; line-height: 40px; cursor: pointer; }
+@media (max-width: 400px) { .cb-which { padding: 0 8px 10px; } .cb-which-table { font-size: 11px; } .cb-which-table th, .cb-which-table td { padding-left: 2px; padding-right: 2px; } .cb-which-table td:first-child { min-width: 32px; padding: 0 3px; } }
+
+/* v160 */
+.cb-atlasline { margin: 4px 0 0; }
+.cb-atlasline b { color: var(--text, #edf3f4); font-variant-numeric: tabular-nums; }
