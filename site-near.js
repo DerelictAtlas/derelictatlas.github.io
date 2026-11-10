@@ -113,7 +113,7 @@
   };
 
   // ---------------------------------------------------------------- state
-  const DEF = { v: 1, pos: "", gal: null, range: 1000, drive: 1000, speed: "", wants: { mods: "4", reward: "", rewardModule: "", maxRooms: "", minCrates: "", minBriefcases: "", minTall: "", hasMap: false, purple: false }, trip: null };
+  const DEF = { v: 1, pos: "", gal: null, posGal: null, range: 1000, drive: 1000, speed: "", wants: { mods: "4", reward: "", rewardModule: "", maxRooms: "", minCrates: "", minBriefcases: "", minTall: "", hasMap: false, purple: false }, trip: null };
   let S = JSON.parse(JSON.stringify(DEF));
   let storeOk = true;
   function load() {
@@ -210,7 +210,28 @@
     const s2 = $("gal-select"); if (s2 && s2.value !== String(b)) s2.value = String(b);   // the Search dialog's choice stays the same one
     galNote();
   }
-  function showPosNote() { showPosNote0(); syncState(); }
+  // v164: glyphs carry no galaxy. The galaxy the glyphs were entered under is kept with them (S.posGal, browser only); a different galaxy now shows a warning
+  const galNow = () => (S.gal != null ? S.gal : globalThis.dvGalaxy ? dvGalaxy.selected() : 0);
+  function galWarnState() {
+    const v = $("nr-pos") ? String($("nr-pos").value || "").trim() : String(S.pos || "").trim();
+    if (!v || S.posGal == null) return null;
+    const p = curPos(); if (p.empty || !p.ok || p.ownGal) return null;
+    const cur = galNow(); return S.posGal === cur ? null : { old: S.posGal, cur };
+  }
+  function paintGalWarn() {
+    const w = galWarnState(), n = $("nr-gal-warn"), m = $("nr-galmain");
+    if (n) { n.hidden = !w; n.textContent = w ? `Glyphs do not include the galaxy. You changed the galaxy to ${gname(w.cur)}. These glyphs were entered in ${gname(w.old)}. Check it is right.` : ""; }
+    if (m) {
+      m.hidden = !w;
+      m.innerHTML = w ? `<span class="nr-galtxt">Start position was saved in <b>${esc(gname(w.old))}</b>, the scan uses <b>${esc(gname(w.cur))}</b>.</span> <span class="nr-galbtns"><button type="button" class="nr-mini" data-nr-galuse>Use ${esc(gname(w.old))}</button><button type="button" class="nr-mini" data-nr-galkeep>Keep ${esc(gname(w.cur))}</button></span>` : "";
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const t = e.target instanceof Element ? e.target : null; if (!t) return;
+    if (t.closest("[data-nr-galuse]")) { const w = galWarnState(); if (w) { setGalaxy(w.old); S.posGal = w.old; save(); showPosNote(); stale(); } }
+    else if (t.closest("[data-nr-galkeep]")) { S.posGal = galNow(); save(); paintGalWarn(); }
+  });
+  function showPosNote() { showPosNote0(); paintGalWarn(); syncState(); }
   function showPosNote0() {
     const p = curPos(), box = $("nr-pos-note");
     if (!box) return;
@@ -224,9 +245,25 @@
       if (curPos().address !== p.address) return;
       const code = rc.validSystemUA(p.gal | (p.sys << 8), (parseInt(p.address.slice(8), 16)) >>> 0, true);
       if (code === 1 || code === 2) { box.className = "nr-note bad"; box.textContent = code === 2 ? "This region is in the galaxy core, there are no systems here." : "These coordinates are outside the galaxy."; }
-      else if (code === 3 || code === 4) box.innerHTML += `<br><span class="bad">System ${hex(p.sys, 3)} does not exist in this region. Check the last glyphs. Region and distance still work.</span>`;
+      else if (code === 3 || code === 4) sysReason(p.gal, p.x, p.y, p.z, p.sys).then((rs) => {   // v164: the real reason, a galaxy hint and a one-click galaxy
+        if (curPos().address !== p.address || !box.isConnected) return;
+        box.innerHTML += `<br><span class="bad nr-reason">${esc(rs.text)} Check glyphs 2 to 4 (the system). Region and distance still work.</span>` + (rs.alts.length ? ` <span class="nr-usegal">${rs.alts.map((g) => `<button type="button" class="nr-mini" data-nr-usegal="${g}">Use ${esc(gname(g))}</button>`).join(" ")}</span>` : "");
+      }).catch(() => {});
     }).catch(() => {});
   }
+  // v164: why a system is not in the computed star list of its region (cheap: the region star count and a validity test for the other galaxies)
+  async function sysReason(gal, x, y, z, sys) {
+    const rc = await rcLoad(); let n = 0; const alts = [], pur = isPurple(sys);
+    try { n = rc.regionCount(gal, x, y, z); } catch (_) { /* no count */ }
+    for (let g = 0; g < 256 && alts.length < 4; g++) { if (g === gal) continue; try { const v = rc.validSystem(g, x, y, z, sys, pur); if (v && v.valid) alts.push(g); } catch (_) { /* skip */ } }
+    const where = `Region ${x}, ${y}, ${z} in ${gname(gal)}`;
+    const text = (pur ? `${where} has no purple star numbered ${hex(sys, 3)}.` : `${where} has ${n} stars (systems 001 to ${hex(n, 3)}); system ${hex(sys, 3)} is above that.`) + " Glyphs do not include the galaxy. Check the Galaxy list.";
+    return { n, alts, text, names: alts.map(gname) };
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target instanceof Element ? e.target.closest("[data-nr-usegal]") : null;
+    if (b) { e.preventDefault(); setGalaxy(Number(b.dataset.nrUsegal)); S.posGal = Number(b.dataset.nrUsegal); save(); showPosNote(); }
+  });
   const galNote = () => {
     const b = $("nr-gal") ? Number($("nr-gal").value) : 0, n = $("nr-gal-note");
     if (n) n.innerHTML = globalThis.dvGalaxy ? dvGalaxy.notes(b).map(esc).join(" ") : "";
@@ -761,7 +798,7 @@
 <div class="nr-chip"><span class="nr-chip-i">${ICON_CROSS}</span><h3 id="nr-h1">You are here</h3></div>
 <label class="nr-sr" for="nr-pos">Where are you? Glyphs, address or signal booster</label>
 <div class="nr-posrow"><div class="nr-inwrap"><input id="nr-pos" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Glyphs or address" aria-describedby="nr-pos-note"><button type="button" class="nr-x" id="nr-pos-x" aria-label="Clear the position" hidden>×</button></div><select id="nr-gal" aria-label="Galaxy"></select></div>
-<div class="nr-posstat"><p class="nr-note" id="nr-pos-note" role="status"></p><p class="nr-note" id="nr-gal-note"></p></div>
+<div class="nr-posstat"><p class="nr-note" id="nr-pos-note" role="status"></p><p class="nr-note" id="nr-gal-note"></p><p class="nr-note bad" id="nr-gal-warn" role="status" hidden></p></div>
 <div class="nr-padwrap" id="nr-padwrap" data-open="1"><button type="button" class="nr-padtoggle" id="nr-padtoggle" aria-expanded="true" aria-controls="nr-padbody"><span id="nr-padlabel">Glyphs</span><span class="nr-chev" aria-hidden="true"></span></button><div id="nr-padbody">${padHtml("nr-pos")}</div></div>
 ${ddHtml("help", "Where do I find these?", `<ul>
 <li><b>Glyphs:</b> the 12-digit portal address of a planet in your system, typed as hex (0 to 9, A to F). The first digit is the planet and is ignored here.</li>
@@ -798,6 +835,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
 <p class="nr-note">The scan works outward from your region, nearest first, in this browser. The radius is an upper limit: it stops at ${MAX_MATCH} matches, at the radius, or when you press Stop. Every Galaxy 0 system it finishes is added to the atlas, the same as Contribute. Other galaxies are never uploaded. Your position, check-ins and scout name are never sent. Systems already in the atlas, or scanned in this browser with their numbers saved, are not scanned again but still count as matches. A system whose numbers are no longer saved is scanned again on this device and not uploaded again. Neither are the last 8 below each region's star count, which may not exist.</p></details>
 `, "nr-help nr-about")}</div>
 </section>
+<div class="nr-note bad nr-galmain" id="nr-galmain" role="status" hidden></div>
 <div class="nr-actbar"><button type="button" class="nr-fastbtn" id="nr-fast" aria-haspopup="dialog" aria-expanded="false" aria-controls="nr-fastpop" aria-label="Fast scan: choose which derelict types to scan" title="Fast scan: choose which derelict types to scan">${ICON_BOLT}<span id="nr-fast-x"></span></button><button type="button" class="nr-gold" id="nr-find">${ICON_CROSS}<span>Scan</span></button><div class="nr-fastpop" id="nr-fastpop" role="dialog" aria-label="Derelict types to scan" hidden></div></div>
 </div>
 </div>
@@ -815,6 +853,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
   }
   function fill() {
     $("nr-pos").value = S.pos || ""; syncPad($("nr-pos"));
+    if (S.pos && S.posGal == null) S.posGal = S.gal != null ? S.gal : globalThis.dvGalaxy ? dvGalaxy.selected() : 0;   // older saved state: no way to know, so no warning
     const gal = S.gal != null ? S.gal : globalThis.dvGalaxy ? dvGalaxy.selected() : 0;
     setGalaxy(gal);
     $("nr-range").value = S.range; $("nr-mods").value = S.wants.mods;
@@ -854,6 +893,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
     const t = e.target;
     if (!(t instanceof Element) || !dlg.contains(t)) return;
     if (t.id === "nr-gal") { setGalaxy(Number(t.value)); galNote(); }
+    if (t.id === "nr-pos") S.posGal = String($("nr-pos").value || "").trim() ? galNow() : null;
     if (t.closest(".nr-view") && t.id) { readForm(); }
     if (t.id === "nr-pos" || t.id === "nr-ci") syncPad(t);
     if (t.id === "nr-pos" || t.id === "nr-gal") { showPosNote(); if (t.id === "nr-gal") { stale(); } }
@@ -1245,7 +1285,7 @@ ${ddHtml("row:" + r.address, "Details", `<div class="nr-line"><code class="nr-gl
     }
     const lastNote = `<b>Last check-in:</b> <code>${glyphsOf(last.address)}</code> <span class="nr-lastn">${esc(gname(last.gal != null ? last.gal : tripGal()))} (${esc(last.via)}), region ${rp.cur.x}, ${rp.cur.y}, ${rp.cur.z}.${hist().length > 1 ? " Check-ins so far: " + hist().length + "." : ""}</span>`;
     return `<div class="nr-tbar"><button type="button" class="nr-mini nr-back" id="nr-trip-back">← Back to scan</button>
-<p class="nr-target">Target: <b>${esc(name || "system " + sys)}</b>${name ? " <small>(generated name, a best guess)</small>" : ""} · ${esc(gname(g.gal))} · system ${sys} · <code>${glyphsOf(g.address)}</code>${isPurple(rp.tg.sys) ? ' <span class="nr-tag">Purple star: needs the purple-star unlock</span>' : ""}</p>
+<p class="nr-target">Target: <b>${esc(name || "system " + sys)}</b>${name ? " <small>(generated name, a best guess)</small>" : ""} · ${esc(gname(g.gal))} · system ${sys} · <code>${glyphsOf(g.address)}</code>${isPurple(rp.tg.sys) ? ' <span class="nr-tag">Purple star: needs the purple-star unlock</span>' : ""}</p>${last.gal != null && last.gal !== g.gal ? `<p class="nr-note bad nr-galwarn-trip" id="nr-trip-galwarn" role="status">Your last check-in was read in ${esc(gname(last.gal))}, the target is in ${esc(gname(g.gal))}. Glyphs do not include the galaxy. Check it is right.</p>` : ""}
 <div class="nr-orow nr-driverow"><label for="nr-drive">Drive range</label><span class="nr-drivebox"><input id="nr-drive" type="number" inputmode="numeric" min="50" max="99999" step="50" value="${driveOf()}" aria-label="Drive range for the jump estimate, in light years"><i>ly</i></span></div>
 ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute ? "" : dvNearRoute.hookHtml(rp.d, range) /* SITE v150 route hook */}<button type="button" class="nr-mini" id="nr-trip-undo"${hist().length > 1 ? "" : " disabled"}>Undo last check-in</button><button type="button" class="nr-mini" id="nr-trip-clear">Clear</button></div></div>
 <div class="nr-tmap">${rp.arrived ? '<div class="nr-tarr"><p class="nr-arrived"><b>Arrived.</b> You are at the target system.</p></div>' : '<div id="nr-mapslot"></div>'}<div class="nr-tmapui">${ddHtml("maphow", "How to read this map", how, "nr-help")}</div>${msgs ? `<div class="nr-tmsg">${msgs}</div>` : ""}</div>
@@ -1254,7 +1294,7 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
 <div class="nr-padwrap nr-tpad" id="nr-tpad" data-open="${tpadOpen ? 1 : 0}"><button type="button" class="nr-padtoggle" id="nr-tpadtoggle" aria-expanded="${tpadOpen}"><span>Glyphs (12)</span><span class="nr-chev" aria-hidden="true"></span></button><div class="nr-tpadbody">${padHtml("nr-ci")}</div></div></div>
 <div class="nr-tright"><div class="nr-inline" data-enter="nr-ci-name"><label class="nr-sr" for="nr-ci-n">No glyphs? Type the name of the system you are in (best guess)</label><input id="nr-ci-n" type="text" autocomplete="off" spellcheck="false" maxlength="60" placeholder="Current system name"><button type="button" id="nr-ci-name">Find by name</button></div>
 <div id="nr-name-out" class="nr-note nr-nameout" role="status"></div>
-<div class="nr-ddrow">${ddHtml("tgt", "Change target", `<div class="nr-inline" data-enter="nr-tgt-go"><input id="nr-tgt" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Glyphs, address or booster of the new target"><button type="button" id="nr-tgt-go">Set target</button></div><p class="nr-note" id="nr-tgt-msg" role="status"></p>`, "nr-help")}${ddHtml("names", "About names", `<p class="nr-note">Names usually match, but a renamed system will not, so use glyphs then. Read the name as soon as you arrive. After a short wait the game can replace it with a name a player uploaded, and the atlas can't match those. Glyphs are the first choice, especially for the system you are in right now.</p>`, "nr-help")}</div></div></div>`;
+${rp.arrived || rp.same || !globalThis.dvNearRoute ? "" : dvNearRoute.bigHtml(rp.d, range) /* SITE v164: big Plan route in hops button */}<div class="nr-ddrow">${ddHtml("tgt", "Change target", `<div class="nr-inline" data-enter="nr-tgt-go"><input id="nr-tgt" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Glyphs, address or booster of the new target"><button type="button" id="nr-tgt-go">Set target</button></div><p class="nr-note" id="nr-tgt-msg" role="status"></p>`, "nr-help")}${ddHtml("names", "About names", `<p class="nr-note">Names usually match, but a renamed system will not, so use glyphs then. Read the name as soon as you arrive. After a short wait the game can replace it with a name a player uploaded, and the atlas can't match those. Glyphs are the first choice, especially for the system you are in right now.</p>`, "nr-help")}</div></div></div>`;
   }
   function paintTrip() {
     const box = $("nr-trip");
@@ -1368,7 +1408,7 @@ ${stats}<div class="nr-tact">${rp.arrived || rp.same || !globalThis.dvNearRoute 
   const boot = () => { hook(); if (location.hash === "#/near") openDlg(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
   // test and debug hooks (no network, no data)
-  globalThis.dvNear = { parsePos, boosterOf, addrOf, coordsOf, dist, coreDist, jumpsFor, offLine, shell, glyphsOf, hubGlyphs, isPurple, normName,
+  globalThis.dvNear = { sysReason, setGalaxy, parsePos, boosterOf, addrOf, coordsOf, dist, coreDist, jumpsFor, offLine, shell, glyphsOf, hubGlyphs, isPurple, normName,
     inSet: (a) => !!(atlasSet && atlasSet.has(a)),
     up: () => ({ found: upStats.found, failed: upStats.failed, queued: upStats.queued, topQueue: upQ.length, busy: upStats.busy, seen: [...upSeen], pending: globalThis.dvNearPending ? dvNearPending() : 0 }),
     state: () => ({ S, results, run: run ? { workers: run.workers.length, scanned: run.scanned, matches: run.matches, regions: run.regions, reach: run.reach, stop: run.stop, judged: run.judged } : null, nameRun: !!nameRun, msPer, lastRun, lastEst, atlasInfo, storeOk, workerCount, speed: speedKey() }),

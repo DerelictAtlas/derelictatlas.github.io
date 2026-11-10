@@ -465,26 +465,118 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     });
   }
 
-  // v162: the game's waypoint line reaches about 1 region (400 ly) on every axis; a farther target routes to a stop-over star
-  function wpNote() {
-    const b = document.getElementById("viewer-navigate");
-    let n = document.getElementById("viewer-wp-note");
-    if (!b) { if (n) n.remove(); return; }
-    const m = /^#\/d\/([0-9A-Fa-f]{16})/.exec(location.hash);
-    let gap = null;
-    try { gap = m && globalThis.dvNear && dvNear.playerGap ? dvNear.playerGap(m[1]) : null; } catch (_) {}
-    const show = gap == null || gap > 1;
-    if (!show) { if (n) n.remove(); return; }
-    if (!n) {
-      n = document.createElement("p"); n.id = "viewer-wp-note"; n.className = "viewer-wp-note";
-      n.textContent = "In-game waypoint lines reach about 1 region (400 ly). If the target is farther, the line may stop at a star on the way. Fly there, then paste again.";
-      const row = b.parentElement; row.insertAdjacentElement("afterend", n);
-    }
+  // v164: "Save image of this view" (camera button left of the fullscreen button of the 2D map and of the 3D view, and in the fullscreen window).
+  // It saves a PNG of the view exactly as it is now (camera, zoom, pan, layers, deck spacing, what is revealed): the 3D view is drawn again in the
+  // same frame by the viewer (view3d.capture), the 2D map is its live SVG. A small preview opens first; nothing is sent anywhere.
+  const VS_CAM = '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.5h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.6"/></svg>';
+  const VS_PROPS = "fill fill-opacity stroke stroke-width stroke-opacity stroke-dasharray stroke-linecap stroke-linejoin opacity font-family font-size font-weight letter-spacing text-anchor dominant-baseline paint-order display visibility".split(" ");
+  function vsMake(kind, id) {
+    const b = document.createElement("button");
+    b.type = "button"; b.id = id; b.className = "icon-button vs-save"; b.dataset.vsKind = kind;
+    b.setAttribute("aria-label", "Save image of this view"); b.title = "Save image of this view"; b.innerHTML = VS_CAM;
+    return b;
   }
+  function ensureSave() {
+    const e3 = document.getElementById("expand-3d"), e2 = document.getElementById("expand-map");
+    if (e3 && !document.getElementById("save-3d")) e3.before(vsMake("3d", "save-3d"));
+    if (e2 && !document.getElementById("save-2d")) e2.before(vsMake("2d", "save-2d"));
+    const head = document.querySelector("#expand-dialog .dialog-heading"), close = head && head.querySelector("[data-close]");
+    if (close && !document.getElementById("save-exp")) close.before(vsMake("exp", "save-exp"));
+  }
+  const vsGlyphs = () => { try { const c = globalThis.dvShareCurrent && dvShareCurrent(); return c && c.glyphs ? String(c.glyphs).toUpperCase() : ""; } catch (_) { return ""; } };
+  function vsCaption(cv, text) {
+    const g = cv.getContext("2d"), s = Math.max(11, Math.round(cv.width / 90));
+    g.save(); g.font = "600 " + s + "px Arial, sans-serif"; g.textBaseline = "alphabetic";
+    const w = g.measureText(text).width + s, h = s * 1.7;
+    g.fillStyle = "rgba(7,19,29,.72)"; g.fillRect(0, cv.height - h, w + s * 0.5, h);
+    g.fillStyle = "#cfe3ea"; g.fillText(text, s * 0.6, cv.height - h * 0.32); g.restore();
+  }
+  async function vsCapture2d() {
+    const svg = document.querySelector("#map-host svg"); if (!svg) return null;
+    const r = svg.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
+    const k = Math.min(2, globalThis.devicePixelRatio || 1), W = Math.round(r.width * k), H = Math.round(r.height * k);
+    const clone = svg.cloneNode(true), live = svg.querySelectorAll("*"), copy = clone.querySelectorAll("*");
+    for (let i = 0; i < live.length && i < copy.length; i++) {
+      const cs = getComputedStyle(live[i]); let st = "";
+      for (const p of VS_PROPS) { const v = cs.getPropertyValue(p); if (v) st += p + ":" + v + ";"; }
+      copy[i].setAttribute("style", st);
+    }
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg"); clone.setAttribute("width", W); clone.setAttribute("height", H);
+    clone.removeAttribute("class");
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("The 2D map could not be drawn.")); i.src = url; });
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const g = cv.getContext("2d"); g.fillStyle = "#07131d"; g.fillRect(0, 0, W, H); g.drawImage(img, 0, 0, W, H);
+      return cv;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function vsCapture3d() {
+    const host = document.getElementById("scene-host"), H = globalThis.dvViewHandles && dvViewHandles(), v = H && H.view3d;
+    if (!host) return null;
+    const r = host.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
+    const k = Math.min(2, globalThis.devicePixelRatio || 1), W = Math.round(r.width * k), Hh = Math.round(r.height * k);
+    if (v && typeof v.capture === "function") return v.capture(W, Hh);   // WebGL: drawn again in this frame from the live camera
+    const svg = host.querySelector("svg"); if (!svg) return null;     // the SVG fallback viewer
+    const clone = svg.cloneNode(true); clone.setAttribute("xmlns", "http://www.w3.org/2000/svg"); clone.setAttribute("width", W); clone.setAttribute("height", Hh);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("The 3D view could not be drawn.")); i.src = url; });
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = Hh; const g = cv.getContext("2d"); g.fillStyle = "#07131d"; g.fillRect(0, 0, W, Hh); g.drawImage(img, 0, 0, W, Hh); return cv;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  function vsDialog() {
+    let d = document.getElementById("vs-dialog"); if (d) return d;
+    d = document.createElement("dialog"); d.id = "vs-dialog"; d.className = "vs-dialog"; d.setAttribute("aria-label", "Save image of this view");
+    d.innerHTML = '<div class="vs-head"><b>Save image of this view</b></div><div class="vs-pic"><img id="vs-img" alt="Preview of the view as it is now"></div><p class="vs-note" id="vs-note"></p><div class="vs-row"><button type="button" class="vs-go" id="vs-save">Save image</button><button type="button" class="vs-share" id="vs-share" hidden>Share</button><button type="button" class="vs-close" id="vs-close">Close</button></div><div id="vs-toast" class="share-toast" role="status" aria-live="polite"></div>';
+    document.body.appendChild(d);
+    d.querySelector("#vs-close").addEventListener("click", () => d.close());
+    d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+    d.addEventListener("close", () => { const i = d.querySelector("#vs-img"); if (i && i.dataset.url) { URL.revokeObjectURL(i.dataset.url); i.dataset.url = ""; i.removeAttribute("src"); } window.__vsBlob = null; });
+    d.querySelector("#vs-save").addEventListener("click", (e) => {
+      const f = window.__vsFile; if (!f) return;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000); window.__vsSaved = (window.__vsSaved || 0) + 1; vsToast(e.currentTarget, "Saved!");
+    });
+    d.querySelector("#vs-share").addEventListener("click", async (e) => {
+      const f = window.__vsFile; if (!f) return;
+      try { await navigator.share({ files: [f], title: "Derelict view" }); } catch (_) { /* cancelled */ }
+    });
+    return d;
+  }
+  let vsTimer = 0;
+  function vsToast(anchor, text) {
+    const t = document.getElementById("vs-toast"); if (!t) return;
+    const r = anchor.getBoundingClientRect(); t.textContent = text; t.classList.remove("bad"); t.classList.add("show");
+    const tw = t.offsetWidth || 90, th = t.offsetHeight || 30;
+    t.style.left = Math.max(8, Math.min(innerWidth - tw - 8, r.left + r.width / 2 - tw / 2)) + "px"; t.style.top = Math.max(8, r.top - th - 8) + "px";
+    clearTimeout(vsTimer); vsTimer = setTimeout(() => t.classList.remove("show"), 1500);
+  }
+  async function vsPress(kind) {
+    if (kind === "exp") { const ti = document.getElementById("expand-title"); kind = ti && /3D/i.test(ti.textContent) ? "3d" : "2d"; }
+    let cv = null, err = "";
+    try { cv = kind === "3d" ? await vsCapture3d() : await vsCapture2d(); } catch (e) { err = e && e.message ? e.message : "The image could not be made."; }
+    const d = vsDialog(), note = d.querySelector("#vs-note");
+    if (!cv) { note.textContent = err || "There is no picture to save yet. Wait for the view to finish drawing."; d.querySelector("#vs-img").removeAttribute("src"); d.querySelector("#vs-save").disabled = true; d.querySelector("#vs-share").hidden = true; if (!d.open) d.showModal(); return; }
+    const gl = vsGlyphs(); vsCaption(cv, "NMS Derelict Atlas" + (gl ? " " + gl : "") + " " + kind.toUpperCase() + " view");
+    const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
+    if (!blob) { note.textContent = "The image could not be made."; return; }
+    const name = "derelict-" + (gl || "view").toLowerCase() + "-" + kind + ".png", file = new File([blob], name, { type: "image/png" });
+    window.__vsFile = file; window.__vsMeta = { kind, w: cv.width, h: cv.height, name };
+    const img = d.querySelector("#vs-img"); if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = URL.createObjectURL(blob); img.src = img.dataset.url;
+    note.textContent = "This is the view as it is now (" + cv.width + " x " + cv.height + " px). File: " + name;
+    d.querySelector("#vs-save").disabled = false;
+    let can = false; try { can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { /* no file sharing */ }
+    d.querySelector("#vs-share").hidden = !can;
+    if (!d.open) d.showModal();   // in the fullscreen window too: showModal stacks on top of it
+  }
+  document.addEventListener("click", (e) => { const b = e.target instanceof Element && e.target.closest(".vs-save"); if (b) { e.preventDefault(); vsPress(b.dataset.vsKind); } });
   function watch() {
+    ensureSave();
     const content = document.getElementById("viewer-content"), st = document.getElementById("atlas-status"), results = document.getElementById("results");
-    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); stripRow(); wpNote(); }).observe(content, { childList: true });
-    window.addEventListener("hashchange", () => { mountOpenIn(); setTimeout(wpNote, 150); });
+    if (content) new MutationObserver(() => { mountOpenIn(); moveSpacing(); stripRow(); ensureSave(); }).observe(content, { childList: true });
+    window.addEventListener("hashchange", () => { mountOpenIn(); });
     if (st) new MutationObserver(syncStatus).observe(st, { childList: true, characterData: true, subtree: true });
     if (results) new MutationObserver(syncStatus).observe(results, { attributes: true, attributeFilter: ["aria-busy"], childList: true });
     if (results) new MutationObserver(syncRanks).observe(results, { childList: true, subtree: true });

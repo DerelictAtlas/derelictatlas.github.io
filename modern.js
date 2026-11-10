@@ -427,7 +427,7 @@ async function mountThree(selection,ticket){
 }
 function engineLayers(){const result={...layers,frigateModules:layers.modules};for(const k of ['turret','floater','fastFloater','drone','bugSpawner','hangSac','pillarSac','egg'])result[k]=layers.hazards;return result;}
 
-function expand(kind){
+globalThis.dvViewHandles=()=>({view3d,map,current});function expand(kind){
   if(!current?.layout)return;
   const host=$(kind==='map'?'map-host':'scene-host'),parent=host.parentNode,tools=kind==='map'?$('map-tools'):null,toolsParent=tools?.parentNode;
   const hostAnchor=document.createComment('map expansion anchor');parent.insertBefore(hostAnchor,host);

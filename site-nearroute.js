@@ -129,7 +129,9 @@
       return c;
     }
     const sc = await load(req.start), tc = await load(req.target);
-    const sStar = findSys(sc, req.start.sys), tStar = findSys(tc, req.target.sys);
+    let sStar = findSys(sc, req.start.sys); const tStar = findSys(tc, req.target.sys);
+    // v164: a start that is not in the star list of a real region does not block the route: it starts from the middle of that region (up to about 350 ly off)
+    if (!sStar && sc && sc.n > 0 && !req.noApprox) { sStar = { ly: [req.start.x * 100 * LYU, req.start.y * 100 * LYU, req.start.z * 100 * LYU], col: 0, approx: true }; if (io.approx) io.approx(sc.n); }
     if (!sStar) return { ok: false, error: "start-unknown" };
     if (!tStar) return { ok: false, error: "target-unknown" };
     const a = sStar.ly, b = tStar.ly, d = dist3(a, b), LB = Math.max(1, Math.ceil(d / R - 1e-9));
@@ -296,6 +298,10 @@
   const samePlace = (p, q) => p.sys === q.sys && p.x === q.x && p.y === q.y && p.z === q.z;
   const isTouch = () => { try { return matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0; } catch (_) { return false; } };
   const ICON = '<svg class="nrt-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>';
+  // The one place for the wording about our mod (SITE v164). It is in development: change this text only when the mod is released.
+  const MOD_TEXT = "Our mod is a navigator and route planner, and also a minimap for derelicts shown as an overlay in the game. It is in development and not released yet.";
+  globalThis.dvModText = MOD_TEXT;
+  const modNote = () => `<p class="nrt-note nrt-mod" id="nrt-mod">${esc(MOD_TEXT)}</p>`;
   const jset = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (_) { /* private mode */ } };
   const jget = () => { try { const j = JSON.parse(localStorage.getItem(KEY)); return j && j.v === 1 ? j : null; } catch (_) { return null; } };
   const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -303,7 +309,7 @@
   // ------------------------------------------------------------------------------------------ state
   // T = the trip: { v:1, gal, target:{address}, start:{address}, range, hops:[{address,name,leg,left,ly,col}], total, direct, lb, done, started }
   let dlg = null, T = null, runId = 0, planning = false;
-  const ui = { screen: "plan", tab: "hops", ci: false, msg: "", msgBad: false, off: null, load: null, fail: null, stars: [], tier: "", info: null, err: "" };
+  const ui = { view: null, screen: "plan", tab: "hops", ci: false, msg: "", msgBad: false, off: null, load: null, fail: null, stars: [], tier: "", info: null, err: "" };
   const gKey = (p) => p.x + "," + p.y + "," + p.z;
 
   function sample(a, max) { const n = a.length / 3, step = Math.max(1, Math.ceil(n / max)), o = []; for (let i = 0; i < n; i += step) o.push(Math.round(a[3 * i]), Math.round(a[3 * i + 1]), Math.round(a[3 * i + 2])); return o; }
@@ -313,17 +319,18 @@
     killWorker();
     if (why) ui.err = why;
   }
-  async function startPlan(startAddr, targetAddr, gal, range, keepNote) {
+  async function startPlan(startAddr, targetAddr, gal, range, keepNote, parts) {
     stopPlan();
     const my = ++runId; planning = true; W.gal = gal;
     const sc = coordsOf(startAddr), tc = coordsOf(targetAddr);
-    T = { v: 1, gal, target: { address: targetAddr }, start: { address: startAddr }, range, hops: [], total: 0, direct: 0, lb: 0, done: 0, started: false };
-    Object.assign(ui, { screen: "load", ci: false, msg: keepNote || "", msgBad: false, off: null, load: { i: 0, total: 0, tier: "", n: 0, ms: 0 }, fail: null, stars: [], info: null, err: "" });
+    T = { v: 1, gal, target: { address: targetAddr }, start: { address: startAddr }, range, hops: [], total: 0, direct: 0, lb: 0, done: 0, started: false, parts: parts || [] };
+    Object.assign(ui, { view: null, screen: "load", ci: false, msg: keepNote || "", msgBad: false, off: null, load: { i: 0, total: 0, tier: "", n: 0, ms: 0 }, fail: null, stars: [], info: null, err: "" });
     W.stopP = new Promise((_, rej) => { W.stopRej = rej; }); W.stopP.catch(() => {});
     if (globalThis.dvNearMap && dvNearMap.stop) { try { dvNearMap.stop(); } catch (_) { /* the Near me map is not needed now */ } }
     ui.base = null; paint();
     const io = {
       region: loadRegion, tick, stopped: () => my !== runId,
+      approx: (n) => { if (my === runId) { T.startApprox = true; T.startN = n; } },
       ends: (a, b, w) => { if (my === runId) { T.startLy = a; T.targetLy = b; T.mapEnd = w || null; paint(); drawSoon(); } },
       progress: (p) => {
         if (my !== runId) return;
@@ -343,12 +350,41 @@
     if (my !== runId) return;
     planning = false; killWorker();   // the worker holds about 133 MB: it is not needed to walk the route
     ui.info = { regions: res.regions, failed: res.failed, tiers: res.tiers, loadMs: res.loadMs, ms: res.ms, lb: res.lb, radius: res.radius };
-    if (!res.ok) { ui.screen = "fail"; ui.fail = Object.assign({ kind: res.error }, res); paint(); return; }
+    if (!res.ok) {
+      ui.screen = "fail"; ui.fail = Object.assign({ kind: res.error }, res);
+      if (res.error === "start-unknown" && N() && N().sysReason) { try { ui.fail.reason = (await N().sysReason(gal, sc.x, sc.y, sc.z, sc.sys)).text; } catch (_) { /* plain text */ } }
+      if (my !== runId) return;
+      paint(); return;
+    }
+    if (T.startApprox && N() && N().sysReason) { try { const rs = await N().sysReason(gal, sc.x, sc.y, sc.z, sc.sys); T.startReason = rs.text; } catch (_) { /* plain text */ } if (my !== runId) return; }
     T.hops = res.hops.map((h) => { const a = addrOf(h.sys, gal, h.x, h.y, h.z); return { address: a, name: nameOf(a), leg: h.leg, left: h.left, ly: h.ly, col: h.col }; });
     T.partial = !!res.partial; T.leftAfter = res.leftAfter || 0; T.mapEnd = res.partial ? res.hops[res.hops.length - 1].ly : null;
     T.total = res.total; T.direct = res.direct; T.lb = res.lb; T.single = !!res.single; T.searched = res.regionsSearched; T.radius = res.radius;
     T.startLy = T.startLy || null; T.stars = sample(ui.stars, 500);
     ui.screen = "plan"; jset(T); paint();
+  }
+
+  // ------------------------------------------------------------------------------------------ parts (v164)
+  // A far trip is planned in parts. T is always the newest part; T.parts holds the earlier ones (read only snapshots), so every part stays viewable.
+  const partsN = () => (T && T.parts ? T.parts.length : 0);
+  function snapPart(t) {
+    return { hops: t.hops, total: t.total, direct: t.direct, lb: t.lb, single: t.single, searched: t.searched, radius: t.radius, range: t.range, leftAfter: t.leftAfter, partial: t.partial, start: t.start, startLy: t.startLy, mapEnd: t.mapEnd, stars: (t.stars || []).slice(0, 600), done: t.hops.length };
+  }
+  function viewT() { return ui.view != null && T && T.parts && T.parts[ui.view] ? Object.assign({}, T, T.parts[ui.view], { parts: T.parts }) : null; }
+  const curPart = () => (viewT() ? ui.view : partsN());
+  function goPart(k) {
+    const n = partsN(); k = Math.max(0, Math.min(n, k));
+    ui.view = k >= n ? null : k; ui.tab = "hops"; ui.ci = false; paint(); drawSoon();
+  }
+  function partBar() {
+    const n = partsN(); if (!n || ui.screen === "load" || ui.screen === "fail" || ui.screen === "stopped") return "";
+    const c = curPart();
+    return `<div class="nrt-parts" role="group" aria-label="Route parts"><b class="nrt-partlbl" id="nrt-partlbl">Part ${c + 1} of ${n + 1}</b><span class="nrt-partbtns"><button type="button" class="nrt-mini" data-nrt-part="first"${c === 0 ? " disabled" : ""}>First part</button><button type="button" class="nrt-mini" data-nrt-part="prev"${c === 0 ? " disabled" : ""}>Previous part</button><button type="button" class="nrt-mini" data-nrt-part="next"${c === n ? " disabled" : ""}>Next part</button></span></div>`;
+  }
+  function viewHtml() {   // an earlier part, read only (T is the part itself while this runs)
+    const M = T.hops.length, left = T.targetLy ? dist3(T.hops[M - 1].ly, T.targetLy) : null;
+    return `<div class="nrt-panel"><b class="nrt-big">Part ${ui.view + 1}: ${M} jump${M === 1 ? "" : "s"}, ${num(T.total)} ly route</b><span class="nrt-note">An earlier part of your route. You checked in at its last stop${left == null ? "" : ", " + num(left) + " ly from the target"}. Use Next part to go on.</span></div>
+<p class="nrt-label">${LABEL}</p><div class="nrt-listbox">${listHtml()}</div>${modNote()}`;
   }
 
   // ------------------------------------------------------------------------------------------ the map
@@ -370,7 +406,12 @@
     cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR); cv.style.width = CW + "px"; cv.style.height = CH + "px";
     drawSoon();
   }
-  function draw() {
+  function draw() {   // an earlier part is drawn from its own snapshot
+    const vt = viewT(); if (!vt) return draw0();
+    const real = T, st = ui.stars; T = vt; ui.stars = vt.stars || [];
+    try { draw0(); } finally { T = real; ui.stars = st; }
+  }
+  function draw0() {
     if (!ctx || !dlg || !dlg.open) return;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     const g = ctx.createLinearGradient(0, 0, 0, CH); g.addColorStop(0, "#07131d"); g.addColorStop(1, "#050d15");
@@ -423,7 +464,7 @@
     ctx.fillStyle = "#f2b705"; ctx.textAlign = "right"; ctx.fillText((T.mapEnd ? "Toward " : "") + nameOf(T.target.address), Math.min(CW - 6, T0[0] + rad + 4), Math.max(fs + 4, T0[1] - rad - 8));
     ctx.strokeStyle = "#29d3ea"; ctx.fillStyle = "#29d3ea"; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.arc(S0[0], S0[1], 7, 0, 6.2832); ctx.moveTo(S0[0] - 11, S0[1]); ctx.lineTo(S0[0] - 4, S0[1]); ctx.moveTo(S0[0] + 4, S0[1]); ctx.lineTo(S0[0] + 11, S0[1]); ctx.moveTo(S0[0], S0[1] - 11); ctx.lineTo(S0[0], S0[1] - 4); ctx.moveTo(S0[0], S0[1] + 4); ctx.lineTo(S0[0], S0[1] + 11); ctx.stroke();
-    ctx.textAlign = "left"; ctx.fillText("You", Math.max(4, S0[0] - 14), Math.min(CH - 6, S0[1] + 26));
+    ctx.textAlign = "left"; ctx.fillText(T.startApprox ? "You (about here)" : "You", Math.max(4, S0[0] - 14), Math.min(CH - 6, S0[1] + 26));
     if (ui.screen === "run" && T.done < hops.length && !bearing) {   // name of the next stop beside it
       const h = hops[T.done], p = P(h.ly); ctx.font = "500 " + (fs - 1) + "px system-ui, sans-serif"; ctx.fillStyle = "#bfe9f1"; ctx.textAlign = p[0] > CW * 0.62 ? "right" : "left";
       ctx.fillText(nameOf(h.address), p[0] + (p[0] > CW * 0.62 ? -rad - 5 : rad + 5), p[1] + rad + 13);
@@ -448,7 +489,7 @@
     dlg.addEventListener("close", onClose);
   }
   function onClose() {
-    stopPlan(); ui.screen = T && T.hops && T.hops.length ? (T.started ? "run" : "plan") : "plan";
+    stopPlan(); ui.view = null; ui.screen = T && T.hops && T.hops.length ? (T.started ? "run" : "plan") : "plan";
     const d = $("nr-drive");   // hand the drive range and the new position back to Heading there: its own change handler saves and repaints
     if (d && T) { try { if (Number(d.value) !== T.range) d.value = T.range; d.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) { /* the Near me window is not there */ } }
   }
@@ -469,15 +510,24 @@
 <li>The map is a flat picture along your route. Heights are squashed, so look at the distances in the list, not the picture.</li></ul></details>`;
   function paint() {
     if (!dlg || !T) return;
-    const scr = ui.screen, tab = ui.tab;
-    dlg.dataset.screen = scr; dlg.dataset.tab = tab;
+    const scr = ui.screen, tab = ui.tab, vt = viewT();
+    if (ui.view != null && !vt) ui.view = null;
+    dlg.dataset.screen = vt ? "view" : scr; dlg.dataset.tab = tab; dlg.dataset.part = String(curPart());
+    $("nrt-t-bearing").disabled = !!vt;
     $("nrt-t-hops").classList.toggle("on", tab === "hops"); $("nrt-t-bearing").classList.toggle("on", tab === "bearing");
     $("nrt-t-hops").setAttribute("aria-selected", tab === "hops"); $("nrt-t-bearing").setAttribute("aria-selected", tab === "bearing");
+    const real = T; if (vt) T = vt;
+    try { paintMain(vt, scr); } finally { T = real; }
+  }
+  function paintMain(vt, scr) {
+    const tab = ui.tab;
     const tn = nameOf(T.target.address), left = T.targetLy ? tgtLeft() : null;
     $("nrt-tcard").innerHTML = `${ICON}<div><b>${esc(tn)}</b> <i>&middot;</i> <span class="nrt-gal">${esc(galName(T.gal))}</span><small>${left == null ? "" : num(left) + " ly away" + (T.done ? " (from your last stop)" : "")}</small></div>`;
     $("nrt-mapnote").textContent = scr === "load" ? "Yellow stars along the route appear as each region is worked out." : "Yellow stars the route can use. Flat picture along the route.";
     const side = $("nrt-side"); let h = "";
-    if (scr === "load") {
+    if (vt) {
+      h = viewHtml();
+    } else if (scr === "load") {
       h = `<div class="nrt-panel" id="nrt-loadp"><b class="nrt-big" id="nrt-lt"></b><div class="nrt-bar" id="nrt-lbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span style="width:0%"></span></div><span class="nrt-note" id="nrt-ln"></span><div class="nrt-row"><button type="button" class="nrt-ghost" data-nrt-act="stop">Stop</button></div></div>`;
     } else if (scr === "stopped") {
       h = `<div class="nrt-panel"><b>Stopped.</b><p class="nrt-note">The route needs every region along the line, so nothing was planned. The star worker was ended.</p><div class="nrt-row"><button type="button" class="nrt-gold" data-nrt-act="replan">Plan again</button></div></div>`;
@@ -491,7 +541,7 @@
       const M = T.hops.length;
       h = `<div class="nrt-panel">${summaryHtml()}<label class="nrt-range" for="nrt-range">Warp range <input id="nrt-range" type="number" inputmode="numeric" min="50" max="99999" step="50" value="${T.range}" aria-label="Warp range in light years"> ly</label></div>
 <p class="nrt-label" id="nrt-label">${LABEL}</p>
-<div class="nrt-listbox">${listHtml()}${fineHtml()}</div>
+<div class="nrt-listbox">${listHtml()}${fineHtml()}</div>${modNote()}
 <div class="nrt-row nrt-foot"><button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="start">${ICON}<span>Start route</span></button></div>`;
     } else if (scr === "run") {
       const i = T.done, hp = T.hops[i], M = T.hops.length, nm = hp.name;
@@ -499,16 +549,16 @@
 <div class="nrt-grow">${glyphRow(hp.address)}<button type="button" class="nrt-mini nrt-copy" data-nrt-copy="${i}">Copy glyphs</button></div><p class="nrt-note">Generated name, a best guess. Glyphs: <code>${glyphsOf(hp.address)}</code></p></div>
 <p class="nrt-msg ${ui.msgBad ? "bad" : ""}" id="nrt-msg" role="status">${ui.msg}</p>${ui.off ? offHtml() : ""}
 ${ui.ci ? ciHtml() : ""}
-<div class="nrt-listbox">${listHtml()}<p class="nrt-label">${LABEL}</p>${fineHtml()}</div>
+<div class="nrt-listbox">${listHtml()}<p class="nrt-label">${LABEL}</p>${fineHtml()}</div>${modNote()}
 <div class="nrt-row nrt-foot">${ui.ci ? `<button type="button" class="nrt-ghost" data-nrt-act="ci-cancel">Cancel</button><button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="ci-go">${ICON}<span>Check in</span></button>` : `<button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="ci-open">${ICON}<span>Check in</span></button>`}</div>
 <div class="nrt-row nrt-sec">${T.partial ? '<button type="button" class="nrt-link" data-nrt-act="next">Plan next part now</button>' : ""}<button type="button" class="nrt-link" data-nrt-act="replan">Plan again from the start</button><button type="button" class="nrt-link" data-nrt-act="clear">Clear route</button></div>`;
     } else if (scr === "done") {
       h = T.partial
-        ? `<div class="nrt-panel"><b class="nrt-big">End of the first part</b><span class="nrt-note">You checked in at the last stop. ${num(tgtLeft())} ly still to go to ${esc(nameOf(T.target.address))}. Plan the next part from here.</span></div><div class="nrt-listbox">${listHtml()}</div><div class="nrt-row nrt-foot"><button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="next">${ICON}<span>Plan next part</span></button></div><div class="nrt-row nrt-sec"><button type="button" class="nrt-link" data-nrt-act="clear">Clear route</button></div>`
+        ? `<div class="nrt-panel"><b class="nrt-big">End of ${partsN() ? "part " + (partsN() + 1) : "the first part"}</b><span class="nrt-note">You checked in at the last stop. ${num(tgtLeft())} ly still to go to ${esc(nameOf(T.target.address))}. Plan the next part from here.</span></div><div class="nrt-listbox">${listHtml()}</div><div class="nrt-row nrt-foot"><button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="next">${ICON}<span>Plan next part</span></button></div><div class="nrt-row nrt-sec"><button type="button" class="nrt-link" data-nrt-act="clear">Clear route</button></div>`
         : `<div class="nrt-panel"><b class="nrt-big">Arrived</b><span class="nrt-note">You checked in at the last stop, ${esc(nameOf(T.target.address))}. ${T.hops.length} jump${T.hops.length === 1 ? "" : "s"}, ${num(T.total)} ly planned.</span></div><div class="nrt-listbox">${listHtml()}</div><div class="nrt-row nrt-foot"><button type="button" class="nrt-gold nrt-big-btn" data-nrt-act="clear"><span>Done</span></button></div>`;
     }
     const keep = $("nrt-ci") ? $("nrt-ci").value : "";
-    side.innerHTML = h;
+    side.innerHTML = partBar() + h;
     if ($("nrt-ci")) { $("nrt-ci").value = keep; syncPad(); }
     if (scr === "load") paintLoad();
     resize();
@@ -517,9 +567,14 @@ ${ui.ci ? ciHtml() : ""}
     const M = T.hops.length;
     if (T.partial) {
       const prog = T.direct - T.leftAfter;
-      return `<b class="nrt-big">First part of the route: ${M} jump${M === 1 ? "" : "s"}, ${num(prog)} ly toward the target.</b><span class="nrt-note">${num(T.leftAfter)} ly still to go after the last stop. The target is ${num(T.direct)} ly away, too far to plan in one go. Route length ${num(T.total)} ly.</span><button type="button" class="nrt-gold nrt-sm" data-nrt-act="next">Plan next part</button>`;
+      return `<b class="nrt-big">${partsN() ? "Part " + (partsN() + 1) + " of the route" : "First part of the route"}: ${M} jump${M === 1 ? "" : "s"}, ${num(prog)} ly toward the target.</b><span class="nrt-note">${num(T.leftAfter)} ly still to go after the last stop. The target is ${num(T.direct)} ly away, too far to plan in one go. Route length ${num(T.total)} ly.</span>${approxNote()}<button type="button" class="nrt-gold nrt-sm" data-nrt-act="next">Plan next part</button>`;
     }
-    return `<b class="nrt-big">${M} jump${M === 1 ? "" : "s"} <i>&middot;</i> ${num(T.total)} ly route</b><span class="nrt-note">${T.single ? "The target is within one jump." : "Direct line " + num(T.direct) + " ly."}</span>`;
+    return `<b class="nrt-big">${M} jump${M === 1 ? "" : "s"} <i>&middot;</i> ${num(T.total)} ly route</b>${approxNote()}<span class="nrt-note">${T.single ? "The target is within one jump." : "Direct line " + num(T.direct) + " ly."}</span>`;
+  }
+  // v164: shown when the start system is not in the star list of its region and the route starts from the middle of the region
+  function approxNote() {
+    if (!T.startApprox || T.parts && ui.view != null) return "";
+    return `<span class="nrt-note nrt-approx" id="nrt-approx"><b>Approximate start.</b> ${esc(T.startReason || "Your start system is not in the star list of its region.")} The route starts from the middle of the region, up to about 350 ly off. Check in after the first jump.</span>`;
   }
   function coreLine() {
     const n = N(); if (!n || !T.startLy || !T.targetLy) return "";
@@ -537,7 +592,7 @@ ${ui.ci ? ciHtml() : ""}
 
   function failHtml() {
     const f = ui.fail || {}, row = '<div class="nrt-row"><button type="button" class="nrt-gold nrt-sm" data-nrt-act="replan">Try again</button></div>';
-    if (f.kind === "start-unknown") return `<div class="nrt-panel"><b>Your position is not on the map.</b><p class="nrt-note">System ${hex(coordsOf(T.start.address).sys, 3)} is not in the computed star list of its region, so a route cannot start there. Check your glyphs in Heading there.</p></div>${row}`;
+    if (f.kind === "start-unknown") return `<div class="nrt-panel"><b>Your position is not on the map.</b><p class="nrt-note">${esc(f.reason || "System " + hex(coordsOf(T.start.address).sys, 3) + " is not in the computed star list of its region.")} The region itself is not valid, so a route cannot start there. Check glyphs 2 to 4 (the system) and the other glyphs in Heading there.</p></div>${row}`;
     if (f.kind === "target-unknown") return `<div class="nrt-panel"><b>The target is not on the map.</b><p class="nrt-note">System ${hex(coordsOf(T.target.address).sys, 3)} is not in the computed star list of its region, so a route to it cannot be planned.</p></div>`;
     if (f.kind === "no-stars") return `<div class="nrt-panel"><b>No star in reach toward the target.</b><p class="nrt-note">No yellow star (system 1 to 120) lies within ${num(T.range)} ly of you in the direction of the target, so the first jump cannot be planned. A larger warp range may open a way.</p><label class="nrt-range" for="nrt-range">Warp range <input id="nrt-range" type="number" inputmode="numeric" min="50" max="99999" step="50" value="${T.range}" aria-label="Warp range in light years"> ly</label></div>`;
     if (f.kind === "other-galaxy") return `<div class="nrt-panel"><b>A different galaxy.</b><p class="nrt-note">The target is in ${esc(galName(T.gal))} and you are in ${esc(galName(coordsOf(T.start.address).gal))}. A route cannot cross galaxies, so none is planned.</p></div>`;
@@ -605,22 +660,24 @@ ${ui.ci ? ciHtml() : ""}
     const t = e.target instanceof Element ? e.target : null; if (!t) return;
     const tab = t.closest("[data-nrt-tab]"), act = t.closest("[data-nrt-act]"), cp = t.closest("[data-nrt-copy]"), g = t.closest("[data-nrt-g]");
     if (t.closest("[data-nrt-close]")) { dlg.close(); return; }
-    if (tab) { ui.tab = tab.dataset.nrtTab; paint(); return; }
-    if (cp) { const h = T.hops[Number(cp.dataset.nrtCopy)]; if (h) copy(glyphsOf(h.address), cp); return; }
+    const pt = t.closest("[data-nrt-part]");
+    if (pt) { if (pt.disabled) return; const d = pt.dataset.nrtPart, c = curPart(); goPart(d === "first" ? 0 : d === "prev" ? c - 1 : c + 1); return; }
+    if (tab) { if (viewT()) return; ui.tab = tab.dataset.nrtTab; paint(); return; }
+    if (cp) { const h = (viewT() || T).hops[Number(cp.dataset.nrtCopy)]; if (h) copy(glyphsOf(h.address), cp); return; }
     if (g) { const inp = $("nrt-ci"), v = inp.value.replace(/[\s-]/g, ""); if (/^[0-9A-Fa-f]*$/.test(v) && v.length < 12) { inp.value = v + g.dataset.nrtG; syncPad(); } return; }
     if (t.closest("[data-nrt-del]")) { const inp = $("nrt-ci"); inp.value = inp.value.slice(0, -1); syncPad(); return; }
     if (t.closest("[data-nrt-clr]")) { const inp = $("nrt-ci"); inp.value = ""; syncPad(); return; }
     if (!act) return;
     const a = act.dataset.nrtAct;
     if (a === "stop") { stopPlan(); ui.screen = "stopped"; paint(); }
-    else if (a === "next") { const L = T.hops[T.hops.length - 1]; if (L) replanFrom(L.address, false); }
+    else if (a === "next") { const L = T.hops[T.hops.length - 1]; if (L) startPlan(L.address, T.target.address, T.gal, T.range, "", (T.parts || []).concat([snapPart(T)])); }
     else if (a === "start") { T.started = true; ui.screen = "run"; ui.msg = ""; jset(T); paint(); }
     else if (a === "ci-open") { ui.ci = true; ui.msg = ""; ui.off = null; paint(); const i = $("nrt-ci"); if (i && !isTouch()) i.focus(); }
     else if (a === "ci-cancel") { ui.ci = false; paint(); }
     else if (a === "ci-go") doCheckIn();
     else if (a === "off-dismiss") { ui.off = null; paint(); }
     else if (a === "replan-here") { const o = ui.off; if (o) replanFrom(o.address); }
-    else if (a === "replan") replanFrom(T.start.address, true);
+    else if (a === "replan") startPlan(T.start.address, T.target.address, T.gal, T.range, "", T.parts || []);   // plans this part again; the earlier parts stay
     else if (a === "clear") { try { localStorage.removeItem(KEY); } catch (_) { /* nothing */ } T.hops = []; dlg.close(); }
   }
   function onInput(e) {
@@ -656,7 +713,7 @@ ${ui.ci ? ciHtml() : ""}
     // a saved route is picked up again only when it is for the same target and range and you are where it left you (the last check-in); otherwise it is planned again from your position
     const here = (a) => { const p = coordsOf(a), q = coordsOf(start); return p.gal === q.gal && samePlace(p, q); };
     if (saved && !opts.fresh && saved.target.address === target && saved.gal === gal && saved.hops && saved.hops.length && saved.range === range && here(saved.done > 0 ? saved.hops[saved.done - 1].address : saved.start.address)) {
-      T = saved; ui.screen = T.started ? (T.done >= T.hops.length ? "done" : "run") : "plan"; ui.ci = false; ui.off = null; ui.msg = ""; ui.stars = [];
+      T = saved; T.parts = T.parts || []; ui.view = null; ui.screen = T.started ? (T.done >= T.hops.length ? "done" : "run") : "plan"; ui.ci = false; ui.off = null; ui.msg = ""; ui.stars = [];
       ui.stars = (T.stars || []).slice(); paint(); drawSoon();
       return true;
     }
@@ -671,14 +728,18 @@ ${ui.ci ? ciHtml() : ""}
   globalThis.dvNearRoute = {
     open,
     // the Heading there top bar: a button for a target farther than one jump, a plain line otherwise (d and range in ly)
-    hookHtml: (d, range) => (d > range
-      ? '<button type="button" class="nr-mini nrt-open" data-nrt-open>Plan route in hops</button>'
-      : '<span class="nr-note nrt-inrange">In range of one jump</span>'),
+    hookHtml: (d, range) => (d > range ? "" : '<span class="nr-note nrt-inrange">In range of one jump</span>'),
+    // v164: the big button in the bottom area of Heading there (beside the glyph keypad), only for a target farther than one jump
+    bigHtml: (d, range) => (d > range
+      ? `<button type="button" class="nrt-open nrt-bigplan" data-nrt-open aria-label="Plan route in hops"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="9" cy="37" r="4.5"/><circle cx="24" cy="15" r="4.5"/><circle cx="39" cy="31" r="4.5"/><path d="M12 33.5 21 19M28 17.5 36 27.5" stroke-dasharray="3 3"/></svg><b>Plan route in hops</b><small>Plan a far trip in jumps you can make</small></button>`
+      : ""),
+    modText: MOD_TEXT,
     pure,
     _test: {
       T: () => T, ui: () => ui, workerAlive: () => !!W.worker, loads: () => W.loads, cacheSize: () => W.cache.size, map: () => ({ stars: ui.stars.length / 3, cw: CW, ch: CH }),
       clearCache: () => W.cache.clear(),
       setTab: (t) => { ui.tab = t; paint(); },
+      view: () => ui.view, goPart,
     },
   };
 })();

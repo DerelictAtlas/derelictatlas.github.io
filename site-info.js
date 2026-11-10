@@ -54,7 +54,7 @@ ${card(I.save, "Kept to save space", "The atlas keeps every number of every syst
 ${card(I.check, "Your uploads", "The scanner page shows how many of your scans are in the atlas, still waiting or missing, and the map state of your top-100 finds.")}</div>`;
     if (name === "stats") return `<div class="si-stats" aria-live="polite"><p class="site-muted">${window.dvLoading ? window.dvLoading.html("Loading atlas statistics") : "Loading atlas statistics…"}</p></div><div class="si-speed" aria-live="polite"></div><div class="si-owner-stats"></div>`;
     return `<div class="si-about-layout">
-<div class="si-about-main"><div class="si-about-slot"></div>${creditsHtml()}<div class="si-owner-slot"></div></div>
+<div class="si-about-main"><div class="si-about-slot"></div>${window.dvModText ? `<p class="si-mod" id="si-mod"><b>Our mod.</b> ${window.dvModText}</p>` : ""}${creditsHtml()}<div class="si-owner-slot"></div></div>
 <aside class="si-about-embed" aria-label="Embed preview">
 <div class="si-about-embed-head"><div><span class="si-about-kicker">LIVE WIDGET</span><h4>What visitors see</h4></div><a href="embed-setup.html" target="_blank" rel="noopener">Customize ↗</a></div>
 <p>It scans in their browser.</p>

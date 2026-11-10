@@ -557,3 +557,26 @@ dialog.sheet.nr-dialog[data-view="trip"]::before { inset: 0; clip-path: none; }
 .nr-frow2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .nr-fastnote { color: var(--nr-gold-hi); }
 @media (max-height: 520px) { .nr-fastbtn { min-height: 36px; } .nr-fastpop { max-height: 70vh; } }
+
+/* v164: big "Plan route in hops" button in the bottom area of Heading there: it fills the empty block beside the glyph keypad, above Change target */
+.nrt-bigplan { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 72px; margin: 2px 0; padding: 10px 14px; border: 2px solid #7fe8f2; border-radius: 12px; background: linear-gradient(#1b8fa3, #0f5a6b); color: #fff; font: inherit; text-align: center; cursor: pointer; box-shadow: 0 0 14px rgba(41, 211, 234, .35); }
+.nrt-bigplan:hover, .nrt-bigplan:focus-visible { background: linear-gradient(#22a9bf, #136f83); outline: 2px solid #fff; outline-offset: 2px; }
+.nrt-bigplan svg { width: 44px; height: 44px; flex: none; fill: #fff; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
+.nrt-bigplan b { font-size: 19px; line-height: 1.15; font-weight: 800; }
+.nrt-bigplan small { font-size: 12px; opacity: .9; line-height: 1.25; }
+@media (max-width: 799px), (max-height: 599px) {
+  .nrt-bigplan { flex: 1 1 100%; flex-direction: row; justify-content: center; gap: 10px; min-height: 52px; padding: 6px 12px; order: -1; }
+  .nrt-bigplan svg { width: 30px; height: 30px; } .nrt-bigplan b { font-size: 17px; } .nrt-bigplan small { display: none; }
+}
+@media (min-width: 800px) and (max-height: 599px) { .nrt-bigplan { flex: 1 1 auto; flex-direction: column; min-height: 44px; order: 0; } .nrt-bigplan small { display: none; } .nrt-bigplan svg { width: 24px; height: 24px; } .nrt-bigplan b { font-size: 15px; } }
+
+/* v164: the note under the glyph box ("Glyphs read as ... Galaxy used ...") wraps fully; nothing is cut off or hidden behind the glyph strip */
+#nr-pos-note, #nr-pos-note.ok { max-height: none; height: auto; overflow: visible; overflow-wrap: anywhere; }
+.nr-posstat { flex: none; }
+.nr-posstat { height: auto; min-height: 3.9em; overflow: visible; }
+.nr-usegal { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; } .nr-usegal .nr-mini { min-height: 30px; }
+/* v164: galaxy warnings (glyphs carry no galaxy) */
+#nr-gal-warn:not([hidden]) { display: block; margin: 4px 0 0; }
+.nr-galmain:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 6px 8px; border: 1px solid #a63a2a; border-radius: 6px; background: rgba(166, 58, 42, .12); font-size: 12.5px; line-height: 1.35; }
+.nr-galbtns { display: inline-flex; flex-wrap: wrap; gap: 6px; } .nr-galbtns .nr-mini { min-height: 32px; }
+.nr-tbar .nr-galwarn-trip { flex: 1 1 100%; order: 9; margin: 0; font-size: 12.5px; }

@@ -143,3 +143,11 @@ dialog.nrt::backdrop { background: #02070b; }
   .nrt-body { padding-bottom: 0; scroll-padding-bottom: 80px; }
   .nrt-foot { position: sticky; bottom: 0; z-index: 3; margin-top: 4px; padding: 10px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(transparent, #050d15 28%); }
 }
+
+/* v164: part navigation and the mod note */
+.nrt-parts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--c-line, #2c4a5c); border-radius: 8px; background: rgba(41, 211, 234, .07); }
+.nrt-partlbl { font-size: 14px; color: var(--c-text, #fff); }
+.nrt-partbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.nrt-partbtns .nrt-mini { min-height: 34px; }
+.nrt-mod { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid var(--c-line, #2c4a5c); }
+.nrt-approx { display: block; margin: 6px 0 0; padding: 6px 8px; border: 1px solid #f2b705aa; border-radius: 6px; background: rgba(242, 183, 5, .08); color: var(--c-text, #fff); }

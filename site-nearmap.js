@@ -182,17 +182,28 @@
   const nameOf = (k) => { try { return W.req.name(addrOfStar(k)) || ""; } catch (_) { return ""; } };
   const labelOfEnd = (e) => { const nm = (() => { try { return W.req.name(W.req.addr(e.sys, e.c.x, e.c.y, e.c.z)) || ""; } catch (_) { return ""; } })(); return nm || "system " + hex3(e.sys); };
 
+  const APPROX = "The start is approximate (about here): the map is centred on the middle of the region, up to about 350 ly off.";
+  async function startReason(gal, c) {   // v164: the real reason (see dvNear.sysReason in site-near.js)
+    try { if (globalThis.dvNear && dvNear.sysReason) return (await dvNear.sysReason(gal, c.x, c.y, c.z, c.sys)).text; } catch (_) { /* plain text below */ }
+    return `System ${hex3(c.sys)} is not in the computed list for its region.`;
+  }
   async function load(req, token) {
     const gal = req.gal;
     setFail(""); setMsg("Working out star positions..."); W.far.hidden = true;
     const note = (n) => { if (token === W.token) setMsg("Working out star positions... " + n + " of 27 regions"); };
     await loadBlock(gal, req.start, token, note);
     if (token !== W.token) return;
-    const sStar = findStar(gal, req.start, req.start.sys);
+    let sStar = findStar(gal, req.start, req.start.sys), approxTxt = "";
     if (!sStar) {
-      S.N = 0; S.start = null; S.target = null; setMsg("");
-      setFail(`Your start position is unknown on the map: system ${hex3(req.start.sys)} is not in the computed list for its region, so nothing is drawn. Near me still works.`);
-      return;
+      const reason = await startReason(gal, req.start);
+      const r0 = W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z));
+      if (token !== W.token) return;
+      if (r0 && r0.n > 0) { sStar = { r: r0, k: -1, g: [req.start.x * 100, req.start.y * 100, req.start.z * 100], approx: true }; approxTxt = reason + " " + APPROX; }   // v164: the region is real, so draw it around its middle
+      else {
+        S.N = 0; S.start = null; S.target = null; setMsg("");
+        setFail(`${reason} Nothing is drawn. Near me still works.`);
+        return;
+      }
     }
     let tStar = null, tBlock = false, unknownT = false;
     const inBlock = Math.abs(req.target.x - req.start.x) <= 1 && Math.abs(req.target.y - req.start.y) <= 1 && Math.abs(req.target.z - req.start.z) <= 1;
@@ -208,9 +219,10 @@
       if (!tStar) { unknownT = true; tBlock = false; }
     }
     buildScene(req, sStar, tStar, tBlock);
+    S.start.approx = !!sStar.approx;
     S.unknownTarget = unknownT;
     setMsg("");
-    const far = [];
+    const far = []; if (approxTxt) far.push(approxTxt);
     if (unknownT) far.push(`The target position is unknown: system ${hex3(req.target.sys)} is not in the computed list for its region, so it is not marked.`);
     if (S.far) far.push(`The target is far, so only stars within ${NEAR_LY} ly of you and of the target are drawn (up to 54 regions). Nothing is drawn between them.`);
     W.far.hidden = !far.length; W.far.textContent = far.join(" ");
@@ -350,7 +362,7 @@
     ctx.strokeStyle = "#ffe08a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 9, 0, 7);
     ctx.moveTo(cx - 14, cy); ctx.lineTo(cx - 5, cy); ctx.moveTo(cx + 5, cy); ctx.lineTo(cx + 14, cy); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy - 5); ctx.moveTo(cx, cy + 5); ctx.lineTo(cx, cy + 14); ctx.stroke();
     ctx.fillStyle = "#ffe08a"; ctx.font = "bold 13px Segoe UI,Arial,sans-serif";
-    const you = labelOfEnd(S.start) + " (you)";
+    const you = S.start.approx ? "About here" : labelOfEnd(S.start) + " (you)";
     textAt(ctx, you, cx, cy + 30 > CH - 8 ? cy - 20 : cy + 30, "center");
     L.start = you; S.labels = L;
     if (S.hover >= 0) { const j = S.hoverJ; if (j != null && S.vis[j] === S.hover) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(S.sx[j], S.sy[j], 8, 0, 7); ctx.stroke(); } }
@@ -484,10 +496,18 @@
     await loadBlock(gal, req.start, token, (n) => { if (token === W.token) setMsg("Working out star positions... " + n + (req.regionOnly ? " of 1 region" : " of 27 regions")); }, req.regionOnly ? 0 : 1);
     if (token !== W.token) return;
     // regionOnly (Contribute scanning viewer): one region, centred on the region's middle; no start star is needed
-    const sStar = req.regionOnly ? (W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z)) ? { r: W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z)), k: -1, g: [req.start.x * 100, req.start.y * 100, req.start.z * 100] } : null) : findStar(gal, req.start, req.start.sys);
-    if (!sStar) { S.N = 0; S.start = null; setMsg(""); throw soft(`Your start system ${hex3(req.start.sys)} is not in the computed list for its region.`); }
+    let sStar = req.regionOnly ? (W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z)) ? { r: W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z)), k: -1, g: [req.start.x * 100, req.start.y * 100, req.start.z * 100] } : null) : findStar(gal, req.start, req.start.sys);
+    let approxTxt = "";
+    if (!sStar) {
+      const reason = await startReason(gal, req.start), r0 = W.cache.get(rkey(gal, req.start.x, req.start.y, req.start.z));
+      if (token !== W.token) return;
+      if (r0 && r0.n > 0) { sStar = { r: r0, k: -1, g: [req.start.x * 100, req.start.y * 100, req.start.z * 100], approx: true }; approxTxt = reason + " " + APPROX; }   // v164: never block when the region is real
+      else { S.N = 0; S.start = null; setMsg(""); throw soft(reason); }
+    }
     const limit = req.regionOnly ? 350 : Math.max(25, Math.min(NEAR_LY, Number(req.radius) || NEAR_LY));
     S.mode = "scan"; buildScan(req, sStar, limit);
+    if (S.start) S.start.approx = !!sStar.approx;
+    if (approxTxt) { W.far.hidden = false; W.far.textContent = approxTxt; }
     W.root.setAttribute("data-nm", "scan"); W.root.classList.add("nm-scan");
     setMsg(""); scanApply(req.known); resize();
     const info = { ok: true, drawn: S.N, skipped: S.skipped, ringLy: limit, mapLy: NEAR_LY };
