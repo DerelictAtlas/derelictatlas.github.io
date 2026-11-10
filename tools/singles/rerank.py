@@ -319,9 +319,11 @@ def singles_text(text, kinds):
     return out.getvalue()
 
 
-def rerank(repo):
+def rerank(repo, community=None):
     """{relative path: new text or None (unchanged)} of the re-rank, plus the singles' bits: (texts, bits).
-    texts is {} when the repo has no main index or no stats/systems.json (nothing to rank against)."""
+    texts is {} when the repo has no main index or no stats/systems.json (nothing to rank against).
+    CULL1: community (scanned.summary()["community"] of the singles run) is written as stats/systems.json
+    "community" (additive key; total_systems keeps its meaning: regions only)."""
     repo = Path(repo)
     rows = index_rows(repo)
     if rows is None or not (repo / STATS).exists():
@@ -342,6 +344,8 @@ def rerank(repo):
                      "kept_s_reward": sum(1 for v in map_kinds(lrows).values() if v & MAP_KEPT_S),
                      "per_list": {n: len(v) for n, v in _lists(lrows, LAST.get("prev", {})).items()}}
     stats["map_lists"] = map_list_stats(lrows)
+    if community is not None:                       # CULL1
+        stats["community"] = community
     texts = {MAP_FILE.as_posix(): map_file_text(kinds),
              STATS.as_posix(): json.dumps(stats, sort_keys=True, separators=(",", ":")) + "\n"}
     if (repo / SINGLES_INDEX).exists():
@@ -358,12 +362,12 @@ def snapshot(repo):
             for p in (MAP_FILE.as_posix(), STATS.as_posix(), SINGLES_INDEX.as_posix())}
 
 
-def apply(repo, changed, before=None):
+def apply(repo, changed, before=None, community=None):
     """Re-rank and write (singles.py process, after index/singles.csv + views/singles-extras.csv are written).
     changed: the run's list of changed paths (updated: a path is in it iff its bytes differ from `before`, the
     snapshot() taken before the run wrote anything). Returns a summary dict."""
     repo = Path(repo)
-    texts, bits = rerank(repo)
+    texts, bits = rerank(repo, community)
     for rel, text in texts.items():
         data = text.encode("utf-8")
         p = repo / rel

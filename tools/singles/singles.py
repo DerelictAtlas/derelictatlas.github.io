@@ -55,6 +55,7 @@ sys.dont_write_bytecode = True                                 # no __pycache__ 
 sys.path.insert(0, str(Path(__file__).resolve().parent))      # python -I does not add the script folder
 import atlas_rules as R  # noqa: E402
 import rerank as RK      # noqa: E402   RANK1: map-list re-rank (as the PC build), tools/singles/rerank.py
+import scanned as SC     # noqa: E402   CULL1: scanned-bits issues -> scanned/**, stats/scanned.json, community
 
 HERE = Path(__file__).resolve().parent
 # ---- the site's scanner (SITE -09 owns scan/; path confirmed 2026-10-31) ----
@@ -167,7 +168,15 @@ SPEED_BINS = 64                                 # log-spaced histogram bins from
 SPEED_LO, SPEED_HI = 20, 120000                 # ms; perf values outside are dropped
 REPORT_REASONS_LINE = re.compile(r"Reasons: ([a-z]+(?:, [a-z]+)*)")   # line 1 of a relay report issue (relay 1.3)
 OUTPUTS = (SINGLES.as_posix() + "/", INDEX_SINGLES.as_posix(), EXTRAS_SINGLES.as_posix(), FINDERS_FILE.as_posix(),
-           SPEED_FILE.as_posix())
+           SPEED_FILE.as_posix(), SC.ROOT.as_posix() + "/", SC.STATS.as_posix())
+# CULL1 (CULLING_SPEC v1.1): scanned-bits issues of the relay (1.4); format, checks, merge, totals: scanned.py
+SCANNED_LABEL = SC.LABEL                    # "scanned-bits"
+BATCH_SCANNED = SC.BATCH                    # "scanned batch v1"
+MAX_SCANNED_ISSUES = SC.MAX_ISSUES          # 50 per run, not counted in MAX_ISSUES
+SCANNED_MAX_RAW = SC.MAX_RAW
+SCANNED_SAMPLE_PERCENT = SC.SAMPLE_PERCENT
+SCANNED_SPLIT_BYTES = SC.SPLIT_BYTES
+SCANNED_FORMAT = SC.FORMAT
 NO_TIME = "1970-01-01T00:00:00Z"
 API = "https://api.github.com"
 
@@ -743,13 +752,21 @@ def usable_issues(issues):
                 it = dict(it, labels=list(it.get("labels") or []) + [{"name": REPORT_LABEL}])
             ok.append(it)
             continue
-        if LABEL not in label_names(it):
+        if LABEL not in label_names(it) and SCANNED_LABEL not in label_names(it):
             continue
         ok.append(it)
     ok.sort(key=lambda i: (str(i.get("created_at") or ""), i["number"]))
-    batches = [i for i in ok if REPORT_LABEL not in label_names(i)][:MAX_ISSUES]
-    return sorted(batches + [i for i in ok if REPORT_LABEL in label_names(i)],
+    batches = [i for i in ok if REPORT_LABEL not in label_names(i) and LABEL in label_names(i)][:MAX_ISSUES]
+    # CULL1: scanned-bits issues (without the single-scan label) are a third group with their own cap
+    bits = [i for i in ok if is_scanned(i)][:MAX_SCANNED_ISSUES]
+    return sorted(batches + bits + [i for i in ok if REPORT_LABEL in label_names(i)],
                   key=lambda i: (str(i.get("created_at") or ""), i["number"]))
+
+
+def is_scanned(it):
+    """CULL1: a scanned-bits issue of the relay (label scanned-bits, not single-scan / report-system)."""
+    names = label_names(it)
+    return SCANNED_LABEL in names and LABEL not in names and REPORT_LABEL not in names
 
 
 def gh_request(method, path, body=None):
@@ -777,6 +794,7 @@ def fetch_issues(out_path):
     whose title is exactly one ADDRESS16 (<= 2 x MAX_ISSUES looked at); one list, each issue once."""
     rn, got, seen = repo_name(), [], set()
     for label, cap, keep in ((LABEL, MAX_ISSUES, None), (REPORT_LABEL, MAX_ISSUES, None),
+                             (SCANNED_LABEL, MAX_SCANNED_ISSUES, None),          # CULL1
                              (None, 2 * MAX_ISSUES, lambda it: is_report(it))):
         n = 0
         for page in range(1, cap // 100 + 2):
@@ -797,7 +815,7 @@ def fetch_issues(out_path):
             if len(batch) < 100 or n >= cap:
                 break
     Path(out_path).write_text(json.dumps(got, ensure_ascii=True) + "\n", encoding="utf-8")
-    print(f"{len(got)} open {LABEL} / {REPORT_LABEL} issues")
+    print(f"{len(got)} open {LABEL} / {REPORT_LABEL} / {SCANNED_LABEL} issues")
 
 
 # ======================================================================= published atlas (read only)
@@ -1330,7 +1348,8 @@ def _process(args, repo, version, region_counts):
         R.ATLAS_CAP = args.atlas_cap
     atlas, store = Atlas(repo, region_counts), Store(repo)
     every = usable_issues(json.loads(Path(args.issues_file).read_text(encoding="utf-8")))
-    issues = [it for it in every if REPORT_LABEL not in label_names(it)]
+    issues = [it for it in every if REPORT_LABEL not in label_names(it) and not is_scanned(it)]
+    scanned_issues = [it for it in every if is_scanned(it)]             # CULL1, oldest first
     reports = [it for it in every if REPORT_LABEL in label_names(it) and REPORT_PC_LABEL not in label_names(it)]
     index_keys = atlas.index()
     nones, held = read_none(repo), read_held(repo)
@@ -1347,7 +1366,12 @@ def _process(args, repo, version, region_counts):
                 mismatch.append(R.address({"glyphs": g, "galaxy": gal}))
             del store.rows[(gal, g)]
     total = args.community_total if args.community_total is not None else atlas.total()
-    community = None if total is None else total + sum(1 for k in store.rows if k not in index_keys)
+    # CULL1: + the scanned systems with no row (culled by a browser), from scanned/** as it stands at run start; a new
+    # single whose bit is already counted there moves from no_row to singles and does not raise `running`
+    sc_store = SC.Store(repo)
+    info_of = lambda g, r: (atlas.region(g, r) or {}).get("range")       # noqa: E731
+    sc_no_row = SC.no_row_keys(sc_store.regions, info_of, set(store.rows))
+    community = None if total is None else total + sum(1 for k in store.rows if k not in index_keys) + len(sc_no_row)
     running, cap_seen, tops = community, False, None
     fp = R.FINGERPRINTS[SINGLES_BUILD]
     extras_store = read_singles_extras(repo)
@@ -1519,8 +1543,59 @@ def _process(args, repo, version, region_counts):
                 origin[a] = it["number"]
         taken.append({"it": it, "addrs": addrs, "none": p["none"], "bad": p["bad"], "over": over,
                       "scanners": p["scanners"], "format": p["format"]})
-    run_utc = iso(args.utc) or max((iso(t.get("created_at")) or NO_TIME for t in [t["it"] for t in taken] + reports),
-                                   default=NO_TIME)
+    # ---- CULL1: scanned-bits issues, oldest first: strict body (any bad record rejects the issue), stale fp records
+    #      dropped, every bit range-checked (Atlas.known; failing bits dropped), the 1 % rescan sample of the issue's
+    #      new bits (new = not in scanned/ nor in an earlier issue of this run, not counted elsewhere, char not '?') ----
+    sc_taken, sc_plan, sc_known = [], {k: set(v) for k, v in sc_store.regions.items()}, {}
+
+    def sc_keep(g, r, i):
+        a = SC.address(g, r, i)
+        if a not in sc_known:
+            sc_known[a] = atlas.known(a)
+        return sc_known[a]
+
+    for it in scanned_issues:
+        num = it["number"]
+        body = it.get("body") if isinstance(it.get("body"), str) else ""
+        lines = body[:MAX_TEXT].replace("\r", "").split("\n")
+        e = {"it": it, "records": [], "stale_fp": 0, "sample": {}, "reject": None, "state": None, "reason": None}
+        if lines[0] != BATCH_SCANNED:
+            e["reject"] = f"line 1 is not '{BATCH_SCANNED}'"
+        else:
+            recs, e["reject"] = SC.parse_body(lines[1:])
+            for rec, idx in recs:
+                if rec["fp"] in fps_ok:
+                    e["records"].append((rec, idx))
+                else:
+                    e["stale_fp"] += 1
+        adds, cands = {}, {}
+        if e["reject"] is None:
+            for rec, idx in e["records"]:
+                g, r = rec["g"], rec["r"]
+                for i, ch in zip(idx, rec["m"]):
+                    k = (g, r)
+                    if i in sc_plan.get(k, ()) or i in adds.get(k, ()) or not sc_keep(g, r, i):
+                        continue
+                    adds.setdefault(k, set()).add(i)
+                    if ch != "?" and not SC.counted_elsewhere(info_of(g, r), g, r, i, store.rows):
+                        cands[SC.address(g, r, i)] = ch
+            if cands:
+                n = -(-len(cands) * SCANNED_SAMPLE_PERCENT // 100)
+                for a in random.Random(f"singles-scanned-sample/{num}").sample(sorted(cands), n):
+                    e["sample"][a] = cands[a]
+            new_scans = [a for a in e["sample"] if a not in origin]
+            if (taken or sc_taken) and n_scan + len(new_scans) > MAX_PER_RUN:
+                wait.append(num)
+                continue
+            n_scan += len(new_scans)
+            for a in new_scans:
+                to_scan.append(a)
+                origin[a] = f"scanned/{num}"
+            for k, s in adds.items():
+                sc_plan.setdefault(k, set()).update(s)
+        sc_taken.append(e)
+    run_utc = iso(args.utc) or max((iso(t.get("created_at")) or NO_TIME
+                                    for t in [t["it"] for t in taken + sc_taken] + reports), default=NO_TIME)
     # ---- held addresses: retried every run (after the issues, inside the run cap); old 'range' rows of systems that
     #      do not exist in-game are dropped (W29DW-3) ----
     held_dropped, held_nonexistent = [], []
@@ -1531,6 +1606,9 @@ def _process(args, repo, version, region_counts):
         if c[0] in ("already", "invalid", "nonexistent"):
             (held_nonexistent if c[0] == "nonexistent" else held_dropped).append(a)
             del held[a]
+        elif c[0] == "scan" and a in origin:            # CULL1: already scanned as a scanned-bits sample: one scan
+            origin[a] = "held"
+            cls[a] = c
         elif c[0] == "scan" and n_scan < MAX_PER_RUN:
             n_scan += 1
             to_scan.append(a)
@@ -1593,6 +1671,40 @@ def _process(args, repo, version, region_counts):
                                                                          if len(fails) > 5 else "")
         else:
             t["state"] = "pending" if pend else "ok"
+    # ---- CULL1: a sampled character must equal our rescan's (status 0: DIGITS[frigate_modules] or '?', status 4:
+    #      '-'), else the WHOLE issue is dropped; a scan error / no result leaves it open; ok issues are merged
+    #      (OR + first claim wins) in issue order ----
+    sc_counts = {k: 0 for k in ("new", "already", "dropped", "disagree", "stale_fp")}
+    for e in sc_taken:
+        if e["reject"] is not None:
+            e["state"], e["reason"] = "rejected", e["reject"]
+            continue
+        fails, pend = [], False
+        for a, ch in sorted(e["sample"].items()):
+            res = results.get(a)
+            st = res.get("status") if res and not res.get("error") else None
+            got = SC.char_of(st, dict(zip(R.COLUMNS4, res.get("atlas") or [])).get("frigate_modules")
+                             if st == 0 else None) if st is not None else None
+            if got is None:
+                pend = True
+            elif got != ch:
+                fails.append(f"`{a}` uploaded '{ch}', rescan '{got}'")
+        if fails:
+            e["state"] = "dropped"
+            e["reason"] = "rescan mismatch: " + "; ".join(fails[:5]) + (f" (+{len(fails) - 5} more)"
+                                                                         if len(fails) > 5 else "")
+            continue
+        if pend:
+            e["state"] = "pending"
+            continue
+        e["state"], e["counts"] = "ok", {k: 0 for k in ("new", "already", "dropped", "disagree")}
+        e["regions"] = len({(rec["g"], rec["r"]) for rec, _ in e["records"]})
+        for rec, idx in e["records"]:
+            for k, v in SC.merge(sc_store.regions, rec, idx, sc_keep).items():
+                e["counts"][k] += v
+        for k, v in e["counts"].items():
+            sc_counts[k] += v
+        sc_counts["stale_fp"] += e["stale_fp"]
     v3_nums = {t["it"]["number"] for t in taken if t["format"] == "v3"}
     accepted, new_none, outcome, pending, reported_none_found = [], [], {}, [], 0
     acc_o, published_now = {}, set()
@@ -1616,7 +1728,7 @@ def _process(args, repo, version, region_counts):
                 extras_store.pop(a, None)
             if tops is not None:
                 R.add_to_tops(rec, tops)
-        if running is not None and new:
+        if running is not None and new and (gal, glyphs) not in sc_no_row:     # CULL1: a counted bit is no new system
             running += 1
         held.pop(a, None)
         accepted.append(a)
@@ -1654,8 +1766,8 @@ def _process(args, repo, version, region_counts):
                 reported_none_found += 1
 
     for a in to_scan:
-        if origin[a] == "report" or origin[a] in v3_nums:
-            continue                                    # v3 batches and reports: below
+        if origin[a] == "report" or origin[a] in v3_nums or str(origin[a]).startswith("scanned/"):
+            continue                                    # v3 batches, reports, CULL1 samples: below
         scan_outcome(a, outcome.setdefault(a, {}), a in claim_none)
     v3_out, rescans = {}, {}
     for t in taken:
@@ -1825,8 +1937,14 @@ def _process(args, repo, version, region_counts):
     rank_before = RK.snapshot(repo)             # RANK1: bytes before this run writes (for `changed`)
     n_index = write_index(repo, atlas, store, index_keys, changed)
     write_extras(repo, atlas, store, index_keys, extras_store, changed)
+    # CULL1: scanned/** + stats/scanned.json (histograms derived from the store, never summed) and the community
+    # total of the run's end (rerank.py writes it into stats/systems.json "community")
+    singles_n = sum(1 for k in store.rows if k not in index_keys)
+    sc_doc = SC.summary(sc_store.regions, info_of, set(store.rows), total, singles_n, run_utc, R.ATLAS_CAP)
+    sc_paths = SC.write(repo, sc_store.regions, sc_store.split, sc_doc, changed,
+                         getattr(args, "scanned_split_bytes", None) or SCANNED_SPLIT_BYTES)
     try:        # RANK1: the singles rank in the 17 map lists like atlas rows (map-lists.txt, stats map_lists, map column)
-        rank = RK.apply(repo, changed, rank_before)
+        rank = RK.apply(repo, changed, rank_before, community=sc_doc["community"])
     except Exception as exc:    # never blocks the singles; the PC publish ranks them too
         rank = {"ranked": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
         print(f"map-list re-rank skipped: {rank['error']}")
@@ -1874,8 +1992,17 @@ def _process(args, repo, version, region_counts):
                            "over_cap": t["over"], "scanners": t["scanners"], "pending": open_left,
                            "close": open_left == 0})
     out_issues += rep_out
+    for e in sc_taken:                                  # CULL1
+        out_issues.append({"number": e["it"]["number"], "format": "scanned", "addresses": [], "invalid_matches": 0,
+                           "over_cap": 0, "scanners": [], "pending": 0, "close": e["state"] != "pending",
+                           "scanned_state": e["state"], "scanned_reason": e["reason"],
+                           "scanned_records": len(e["records"]), "scanned_regions": e.get("regions", 0),
+                           "scanned_counts": dict(e.get("counts") or {}, stale_fp=e["stale_fp"]),
+                           "scanned_sample": len(e["sample"])})
     v3_taken = [t for t in taken if t["format"] == "v3"]
     msg = f"singles: {len(accepted)} systems, {len(new_none)} without a derelict (run {args.run_id})"
+    if sc_counts["new"]:
+        msg = msg[:-1] + f", {sc_counts['new']} scanned bits)"
     summary = {"format": 2, "run_id": args.run_id, "w29_version": version, "run_utc": run_utc,
                "community_total": community, "cap_mode": cap_seen or R.post_cap(community), "atlas_cap": R.ATLAS_CAP,
                "counts": counts,
@@ -1904,6 +2031,12 @@ def _process(args, repo, version, region_counts):
     summary["speed_batches"] = n_speed
     summary["reports_name"] = sum(1 for e in rep_out if e.get("name_reported"))
     summary["rerank"] = rank                   # RANK1
+    summary["scanned"] = {"issues": {s: sum(1 for e in sc_taken if e["state"] == s)       # CULL1
+                                     for s in ("ok", "dropped", "rejected", "pending")},
+                          **sc_counts, "samples": {a: ch for e in sc_taken for a, ch in e["sample"].items()},
+                          "store_regions": sum(1 for v in sc_store.regions.values() if v),
+                          "store_systems": sc_store.systems(), "store_bad_lines": sc_store.bad,
+                          "no_row": sc_doc["no_row"], "community": sc_doc["community"], "files": sc_paths}
     Path(args.summary).write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     if args.message:
         Path(args.message).write_text(msg + "\n", encoding="utf-8")
@@ -2050,6 +2183,20 @@ def _report_text(run_id, e):
 def comment_text(run_id, issue):
     if issue.get("kind") == "report":
         return report_text(run_id, issue)
+    if issue.get("format") == "scanned":            # CULL1
+        if issue.get("scanned_state") in ("dropped", "rejected"):
+            return (f"Automatic singles check (run {run_id}): this scanned batch was {issue['scanned_state']}: "
+                    f"{issue['scanned_reason']}. Nothing of it was counted (one invalid record or one sampled "
+                    "rescan mismatch drops the whole batch).")
+        c = issue.get("scanned_counts") or {}
+        return "\n".join([
+            f"Automatic singles check (run {run_id}): scanned batch, {issue.get('scanned_records', 0)} records, "
+            f"{issue.get('scanned_regions', 0)} regions.",
+            f"- systems newly counted: {c.get('new', 0)}; already counted: {c.get('already', 0)} "
+            f"(of these with another module count, first upload kept: {c.get('disagree', 0)})",
+            f"- dropped: {c.get('dropped', 0)} systems that do not exist in-game, {c.get('stale_fp', 0)} records "
+            "from an old scanner table set",
+            f"- rescanned with the site's scanner (1 % sample): {issue.get('scanned_sample', 0)}, all matched"])
     if issue.get("v3_state") in ("dropped", "rejected"):
         return (f"Automatic singles check (run {run_id}): this v3 batch was {issue['v3_state']}: {issue['v3_reason']}. "
                 "Nothing of it was published (one rescan mismatch or one invalid record drops the whole batch).")
@@ -2136,6 +2283,7 @@ def main(argv=None):
     c.add_argument("--utc")
     c.add_argument("--deadline", type=float, help="epoch seconds: no new scan starts after it (rest: next run)")
     c.add_argument("--split-bytes", type=int, default=SPLIT_BYTES)
+    c.add_argument("--scanned-split-bytes", type=int, default=SCANNED_SPLIT_BYTES)
     c.add_argument("--community-total", type=int)
     c.add_argument("--atlas-cap", type=int)
     c.add_argument("--none-verified", action="store_true", help="tests: force NONE_VERIFIED on")

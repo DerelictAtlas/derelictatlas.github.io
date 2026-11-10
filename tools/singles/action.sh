@@ -48,7 +48,7 @@ for attempt in 1 2 3; do
     "$PY" -I tools/singles/maps.py --repo . --work "$WORK" --message "$WORK/message.txt" --deadline $(( DEADLINE + 300 ))       || echo "maps step failed (ignored): the map bundle is untouched"
   fi
   other=$(git status --porcelain --untracked-files=all \
-          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv|views/finders\.csv|stats/speed\.json|views/map-lists\.txt|stats/systems\.json|views/top100\.json|views/top100\.json\.gz|views/top100-loot\.json)$' || true)
+          | grep -v -E '^.. (singles/.*|index/singles\.csv|views/singles-extras\.csv|views/finders\.csv|stats/speed\.json|views/map-lists\.txt|stats/systems\.json|views/top100\.json|views/top100\.json\.gz|views/top100-loot\.json|scanned/.*|stats/scanned\.json)$' || true)
   if [ -n "$other" ]; then
     echo "the processor changed files outside its outputs, stopping:"
     echo "$other"
