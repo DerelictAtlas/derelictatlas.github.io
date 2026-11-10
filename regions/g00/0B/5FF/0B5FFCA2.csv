@@ -1,0 +1,11 @@
+# nms-derelict-atlas format 4: region 0B5FFCA2 galaxy 0
+# region_systems 246 (portal-valid 001-0F5); scanned 001-0ED; edge systems above 0ED left out on purpose
+# generator fastgen server 1.8.0 (2026-10-20); NMS.exe 7.10-b26295378 SHA-256 D393C6782D29E1915854C0D5CF42505C8093740C05DC53705DBED7E0D1D4AC37; 2026-11-10T15:26:41Z
+# inputs c00eb4b1874fb5fe553aff0c39279f6dbcb2cb04fdd08510fe347a98502bacf7
+# status partial: 89 of 237 systems; 148 deferred (fast-first), the scanner completes this region
+# deferred: 148 (fast-first)
+# deferred_systems: 001-00F 011 013-015 017-018 01B 01D-022 026 028-02C 02E-031 034 036-038 03A-03D 03F 041 043-046 04A 04C 04F-051 053-054 056 058-059 05B-05E 061 063-065 067-068 06A-06B 06D 06F-074 078 07A-07B 07D-081 083-084 087-089 08D 090 092-094 097-098 09A 09D 0A2 0A4 0A6 0A8 0AA 0AE-0B0 0B3 0B5 0B7-0B9 0BB 0BD-0BE 0C0 0C3 0C5-0CD 0D1 0D3-0D4 0D6-0D7 0D9 0DE-0E6 0E8-0E9 0EC
+# slim_modules 001-0ED: ...............A.B...C..BA.A......AAA.B.....A....AA.A...A....B.A.B....BBA.A.BB...B..A.C..B....AC.A...A..C..B.C......AAB.C..A.....B..AD...AAA.B..A...AB..A.B..CACA.B.A.C.A.DBA...BB.A.A...A.A..A.BB.A.........AAB.A..B..A.BAAD.........C..DA.B abe14afd7ccfe34d
+glyphs,preset,rooms,crates,footlockers,floors,stairs,hangars,briefcases,tall_lockers,reward_name,reward_class,reward_ambiguous,reward_alt,frigate_modules,frigate_modules_ambiguous,frigate_module_rooms,frigate_module_ids,frigate_module_alt_ids,room_detail,check
+008F0B5FFCA2,CARGO_SLIME,10,16,4,3,3,0,34,161,Salvaged Fleet Mining Unit,C,0,,0,0,,,,R_S_SLI_BARR:0/0|R_SLI_BARR:0/0|B_SLI_CARG:1/0|R_S_SLI_CARG:3/0|R_S_SLI_CARG:3/0|B_SLI_CARG:2/0|R_S_SLI_CARG:5/0|R_SLI_CARG:0/0|B_SLI_CARG:0/0|R_END:2/4,ff03a73d08e923a2
+009C0B5FFCA2,CARGO_FLOATERS,12,57,30,3,4,0,54,52,Salvaged Fleet Beacon,A,0,,2,1,4.8,43.65,60,R_FLO_CARG:16/4|B_FLO_CARG:2/0|R_FLO_CARG:14/4|B_FLO_BARR:0/2|R_FLO_BARR:2/10|B_FLO_CARG:0/0|R_FLO_CARG:8/4|B_FLO_CARG:1/0|R_S_FLO_BARR:1/4|R_FLO_CARG:12/2|B_FLO_CARG:1/0|R_END:0/0,acdc2eed9cb0d762
