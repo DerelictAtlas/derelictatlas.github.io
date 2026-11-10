@@ -491,10 +491,51 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     g.fillStyle = "rgba(7,19,29,.72)"; g.fillRect(0, cv.height - h, w + s * 0.5, h);
     g.fillStyle = "#cfe3ea"; g.fillText(text, s * 0.6, cv.height - h * 0.32); g.restore();
   }
-  async function vsCapture2d() {
-    const svg = document.querySelector("#map-host svg"); if (!svg) return null;
-    const r = svg.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
-    const k = Math.min(2, globalThis.devicePixelRatio || 1), W = Math.round(r.width * k), H = Math.round(r.height * k);
+  // v165: the saved picture is drawn again offscreen at a much larger size (same view, same framing and aspect ratio), not the viewed size.
+  // Long side up to 8192 px on a computer, 4096 px on a phone or a low-memory device; it steps down 8192 -> 4096 -> 2048 -> normal size when
+  // the browser cannot make it. Test hooks: window.__vsMax (smaller limit), window.__vsGlMax, window.__vsFail (number of large tries to fail).
+  const vsSmall = () => { try { return matchMedia("(pointer:coarse)").matches || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); } catch (_) { return false; } };
+  let vsGl = 0;
+  function vsGlMax() {
+    if (window.__vsGlMax) return window.__vsGlMax;
+    if (vsGl) return vsGl;
+    let m = 4096;
+    try {
+      const c = document.createElement("canvas"), g = c.getContext("webgl2") || c.getContext("webgl");
+      if (g) { const vp = g.getParameter(g.MAX_VIEWPORT_DIMS) || [4096, 4096]; m = Math.min(g.getParameter(g.MAX_RENDERBUFFER_SIZE), g.getParameter(g.MAX_TEXTURE_SIZE), vp[0], vp[1]); const x = g.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); }
+    } catch (_) { /* keep 4096 */ }
+    return (vsGl = m);
+  }
+  // sizes to try, biggest first, all with the same aspect ratio as the view; every size is bigger than the normal one
+  function vsSizes(w, h, k, glLimit) {
+    const small = vsSmall(), caps = small ? [4096, 2048] : [8192, 4096, 2048], area = small ? 16e6 : 67e6, out = [];
+    for (let cap of caps) {
+      cap = Math.min(cap, glLimit || 1e9, window.__vsMax || 1e9);
+      let sc = cap / Math.max(w, h); sc = Math.min(sc, Math.sqrt(area / (w * h)));
+      const W = Math.round(w * sc), H = Math.round(h * sc);
+      if (W > w * k * 1.05 && !out.some((o) => o.W === W)) out.push({ W, H });
+    }
+    return out;
+  }
+  const vsFlat = (cv) => {   // true when the picture is one single colour (blank)
+    const t = document.createElement("canvas"); t.width = 48; t.height = 32; const g = t.getContext("2d"); g.drawImage(cv, 0, 0, 48, 32);
+    const d = g.getImageData(0, 0, 48, 32).data; for (let i = 4; i < d.length; i += 4) if (d[i] !== d[0] || d[i + 1] !== d[1] || d[i + 2] !== d[2]) return false; return true;
+  };
+  async function vsLarge(w, h, k, glLimit, draw) {
+    // returns { cv, big }; draw(W, H) gives a canvas
+    let tries = 0;
+    for (const s of vsSizes(w, h, k, glLimit)) {
+      try {
+        if (window.__vsFail && tries++ < window.__vsFail) throw new Error("forced");
+        const cv = await draw(s.W, s.H);
+        if (cv && cv.width === s.W && !vsFlat(cv)) return { cv, big: true };
+      } catch (_) { /* next smaller size */ }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const cv = await draw(Math.round(w * k), Math.round(h * k));
+    return { cv, big: false };
+  }
+  async function vsDraw2d(svg, W, H) {
     const clone = svg.cloneNode(true), live = svg.querySelectorAll("*"), copy = clone.querySelectorAll("*");
     for (let i = 0; i < live.length && i < copy.length; i++) {
       const cs = getComputedStyle(live[i]); let st = "";
@@ -511,19 +552,19 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
       return cv;
     } finally { URL.revokeObjectURL(url); }
   }
+  async function vsCapture2d() {
+    const svg = document.querySelector("#map-host svg"); if (!svg) return null;
+    const r = svg.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
+    return vsLarge(r.width, r.height, Math.min(2, globalThis.devicePixelRatio || 1), 0, (W, H) => vsDraw2d(svg, W, H));
+  }
   async function vsCapture3d() {
     const host = document.getElementById("scene-host"), H = globalThis.dvViewHandles && dvViewHandles(), v = H && H.view3d;
     if (!host) return null;
     const r = host.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
-    const k = Math.min(2, globalThis.devicePixelRatio || 1), W = Math.round(r.width * k), Hh = Math.round(r.height * k);
-    if (v && typeof v.capture === "function") return v.capture(W, Hh);   // WebGL: drawn again in this frame from the live camera
+    const k = Math.min(2, globalThis.devicePixelRatio || 1);
+    if (v && typeof v.capture === "function") return vsLarge(r.width, r.height, k, vsGlMax(), async (W, Hh) => v.capture(W, Hh));   // WebGL: drawn again in this frame from the live camera; size and camera are restored by the viewer
     const svg = host.querySelector("svg"); if (!svg) return null;     // the SVG fallback viewer
-    const clone = svg.cloneNode(true); clone.setAttribute("xmlns", "http://www.w3.org/2000/svg"); clone.setAttribute("width", W); clone.setAttribute("height", Hh);
-    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }));
-    try {
-      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("The 3D view could not be drawn.")); i.src = url; });
-      const cv = document.createElement("canvas"); cv.width = W; cv.height = Hh; const g = cv.getContext("2d"); g.fillStyle = "#07131d"; g.fillRect(0, 0, W, Hh); g.drawImage(img, 0, 0, W, Hh); return cv;
-    } finally { URL.revokeObjectURL(url); }
+    return vsLarge(r.width, r.height, k, 0, (W, Hh) => vsDraw2d(svg, W, Hh));
   }
   function vsDialog() {
     let d = document.getElementById("vs-dialog"); if (d) return d;
@@ -554,22 +595,32 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
   }
   async function vsPress(kind) {
     if (kind === "exp") { const ti = document.getElementById("expand-title"); kind = ti && /3D/i.test(ti.textContent) ? "3d" : "2d"; }
-    let cv = null, err = "";
-    try { cv = kind === "3d" ? await vsCapture3d() : await vsCapture2d(); } catch (e) { err = e && e.message ? e.message : "The image could not be made."; }
-    const d = vsDialog(), note = d.querySelector("#vs-note");
-    if (!cv) { note.textContent = err || "There is no picture to save yet. Wait for the view to finish drawing."; d.querySelector("#vs-img").removeAttribute("src"); d.querySelector("#vs-save").disabled = true; d.querySelector("#vs-share").hidden = true; if (!d.open) d.showModal(); return; }
-    const gl = vsGlyphs(); vsCaption(cv, "NMS Derelict Atlas" + (gl ? " " + gl : "") + " " + kind.toUpperCase() + " view");
-    const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
-    if (!blob) { note.textContent = "The image could not be made."; return; }
-    const name = "derelict-" + (gl || "view").toLowerCase() + "-" + kind + ".png", file = new File([blob], name, { type: "image/png" });
-    window.__vsFile = file; window.__vsMeta = { kind, w: cv.width, h: cv.height, name };
-    const img = d.querySelector("#vs-img"); if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
-    img.dataset.url = URL.createObjectURL(blob); img.src = img.dataset.url;
-    note.textContent = "This is the view as it is now (" + cv.width + " x " + cv.height + " px). File: " + name;
-    d.querySelector("#vs-save").disabled = false;
-    let can = false; try { can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { /* no file sharing */ }
-    d.querySelector("#vs-share").hidden = !can;
-    if (!d.open) d.showModal();   // in the fullscreen window too: showModal stacks on top of it
+    if (window.__vsBusy) return; window.__vsBusy = true;
+    const d = vsDialog(), note = d.querySelector("#vs-note"), save = d.querySelector("#vs-save"), shr = d.querySelector("#vs-share");
+    try {
+      const host = document.getElementById(kind === "3d" ? "scene-host" : "map-host");
+      note.textContent = "Rendering..."; save.disabled = true; shr.hidden = true; window.__vsFile = null;
+      await new Promise((r) => setTimeout(r, 40)); if (!d.open) d.showModal();
+      await new Promise((r) => setTimeout(r, 60));   // let "Rendering..." paint before the heavy work
+      let res = null, err = "";
+      try { res = kind === "3d" ? await vsCapture3d() : await vsCapture2d(); } catch (e) { err = e && e.message ? e.message : "The image could not be made."; }
+      if (!res || !res.cv) { note.textContent = err || "There is no picture to save yet. Wait for the view to finish drawing."; d.querySelector("#vs-img").removeAttribute("src"); return; }
+      const cv = res.cv, gl = vsGlyphs(); vsCaption(cv, "NMS Derelict Atlas" + (gl ? " " + gl : "") + " " + kind.toUpperCase() + " view");
+      const blob = await new Promise((r) => { try { cv.toBlob(r, "image/png"); } catch (_) { r(null); } });
+      if (!blob) { note.textContent = "The image could not be made."; return; }
+      const name = "derelict-" + (gl || "view").toLowerCase() + "-" + kind + ".png", file = new File([blob], name, { type: "image/png" });
+      const full = { w: cv.width, h: cv.height };
+      const t = document.createElement("canvas"), ts = Math.min(1, 1200 / Math.max(full.w, full.h)); t.width = Math.max(1, Math.round(full.w * ts)); t.height = Math.max(1, Math.round(full.h * ts));
+      t.getContext("2d").drawImage(cv, 0, 0, t.width, t.height); cv.width = cv.height = 0;   // free the big canvas
+      const tb = await new Promise((r) => t.toBlob(r, "image/png"));
+      window.__vsFile = file; window.__vsMeta = { kind, w: full.w, h: full.h, name, big: res.big };
+      const img = d.querySelector("#vs-img"); if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+      img.dataset.url = URL.createObjectURL(tb || blob); img.src = img.dataset.url;
+      note.textContent = (res.big ? "" : "Could not make a large image, saved at normal size. ") + "Saves at " + full.w + " x " + full.h + " px. File: " + name;
+      save.disabled = false;
+      let can = false; try { can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { /* no file sharing */ }
+      shr.hidden = !can;
+    } finally { window.__vsBusy = false; }
   }
   document.addEventListener("click", (e) => { const b = e.target instanceof Element && e.target.closest(".vs-save"); if (b) { e.preventDefault(); vsPress(b.dataset.vsKind); } });
   function watch() {
