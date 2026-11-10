@@ -430,7 +430,9 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       window.dvSinglesCount ? window.dvSinglesCount() : 0]).then(([s, singles]) => {
       if (!s || !Number(s.total_systems)) return;
-      const cap = Number(s.rules && s.rules.atlas_cap) || 1000000, n = Number(s.total_systems) + (singles || 0), pct = Math.min(100, n / cap * 100);
+      // v157: stats/systems.json "community" (regions + singles + scanned systems with no row) when the Action has written it
+      const com = s.community && Number(s.community.total) > 0 ? s.community : null;
+      const cap = Number(s.rules && s.rules.atlas_cap) || (com && Number(com.atlas_cap)) || 1000000, n = com ? Number(com.total) : Number(s.total_systems) + (singles || 0), pct = Math.min(100, n / cap * 100);
       goal.querySelector("i").style.width = pct.toFixed(2) + "%";
       goal.querySelector("b").textContent = n.toLocaleString("en-US");
       goal.querySelector(".long").textContent = ` / ${cap.toLocaleString("en-US")} systems`;

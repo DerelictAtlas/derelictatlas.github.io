@@ -224,6 +224,9 @@
     else log.push(Object.assign({ t: Date.now(), k: kind, n: list.length, why: why || "" }, info || {}));
     jsonSet(UPLOG_KEY, log.slice(-200));
   }
+  // v154 upload culling (site-cull.js, only with DV_CONFIG.relayScanned === true): rows wait until the region ends, only the best ceil(n/10) are sent;
+  // every scanned system goes out as a bit + module character (the "scanned" part of the body)
+  const nbTimer = () => { if (!NB.timer) NB.timer = setInterval(nbFlush, NB_EVERY); };
   function nbTake(limit) {
     const ver = NB.out[0].ver, out = [];
     let bytes = 400 + ver.length + (globalThis.dvPerf && globalThis.dvPerf.on() ? 2048 : 0);
@@ -234,13 +237,13 @@
     }
     return out;
   }
-  function nbBody(b) {
-    const ver = b[0].ver, rows = [], extras = [], none = [];
+  function nbBody(b, sc) {
+    const ver = b.length ? b[0].ver : sc.ver, rows = [], extras = [], none = [];
     for (const e of b) if (e.row) { rows.push(e.row); extras.push(e.ext); } else none.push(e.a);
     let body = JSON.stringify({ v: 3, scanner: ver, fp: fpOf(ver), rows, extras, none });
     const P = globalThis.dvPerf, last = b[b.length - 1];
-    if (P && P.on()) body = P.add(body, P.summary(b.map((e) => ({ ms: e.ms, p: e.p })), { workers: last.w || 1, speed: last.sp, src: "contribute" }));
-    return body;   // user 2026-11-07 "leave the names out of it": Near me uploads carry no scout name
+    if (P && P.on() && b.length) body = P.add(body, P.summary(b.map((e) => ({ ms: e.ms, p: e.p })), { workers: last.w || 1, speed: last.sp, src: "contribute" }));
+    return sc ? globalThis.dvCull.body(body, sc) : body;   // user 2026-11-07 "leave the names out of it": Near me uploads carry no scout name
   }
   function nbDropUnsendable() {
     while (NB.out.length && !fpOf(NB.out[0].ver)) {
@@ -253,9 +256,12 @@
   function nbFlush() {
     const url = relay();
     nbDropUnsendable();
-    if (!url || NB.inFlight || Date.now() < NB.retryAt || !NB.out.length) return;
+    const C = globalThis.dvCull;
+    if (!url || NB.inFlight || Date.now() < NB.retryAt || (!NB.out.length && !(C && C.has()))) return;
     const t0 = Date.now(), q0 = globalThis.dvNearPending();
-    const b = NB.inFlight = nbTake(NB.maxBytes), n = b.length, body = nbBody(b), by = body.length;
+    const sc = C && C.has() ? C.take(NB.out.length ? NB.out[0].ver : null, 60000) : null;   // v157: also the probe after a switch-off
+    if (!NB.out.length && !sc) return;
+    const b = NB.inFlight = NB.out.length ? nbTake(NB.maxBytes - (sc ? sc.bytes : 0)) : [], n = b.length, body = nbBody(b, sc), by = body.length;
     Object.assign(NB, { t0, by, q0 });   // for nbRefused
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     const watch = ac ? setTimeout(() => ac.abort(), NB_WATCH) : 0;
@@ -263,7 +269,8 @@
     // after a failed request: the batch goes back to the front, the next send waits sec seconds, the log says why
     const retry = (sec, st, wr, why) => {
       NB.out.unshift(...b); NB.retryAt = Date.now() + sec * 1000; setTimeout(nbFlush, sec * 1000 + 50);
-      nbLog(b, 0, "retry", why, nbInfo(t0, by, q0, st, sec, wr));
+      if (sc) C.giveBack(sc);
+      if (n) nbLog(b, 0, "retry", why, nbInfo(t0, by, q0, st, sec, wr));
     };
     // no keepalive here (v149u): Chrome counts keepalive bodies against a 64 KB quota per page and fails the NEXT request at once ("Failed to fetch" after 20 ms,
     // measured: a 60-system body is about 42 KB and the one sent right after a 2xx failed, then waited 60 s as "no connection"); a closing page is handled by nbLast (sendBeacon)
@@ -272,12 +279,19 @@
         clearTimeout(watch); NB.inFlight = null; NB.stallRun = 0; NB.errRun = 0; NB.lastSt = r.status; NB.lastErr = false; durOf();
         if (r.ok) {
           NB.accepted += n; nbDone(b); nbSave(); changed();
-          nbLog(b, 1, "sent", "", nbInfo(t0, by, q0, r.status, 0, NB.out.length >= NB_BATCH ? "more waiting, sent at once" : "next batch at 200 waiting or after 20 s"));
-          if (NB.out.length >= NB_BATCH) nbFlush();   // a long queue goes out back to back; a short one waits for the timer (fewer requests)
+          if (n) nbLog(b, 1, "sent", "", nbInfo(t0, by, q0, r.status, 0, NB.out.length >= NB_BATCH ? "more waiting, sent at once" : "next batch at 200 waiting or after 20 s"));
+          const more = () => { if (NB.out.length >= NB_BATCH) nbFlush(); };   // a long queue goes out back to back; a short one waits for the timer (fewer requests)
+          if (sc) {   // v154: the relay may drop only the scanned part; what it counted is done for Contribute too
+            const got = (res) => { if (C.answer(sc, res, nbFlush)) { nbDone(sc.cover.map((a) => ({ a }))); changed(); } };
+            r.json().then((j) => got(j && j.scanned)).catch(() => got(null)).then(more);
+          } else more();
           return;
         }
-        if (r.status === 429 || r.status === 503) { const sec = Math.min(3600, Math.max(5, parseInt(r.headers.get("Retry-After"), 10) || 60)); retry(sec, r.status, "the relay asked for it (Retry-After)", "the relay is busy, HTTP " + r.status); return; }
+        if (r.status === 429 || r.status === 503) { r.json().catch(() => null).then((j) => { const sec = Math.min(3600, Math.max(5, Math.round(Number(j && j.retry)) || parseInt(r.headers.get("Retry-After"), 10) || 60)); retry(sec, r.status, "the relay asked for it (Retry-After)", "the relay is busy, HTTP " + r.status); }); return; }   // v157: body "retry" first (relay 1.4), then the header, then 60
         if (r.status === 413 && NB.maxBytes > 16384) { NB.maxBytes = Math.max(16384, NB.maxBytes >> 1); retry(0, r.status, `too big: batch limit halved to ${NB.maxBytes >> 10} KB`, "the relay said the batch was too big, HTTP 413"); return; }
+        // v157: only relay 1.3's key error text ("v3: keys must be ...") switches culling off; any other 400 gives the part back once and the rows go without it;
+        // the pending bits are never cleared (systems already culled on this page are still counted)
+        if (sc && r.status === 400) { r.text().catch(() => "").then((t) => { C.badRequest(sc, t); NB.out.unshift(...b); setTimeout(nbFlush, 50); }); return; }
         nbRefused(b, r.status);
         r.text().catch(() => "").then((why) => logFailure({ what: "relay", status: r.status, n, error: String(why || "").slice(0, 300) }));
       })
@@ -302,12 +316,15 @@
     if (NB.inFlight) { NB.out.unshift(...NB.inFlight); NB.inFlight = null; }
     nbDropUnsendable();
     nbSaveNow();   // the page is going: everything the relay has not confirmed is kept for the next visit, whatever the beacon does
-    while (NB.out.length) {
-      const b = nbTake(NB_KEEPALIVE - 2000);
+    const C = globalThis.dvCull;
+    while (NB.out.length || (C && C.has())) {
+      const sc = C ? C.take(NB.out.length ? NB.out[0].ver : null, 12000) : null;
+      if (!NB.out.length && !sc) break;
+      const b = NB.out.length ? nbTake(NB_KEEPALIVE - 2000 - (sc ? sc.bytes : 0)) : [];
       let handed = false;
-      try { handed = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([nbBody(b)], { type: "text/plain" })); } catch (_) {}
+      try { handed = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([nbBody(b, sc)], { type: "text/plain" })); } catch (_) {}
       NB.handed.push(...b);   // not confirmed: still saved, and queued again if the page comes back
-      nbLog(b, handed ? 2 : 4, handed ? "handed" : "notsent", handed ? "" : "the browser would not send them as the page closed");
+      if (b.length) nbLog(b, handed ? 2 : 4, handed ? "handed" : "notsent", handed ? "" : "the browser would not send them as the page closed");
       nbDropUnsendable();
     }
   }
@@ -318,6 +335,10 @@
   });
   globalThis.dvNearQueue = (item) => {
     if (!relay() || !isEuclid(item && item.a) || !item.ver) return false;
+    const C = globalThis.dvCull;
+    if (C && C.on() && !item.cl) {   // v154: a found system waits for the end of its region (item.cl = already decided: send as it is); a none still goes out as before
+      if (C.add("near", item.a, item.row ? { ver: item.ver, item, meta: item.mt || {} } : { ver: item.ver, item: null, ch: "-" })) { nbTimer(); if (item.row) return true; }
+    }
     if (NB.out.length >= NB_MAXQ) NB.out.shift();
     if (!item.q) item.q = Date.now();
     NB.out.push(item);
@@ -326,7 +347,16 @@
     if (NB.out.length >= NB_BATCH_MAX) nbFlush();
     return true;
   };
-  globalThis.dvNearFlush = () => nbFlush();
+  // a top-100 find sent through the viewer's upload (site-near.js): only its bit + module character are added here
+  globalThis.dvNearBits = (address, d) => {
+    const C = globalThis.dvCull;
+    if (C && C.on() && relay() && isEuclid(address) && d && d.version && C.add("near", address, { ver: String(d.version), item: null, top: true, meta: C.metaOf(d.row) })) nbTimer();
+  };
+  globalThis.dvNearFlush = () => { if (globalThis.dvCull) globalThis.dvCull.end("near"); nbFlush(); };   // v154: the scan stopped, every open region is decided now
+  if (globalThis.dvCull) globalThis.dvCull.reg("near", {
+    push: (items) => { for (const e of items) { e.cl = true; globalThis.dvNearQueue(e); } },
+    log: (text) => logFailure({ what: "relay", step: "scanned", error: text }),
+  });
   globalThis.dvNearPending = () => NB.out.length + NB.handed.length + (NB.inFlight ? NB.inFlight.length : 0);
   // what the relay has really accepted since this page opened (a 2xx answer), and what still waits; accepted is not "in the atlas": the update job runs later
   // a plain reason for a long or old queue (more than 300 waiting, or the oldest has waited over 60 s); "" when all is well

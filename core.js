@@ -1,6 +1,6 @@
 import {hasBit,mapListBit} from './atlas-features.js';
 import {matchesReward} from './reward-types.js';
-export const VERSION = '156 (2026-11-09)';
+export const VERSION = '157 (2026-11-09)';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const known = n => n == null ? '—' : n;
 export const glyphsOf = address => '0' + address.slice(3,6) + address.slice(8);

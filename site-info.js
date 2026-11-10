@@ -71,6 +71,11 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
       ["Public on GitHub", "Uploads, your optional scout name and reports, including your note, are published on GitHub. Keep personal details out."],
       ["The relay", "Uploads and reports pass through a relay run by the atlas. It uses your IP address only for rate limits, never stores it and keeps no request logs."],
     ];
+    // v157: shown only while the browser really sends scan marks (DV_CONFIG.relayScanned), so the text is never ahead of the code
+    if ((window.DV_CONFIG || {}).relayScanned === true) {
+      items[1][1] = items[1][1].replace("upload every system they scan", "upload the systems they scan");
+      items.splice(2, 0, ["Scan marks", "When upload is on, which systems you scanned goes out as a mark with one module letter each, also for systems whose full result is not kept."]);
+    }
     if ((window.DV_CONFIG || {}).goatcounter) items.push(["Visitor count", "GoatCounter counts page views anonymously, without cookies, from the page address, referring page and screen size. A test password adds its own label to these counts, so its use can be told apart."]);
     items.push(["Other sites", "GitHub Pages and Google Fonts can see your IP address when your browser loads from them. Outside links and buttons contact those sites only when clicked. NMS Hub links include glyphs, also your Near me position."]);
     return `<div class="si-privacy" id="si-privacy"><div class="si-privacy-list">${items.map(([t, d]) => `<div><h5>${t}</h5><p>${d}</p></div>`).join("")}</div></div>`;
@@ -91,13 +96,19 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
     Promise.all([fetch("stats/systems.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       window.dvSinglesCount ? window.dvSinglesCount() : 0,
       fetch("stats/speed.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      window.dvSinglesHist ? window.dvSinglesHist() : []]).then(([s, singles, speed, singlesHist]) => {
+      window.dvSinglesHist ? window.dvSinglesHist() : [],
+      fetch("stats/scanned.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null)]).then(([s, singles, speed, singlesHist, scanned]) => {   // v157: stats/scanned.json (absent = nothing extra is shown)
       if (!s) { box.innerHTML = `<p class="site-muted">Atlas statistics are not available right now.</p>`; statsLoaded = false; return; }
-      const cap = Number(s.rules && s.rules.atlas_cap) || 1e6, total = (Number(s.total_systems) || 0) + (singles || 0), pct = Math.min(100, total / cap * 100);
+      // v157: stats/systems.json "community" = regions + singles + scanned systems with no row = the one number toward the cap (older files: the sum the page always used)
+      const com = s.community && Number(s.community.total) > 0 ? s.community : null, only = com ? Number(com.scanned_no_row) || 0 : 0;
+      const cap = Number(s.rules && s.rules.atlas_cap) || (com && Number(com.atlas_cap)) || 1e6, total = com ? Number(com.total) : (Number(s.total_systems) || 0) + (singles || 0), pct = Math.min(100, total / cap * 100);
       const regions = Object.values(s.galaxies || {}).reduce((a, g) => a + (g.regions || 0), 0);
       // snapshot histogram + the published singles (stats/systems.json counts no singles, and no single is in the snapshot's index shards)
       const h = (Array.isArray(s.modules && s.modules.histogram) ? s.modules.histogram : []).map(Number), max0 = Math.max(1, ...h);
       (singlesHist || []).forEach((n, m) => { while (h.length <= m) h.push(0); h[m] += Number(n) || 0; });
+      // v157: scanned systems counted without a stored row, by module count (stats/scanned.json); their unknown / no-derelict counts stay out of the modules table
+      const scHist = scanned && Array.isArray(scanned.histogram) ? scanned.histogram : [];
+      scHist.forEach((n, m) => { while (h.length <= m) h.push(0); h[m] += Number(n) || 0; });
       const max = Math.max(1, ...h, max0);
       // RE W29d sampled 6,116 random regions across 256 galaxy IDs. Scale to one average galaxy only;
       // the sample does not prove equal galaxy totals. Purple systems follow a separate rule and are excluded.
@@ -107,7 +118,7 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
       const pctSig = (p) => (p >= 1 ? Number(p.toPrecision(2)).toString() : p.toFixed(Math.ceil(-Math.log10(p)) + 1)) + "%";
       const moduleMax = h.length - 1, histTotal = h.reduce((a, n) => a + Number(n || 0), 0);
       const moduleDenom = histTotal;
-      const moduleUnknown = s.modules && s.modules.unknown != null ? fmt(Number(s.modules.unknown) + Math.max(0, (singles || 0) - (singlesHist || []).reduce((a, n) => a + (Number(n) || 0), 0))) : "unavailable";
+      const moduleUnknown = s.modules && s.modules.unknown != null ? fmt(Number(s.modules.unknown) + Math.max(0, (singles || 0) - (singlesHist || []).reduce((a, n) => a + (Number(n) || 0), 0)) + (scanned ? Number(scanned.unknown) || 0 : 0)) : "unavailable";
       const tailStart = Math.max(0, moduleMax - 3), tailSpan = moduleMax - tailStart;
       const tailRate = tailSpan > 0 && Number(h[tailStart]) > 0 ? Math.pow(Number(h[moduleMax]) / Number(h[tailStart]), 1 / tailSpan) : 0;
       const tailWeight = tailRate > 0 && tailRate < 1 ? Number(h[moduleMax]) * tailRate / (1 - tailRate) : 0;
@@ -132,11 +143,11 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
       box.innerHTML = `<div class="si-tiles4">
 <div><b>${fmt(total)}</b><span>Systems</span></div><div><b>${fmt(regions)}</b><span>Regions</span></div>
 <div><b>${fmt(s.maps && s.maps.total)}</b><span>Systems with a map</span></div><div><b>${fmt(s.tiers && s.tiers.full)}</b><span>With all numbers</span></div></div>
-<div class="si-progress"><div class="si-progress-label"><span>Road to ${fmt(cap)}</span><b>${pct.toFixed(1)} %</b></div><div class="si-bar"><i style="width:${pct.toFixed(2)}%"></i></div></div>
+<div class="si-progress"><div class="si-progress-label"><span>Road to ${fmt(cap)}</span><b>${pct.toFixed(1)} %</b></div><div class="si-bar"><i style="width:${pct.toFixed(2)}%"></i></div></div>${only ? `<p class="site-muted si-counted">${fmt(only)} of these systems were scanned and counted without a stored row (only the module count is kept).</p>` : ""}
 <div class="si-hist-title">Systems by Salvaged Frigate Modules</div>
 <div class="si-hist si-dist"><div class="si-dist-head"><span>Mod.</span><i></i><b>Atlas</b><em>Per galaxy</em><strong>Share</strong></div>${distRows.join("")}</div>
 <p>The top rows rest on very few systems, so these estimates will change.</p>
-<section class="si-module-stats"><p>Atlas: the systems actually in the Galaxy 0 atlas, from the snapshot (<code>stats/systems.json</code>) plus the published single scans (${fmt(moduleDenom)} systems with a known module count; unknown: ${moduleUnknown}). Per galaxy: the atlas share applied to the estimate for one average galaxy. Share: of the atlas for 0&ndash;${fmt(moduleMax)}, of the model for predicted rows.</p>
+<section class="si-module-stats"><p>Atlas: the systems actually in the Galaxy 0 atlas, from the snapshot (<code>stats/systems.json</code>) plus the published single scans${scHist.length ? " and the scanned systems counted without a stored row" : ""} (${fmt(moduleDenom)} systems with a known module count; unknown: ${moduleUnknown}). Per galaxy: the atlas share applied to the estimate for one average galaxy. Share: of the atlas for 0&ndash;${fmt(moduleMax)}, of the model for predicted rows.</p>
 <p>The highest counts seen so far are ${fmt(moduleMax)} definite and 5 ambiguous modules. The true maximum is not established; nothing here says higher counts are impossible.</p>
 <h3>Per-galaxy system estimate</h3><p>The reverse-engineered sample covered ${fmt(SAMPLE_REGIONS)} random regions across 256 galaxy IDs, with ${fmt(SAMPLE_VALID)} normal valid system indices after excluding index 000. Scaling its average of ${(SAMPLE_VALID / SAMPLE_REGIONS).toFixed(1)} per region to 2<sup>32</sup> regions gives about <b>${sig2(scaleDenom)} normal systems per galaxy on average</b>. This does not verify that galaxies have equal totals; the all-galaxy total remains unknown. Purple systems are separate and excluded.</p>
 <p>Euclid (Galaxy 0): first possible system <a href="#/d/0000010000000008" data-address="0000010000000008"><b>000100000008</b></a>, 8 regions from the centre. Last possible system <a href="#/d/000428007F7FF7FF" data-address="000428007F7FF7FF"><b>04287F7FF7FF</b></a>, a purple system in the far corner. Computed from the game's code.</p>

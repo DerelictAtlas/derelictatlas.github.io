@@ -323,7 +323,7 @@
     });
   }
   const batchItem = (a, d, size) => d.status === 0
-    ? (d.v3 && d.v3.row && d.v3.extras ? { a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras, ms: d.ms, p: (d.row && d.row.preset) || "", w: size, sp: speedKey() } : null)
+    ? (d.v3 && d.v3.row && d.v3.extras ? { a, ver: String(d.version || ""), row: d.v3.row, ext: d.v3.extras, ms: d.ms, p: (d.row && d.row.preset) || "", w: size, sp: speedKey(), mt: globalThis.dvCull && globalThis.dvCull.on() ? globalThis.dvCull.metaOf(d.row) : undefined } : null)
     : { a, ver: String(d.version || ""), ms: d.ms, w: size, sp: speedKey() };
   async function drainUp() {
     if (upStats.busy) return;
@@ -336,7 +336,7 @@
           const full = await fullScan(a, await version());
           if (full && full.ok && full.status === 0) { const r = await dvUploadFind(a, full); if (r && (r.queued || r.sent || r.held)) { sent = true; if (r.queued) upStats.found++; } }
         } catch (e) { try { console.warn("[near me] top-100 upload", a, e); } catch (_) {} }
-        if (!sent) { upStats.failed++; const it = batchItem(a, d, size); if (it) globalThis.dvNearQueue(it); }   // the full scan failed: still sent once, from the batch
+        if (!sent) { upStats.failed++; const it = batchItem(a, d, size); if (it) { it.cl = true; globalThis.dvNearQueue(it); } }   // the full scan failed: still sent once, from the batch
         paintScan();
       }
     } finally { upStats.busy = false; }
@@ -351,9 +351,11 @@
       if (d.status === 0 && !(d.v3 && d.v3.row && d.v3.extras)) return;   // no valid upload line: not sent, so not marked
       // v145b: not marked done here. site-scan.js marks a system done (Contribute skips it) only once the relay has answered OK for it.
       const top = d.status === 0 && r.lists && !upSeen.has(address) && r.up < MAX_UP && globalThis.dvTopLists.breaks(d.row, d.row, r.lists).length > 0;   // Contribute's call
-      if (top) { upSeen.add(address); r.up++; upQ.push({ a: address, d, size: r.size }); drainUp(); return; }
+      if (top) { if (globalThis.dvNearBits) globalThis.dvNearBits(address, d); upSeen.add(address); r.up++; upQ.push({ a: address, d, size: r.size }); drainUp(); return; }
       upStats.queued++;
-      globalThis.dvNearQueue(batchItem(address, d, r.size));
+      const it = batchItem(address, d, r.size);
+      if (it && it.row && !r.lists && globalThis.dvNearBits) { globalThis.dvNearBits(address, d); it.cl = true; }   // v154: no top-100 lists loaded = nothing can be culled safely
+      globalThis.dvNearQueue(it);
     } catch (_) {}
   }
   // a skipped address this browser holds a row of: still listed when it matches
