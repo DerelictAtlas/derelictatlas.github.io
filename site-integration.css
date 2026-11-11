@@ -666,10 +666,10 @@ a.site-report-icon.is-done { color: #4ade80; border-color: rgba(74, 222, 128, .4
 .si-info #site-about > p.site-muted { font-size: 11px; line-height: 1.2; margin: 0; }
 .si-panels.si-noscroll { overflow: hidden; }
 .si-privacy.two .si-privacy-list { columns: 2; column-gap: 20px; }
-.si-privacy-list > div { break-inside: avoid; padding-bottom: calc(11px * var(--si-pv, 1)); }
+.si-privacy-list > div { break-inside: avoid; padding-bottom: calc(9px * var(--si-pv, 1)); }
 .si-privacy-list > div:last-child { padding-bottom: 0; }
 .si-privacy-list h5 { margin: 0 0 2px; font-size: calc(13px * var(--si-pv, 1)); font-weight: 700; color: var(--text, #e6f1f5); }
-.si-privacy-list p { margin: 0; font-size: calc(12.5px * var(--si-pv, 1)); line-height: 1.45; color: var(--muted, #94a9bc); overflow-wrap: anywhere; }
+.si-privacy-list p { margin: 0; font-size: calc(12.5px * var(--si-pv, 1)); line-height: 1.38; color: var(--muted, #94a9bc); overflow-wrap: anywhere; }
 .si-about-embed { min-width: 0; padding: 11px; border: 1px solid #55d9dc55; border-radius: 10px; background: linear-gradient(145deg, #55d9dc0d, #0a1c2a9c); }
 .si-about-embed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .si-about-kicker { color: var(--accent, #55d9dc); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
@@ -833,10 +833,36 @@ body:has(.fp-fullscreen-fallback) .viewer-controls > #route-panel { display: non
 .vs-dialog::backdrop { background: rgba(0, 0, 0, .65); }
 .vs-head { margin: 0 0 8px; font-size: 15px; }
 .vs-pic { display: flex; justify-content: center; background: #07131d; border-radius: 6px; }
-.vs-pic img { display: block; max-width: 100%; max-height: min(64vh, 560px); object-fit: contain; }
+.vs-pic img { display: block; max-width: 100%; max-height: min(46vh, 480px); object-fit: contain; }
 .vs-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted, #94a9bc); overflow-wrap: anywhere; }
 .vs-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 .vs-row button { min-height: 40px; padding: 0 16px; border: 1px solid var(--line, #7395b3); border-radius: 8px; background: #112a3b; color: inherit; font: inherit; cursor: pointer; }
 .vs-row .vs-go { background: linear-gradient(#1b8fa3, #0f5a6b); border-color: #7fe8f2; font-weight: 700; }
 .vs-row button:disabled { opacity: .4; cursor: default; }
 .vs-row [hidden] { display: none; }
+/* v167: size choice */
+.vs-dialog { overflow: auto; }
+.vs-sizes { margin: 10px 0 0; padding: 0; border: 0; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.vs-sizes legend { padding: 0; margin: 0 0 4px; font-size: 12.5px; color: var(--muted, #94a9bc); }
+.vs-opt { position: relative; display: block; min-width: 0; }
+.vs-opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.vs-chip { display: flex; flex-direction: column; gap: 1px; height: 100%; padding: 6px 8px; border: 1px solid var(--line, #7395b366); border-radius: 8px; background: #0f2434; font-size: 11.5px; line-height: 1.25; color: var(--muted, #94a9bc); overflow-wrap: anywhere; }
+.vs-chip b { font-size: 13px; color: var(--text, #edf3f4); }
+.vs-chip i { font-style: normal; }
+.vs-opt input:checked + .vs-chip { border-color: #7fe8f2; background: #12384a; box-shadow: inset 0 0 0 1px #7fe8f2; }
+.vs-opt input:focus-visible + .vs-chip { outline: 2px solid #fff; outline-offset: 2px; }
+.vs-opt.vs-limited .vs-px::after { content: " (limit)"; }
+@media (max-width: 640px) {
+  .vs-sizes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vs-pic img { max-height: min(30vh, 300px); }
+  .vs-dialog { max-width: 94vw; padding: 10px; }
+}
+
+/* v168: the Minimize button stays in the top right corner of the Systems heading; the title and the count wrap instead of running under it */
+@media (min-width: 701px) {
+  #systems .section-heading { flex-wrap: wrap; align-items: flex-end; row-gap: 2px; padding-right: 112px; }
+  #systems .section-heading > div:first-child { min-width: 0; }
+  #systems .section-heading .site-list-count { flex: 0 1 auto; min-width: 0; white-space: normal; }
+  .sys-min { top: 4px; right: 4px; }
+  html.dv-sysmin #systems .section-heading { flex-wrap: nowrap; padding-right: 0; }
+}

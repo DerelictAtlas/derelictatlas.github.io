@@ -491,11 +491,13 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     g.fillStyle = "rgba(7,19,29,.72)"; g.fillRect(0, cv.height - h, w + s * 0.5, h);
     g.fillStyle = "#cfe3ea"; g.fillText(text, s * 0.6, cv.height - h * 0.32); g.restore();
   }
-  // v165: the saved picture is drawn again offscreen at a much larger size (same view, same framing and aspect ratio), not the viewed size.
-  // Long side up to 8192 px on a computer, 4096 px on a phone or a low-memory device; it steps down 8192 -> 4096 -> 2048 -> normal size when
-  // the browser cannot make it. Test hooks: window.__vsMax (smaller limit), window.__vsGlMax, window.__vsFail (number of large tries to fail).
+  // v167: the saved picture is the viewer's own view drawn again offscreen at a chosen size: same camera, same aspect ratio (the live canvas width / height),
+  // only the pixel count changes. Five sizes (long side): Largest (device maximum: 8192 px on a computer, 4096 px on a phone or low-memory device),
+  // Large 4096, Medium 2048, Small 1024, Tiny 512. Default Large on a computer, Medium on a phone; the last choice is kept in localStorage.
+  // If the browser cannot make a size (or its drawing buffer is smaller than asked, which would crop the picture), it steps down one size and says so.
+  // Test hooks: window.__vsMax (smaller limit), window.__vsGlMax, window.__vsFail (number of tries to fail).
   const vsSmall = () => { try { return matchMedia("(pointer:coarse)").matches || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); } catch (_) { return false; } };
-  let vsGl = 0;
+  let vsGl = 0, vsLearned = 1e9;
   function vsGlMax() {
     if (window.__vsGlMax) return window.__vsGlMax;
     if (vsGl) return vsGl;
@@ -506,35 +508,43 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     } catch (_) { /* keep 4096 */ }
     return (vsGl = m);
   }
-  // sizes to try, biggest first, all with the same aspect ratio as the view; every size is bigger than the normal one
-  function vsSizes(w, h, k, glLimit) {
-    const small = vsSmall(), caps = small ? [4096, 2048] : [8192, 4096, 2048], area = small ? 16e6 : 67e6, out = [];
-    for (let cap of caps) {
-      cap = Math.min(cap, glLimit || 1e9, window.__vsMax || 1e9);
-      let sc = cap / Math.max(w, h); sc = Math.min(sc, Math.sqrt(area / (w * h)));
-      const W = Math.round(w * sc), H = Math.round(h * sc);
-      if (W > w * k * 1.05 && !out.some((o) => o.W === W)) out.push({ W, H });
-    }
-    return out;
+  const VS_OPTS = [
+    { key: "max", name: "Largest", sub: "(max for this device)", label: "Largest (max for this device)" },
+    { key: "4096", name: "Large", sub: "(4096 px)", label: "Large (4096 px)", cap: 4096 },
+    { key: "2048", name: "Medium", sub: "(2048 px)", label: "Medium (2048 px)", cap: 2048 },
+    { key: "1024", name: "Small", sub: "(1024 px)", label: "Small (1024 px)", cap: 1024 },
+    { key: "512", name: "Tiny", sub: "(512 px)", label: "Tiny (512 px)", cap: 512 },
+  ];
+  const VS_KEY = "dv.save.size";
+  const vsDefault = () => (vsSmall() ? "2048" : "4096");
+  function vsChoice() {
+    let v = ""; try { v = localStorage.getItem(VS_KEY) || ""; } catch (_) { /* no storage */ }
+    return VS_OPTS.some((o) => o.key === v) ? v : vsDefault();
+  }
+  const vsBpp = { "3d": 0.3, "2d": 0.12 };   // bytes per pixel of a PNG, replaced by the measured value after each render
+  const vsBytes = (n) => (n >= 1048576 ? (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+  // the sizes for a view of w x h css px: long side = cap, same aspect ratio (within one pixel), never above the device limit or the area limit
+  function vsDims(w, h, cap) {
+    const area = vsSmall() ? 16e6 : 67e6, dev = Math.min(vsSmall() ? 4096 : 8192, window.__vsMax || 1e9, vsLearned);
+    return vsFit(w, h, Math.min(cap || dev, dev), area);
+  }
+  function vsFit(w, h, cap, area) {
+    let long = Math.max(w, h), short = Math.min(w, h), L = cap;
+    if (L * (L * short / long) > area) L = Math.sqrt(area * long / short);
+    L = Math.max(1, Math.round(L)); const S = Math.max(1, Math.round(L * short / long));
+    return w >= h ? { W: L, H: S } : { W: S, H: L };
+  }
+  function vsOptionList(t) {
+    const lim = Math.min(t.gl || 1e9);
+    return VS_OPTS.map((o) => {
+      const want = vsFit(t.w, t.h, o.cap || 1e9, 1e12), d = vsDims(t.w, t.h, o.cap ? Math.min(o.cap, lim) : lim);
+      return { ...o, W: d.W, H: d.H, clamped: !!o.cap && Math.max(d.W, d.H) < Math.max(want.W, want.H) };
+    });
   }
   const vsFlat = (cv) => {   // true when the picture is one single colour (blank)
     const t = document.createElement("canvas"); t.width = 48; t.height = 32; const g = t.getContext("2d"); g.drawImage(cv, 0, 0, 48, 32);
     const d = g.getImageData(0, 0, 48, 32).data; for (let i = 4; i < d.length; i += 4) if (d[i] !== d[0] || d[i + 1] !== d[1] || d[i + 2] !== d[2]) return false; return true;
   };
-  async function vsLarge(w, h, k, glLimit, draw) {
-    // returns { cv, big }; draw(W, H) gives a canvas
-    let tries = 0;
-    for (const s of vsSizes(w, h, k, glLimit)) {
-      try {
-        if (window.__vsFail && tries++ < window.__vsFail) throw new Error("forced");
-        const cv = await draw(s.W, s.H);
-        if (cv && cv.width === s.W && !vsFlat(cv)) return { cv, big: true };
-      } catch (_) { /* next smaller size */ }
-      await new Promise((r) => setTimeout(r, 20));
-    }
-    const cv = await draw(Math.round(w * k), Math.round(h * k));
-    return { cv, big: false };
-  }
   async function vsDraw2d(svg, W, H) {
     const clone = svg.cloneNode(true), live = svg.querySelectorAll("*"), copy = clone.querySelectorAll("*");
     for (let i = 0; i < live.length && i < copy.length; i++) {
@@ -552,28 +562,68 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
       return cv;
     } finally { URL.revokeObjectURL(url); }
   }
-  async function vsCapture2d() {
-    const svg = document.querySelector("#map-host svg"); if (!svg) return null;
-    const r = svg.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
-    return vsLarge(r.width, r.height, Math.min(2, globalThis.devicePixelRatio || 1), 0, (W, H) => vsDraw2d(svg, W, H));
-  }
-  async function vsCapture3d() {
-    const host = document.getElementById("scene-host"), H = globalThis.dvViewHandles && dvViewHandles(), v = H && H.view3d;
+  // what is on screen now: its size (the live canvas / svg width and height in css px, so the aspect ratio is exactly the viewer's) and how to draw it at W x H
+  function vsTarget(kind) {
+    if (kind === "2d") {
+      const svg = document.querySelector("#map-host svg"); if (!svg) return null;
+      const r = svg.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
+      return { w: r.width, h: r.height, gl: 0, draw: (W, H) => vsDraw2d(svg, W, H) };
+    }
+    const host = document.getElementById("scene-host"), HH = globalThis.dvViewHandles && dvViewHandles(), v = HH && HH.view3d;
     if (!host) return null;
-    const r = host.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
-    const k = Math.min(2, globalThis.devicePixelRatio || 1);
-    if (v && typeof v.capture === "function") return vsLarge(r.width, r.height, k, vsGlMax(), async (W, Hh) => v.capture(W, Hh));   // WebGL: drawn again in this frame from the live camera; size and camera are restored by the viewer
+    const cvs = host.querySelector("canvas"), el = cvs || host.querySelector("svg") || host;
+    const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return null;
+    const w = cvs && cvs.clientWidth > 3 ? cvs.clientWidth : r.width, h = cvs && cvs.clientHeight > 3 ? cvs.clientHeight : r.height;
+    if (v && typeof v.capture === "function") return { w, h, gl: vsGlMax(), draw: async (W, H) => v.capture(W, H) };   // WebGL: drawn again in this frame from the live camera; size and camera are restored by the viewer
     const svg = host.querySelector("svg"); if (!svg) return null;     // the SVG fallback viewer
-    return vsLarge(r.width, r.height, k, 0, (W, Hh) => vsDraw2d(svg, W, Hh));
+    return { w, h, gl: 0, draw: (W, H) => vsDraw2d(svg, W, H) };
+  }
+  // draws the chosen size; on failure steps down one size at a time, last the normal size. Returns { cv, opt, steps } or null when stale
+  async function vsLarge(t, opts, key, stale) {
+    const k = Math.min(2, globalThis.devicePixelRatio || 1);
+    let i = Math.max(0, opts.findIndex((o) => o.key === key)), tries = 0, lastW = -1; const steps = []; let limited = null;
+    for (; i < opts.length; i++) {
+      let o = opts[i]; if (o.W === lastW) continue; lastW = o.W;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (window.__vsFail && tries++ < window.__vsFail) throw new Error("forced");
+          const cv = await t.draw(o.W, o.H);
+          if (stale()) return null;
+          if (cv && cv.width === o.W && cv.height === o.H && !vsFlat(cv)) return { cv, opt: o, steps, big: true, limited };
+          throw new Error("blank");
+        } catch (e) {
+          if (stale()) return null;
+          if (!window.__vsFail && e && /limits the drawing size/.test(e.message)) {   // the browser's drawing buffer is smaller than asked: learn its real limit, try that size once
+            const lim = e.test || e.buffer || 0, big = Math.max(o.W, o.H);
+            vsLearned = Math.min(vsLearned, lim > 0 && lim < big ? lim : big - 1);
+            const d = vsFit(t.w, t.h, vsLearned, 1e12);
+            if (attempt === 0 && Math.max(d.W, d.H) >= 512 && Math.max(d.W, d.H) < big) { limited = o; o = { ...o, W: d.W, H: d.H }; lastW = o.W; continue; }
+          }
+          steps.push(o); break;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const W = Math.max(1, Math.round(t.w * k)), H = Math.max(1, Math.round(t.h * k));
+    const cv = await t.draw(W, H); if (stale()) return null;
+    return { cv, opt: { key: "normal", name: "Normal", label: "normal size", W, H }, steps, big: false, limited };
   }
   function vsDialog() {
     let d = document.getElementById("vs-dialog"); if (d) return d;
     d = document.createElement("dialog"); d.id = "vs-dialog"; d.className = "vs-dialog"; d.setAttribute("aria-label", "Save image of this view");
-    d.innerHTML = '<div class="vs-head"><b>Save image of this view</b></div><div class="vs-pic"><img id="vs-img" alt="Preview of the view as it is now"></div><p class="vs-note" id="vs-note"></p><div class="vs-row"><button type="button" class="vs-go" id="vs-save">Save image</button><button type="button" class="vs-share" id="vs-share" hidden>Share</button><button type="button" class="vs-close" id="vs-close">Close</button></div><div id="vs-toast" class="share-toast" role="status" aria-live="polite"></div>';
+    d.innerHTML = '<div class="vs-head"><b>Save image of this view</b></div><div class="vs-pic"><img id="vs-img" alt="Preview of the view as it is now"></div>'
+      + '<fieldset class="vs-sizes" id="vs-sizes"><legend>Picture size (long side)</legend>' + VS_OPTS.map((o) =>
+        '<label class="vs-opt"><input type="radio" name="vs-size" value="' + o.key + '"><span class="vs-chip"><b>' + o.name + '</b><i>' + o.sub + '</i><span class="vs-px" data-px></span><span class="vs-mb" data-mb></span></span></label>').join("") + '</fieldset>'
+      + '<p class="vs-note" id="vs-note" role="status" aria-live="polite"></p><div class="vs-row"><button type="button" class="vs-go" id="vs-save">Save image</button><button type="button" class="vs-share" id="vs-share" hidden>Share</button><button type="button" class="vs-close" id="vs-close">Close</button></div><div id="vs-toast" class="share-toast" role="status" aria-live="polite"></div>';
     document.body.appendChild(d);
     d.querySelector("#vs-close").addEventListener("click", () => d.close());
     d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
-    d.addEventListener("close", () => { const i = d.querySelector("#vs-img"); if (i && i.dataset.url) { URL.revokeObjectURL(i.dataset.url); i.dataset.url = ""; i.removeAttribute("src"); } window.__vsBlob = null; });
+    d.addEventListener("close", () => { vsGen++; vsWant = null; const i = d.querySelector("#vs-img"); if (i && i.dataset.url) { URL.revokeObjectURL(i.dataset.url); i.dataset.url = ""; i.removeAttribute("src"); } window.__vsBlob = null; });
+    d.querySelector("#vs-sizes").addEventListener("change", (e) => {
+      const r = e.target; if (!(r instanceof HTMLInputElement) || !r.checked) return;
+      try { localStorage.setItem(VS_KEY, r.value); } catch (_) { /* not remembered */ }
+      vsAsk(vsKind, r.value);
+    });
     d.querySelector("#vs-save").addEventListener("click", (e) => {
       const f = window.__vsFile; if (!f) return;
       const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
@@ -593,34 +643,69 @@ ${REPORT_REASONS.map(([k, label]) => `<label class="check"><input type="checkbox
     t.style.left = Math.max(8, Math.min(innerWidth - tw - 8, r.left + r.width / 2 - tw / 2)) + "px"; t.style.top = Math.max(8, r.top - th - 8) + "px";
     clearTimeout(vsTimer); vsTimer = setTimeout(() => t.classList.remove("show"), 1500);
   }
+  // the size list: pixel size and file size per option (estimates until a render of that kind has been measured)
+  function vsShowOptions(d, kind, opts, used) {
+    for (const o of opts) {
+      const r = d.querySelector('input[value="' + o.key + '"]'); if (!r) continue;
+      const lab = r.closest("label"), px = lab.querySelector("[data-px]"), mb = lab.querySelector("[data-mb]");
+      px.textContent = o.W + " x " + o.H + " px"; mb.textContent = (used && used.key === o.key && used.bytes ? "" : "about ") + vsBytes(used && used.key === o.key && used.bytes ? used.bytes : o.W * o.H * vsBpp[kind]);
+      lab.title = o.label + ": " + o.W + " x " + o.H + " px" + (o.clamped ? " (limited by this device)" : "");
+      lab.classList.toggle("vs-limited", !!o.clamped); r.setAttribute("aria-label", o.label + ", " + o.W + " x " + o.H + " px, " + mb.textContent + (o.clamped ? ", limited by this device" : ""));
+    }
+  }
+  let vsGen = 0, vsWant = null, vsRunning = false, vsKind = "3d";
+  // asks for a render of this size; the newest request wins, an older one still running is ignored when it ends
+  function vsAsk(kind, key) {
+    vsKind = kind; vsGen++; vsWant = { kind, key, gen: vsGen };
+    const d = vsDialog(); d.querySelector("#vs-note").textContent = "Rendering..."; d.querySelector("#vs-save").disabled = true; d.querySelector("#vs-share").hidden = true; window.__vsFile = null;
+    d.querySelector("#vs-sizes").setAttribute("aria-busy", "true");
+    d.querySelectorAll('input[name="vs-size"]').forEach((r) => { r.checked = r.value === key; });
+    if (!vsRunning) vsRun();
+  }
+  async function vsRun() {
+    vsRunning = true; window.__vsBusy = true;
+    try {
+      await new Promise((r) => setTimeout(r, 100));   // let "Rendering..." paint before the heavy work
+      while (vsWant) { const w = vsWant; vsWant = null; await vsRender(w).catch((e) => { const n = document.getElementById("vs-note"); if (n && w.gen === vsGen) n.textContent = (e && e.message) || "The image could not be made."; }); }
+    } finally { vsRunning = false; window.__vsBusy = false; const d = document.getElementById("vs-dialog"); if (d) d.querySelector("#vs-sizes").removeAttribute("aria-busy"); }
+  }
+  async function vsRender(w) {
+    const d = vsDialog(), note = d.querySelector("#vs-note"), save = d.querySelector("#vs-save"), shr = d.querySelector("#vs-share"), kind = w.kind;
+    const stale = () => w.gen !== vsGen || !d.open;
+    const t = vsTarget(kind), img = d.querySelector("#vs-img");
+    if (!t) { note.textContent = "There is no picture to save yet. Wait for the view to finish drawing."; img.removeAttribute("src"); return; }
+    let opts = vsOptionList(t); vsShowOptions(d, kind, opts, null);
+    const asked = opts.find((o) => o.key === w.key);
+    const res = await vsLarge(t, opts, w.key, stale); if (!res) return;
+    opts = vsOptionList(t);   // sizes the browser turned out not to allow are now shown as limited
+    const cv = res.cv, gl = vsGlyphs(); vsCaption(cv, "NMS Derelict Atlas" + (gl ? " " + gl : "") + " " + kind.toUpperCase() + " view");
+    const blob = await new Promise((r) => { try { cv.toBlob(r, "image/png"); } catch (_) { r(null); } });
+    if (stale()) return;
+    if (!blob) { note.textContent = "The image could not be made."; return; }
+    const name = "derelict-" + (gl || "view").toLowerCase() + "-" + kind + ".png", file = new File([blob], name, { type: "image/png" });
+    const full = { w: cv.width, h: cv.height };
+    const th = document.createElement("canvas"), ts = Math.min(1, 1200 / Math.max(full.w, full.h)); th.width = Math.max(1, Math.round(full.w * ts)); th.height = Math.max(1, Math.round(full.h * ts));
+    th.getContext("2d").drawImage(cv, 0, 0, th.width, th.height); cv.width = cv.height = 0;   // free the big canvas
+    const tb = await new Promise((r) => th.toBlob(r, "image/png")); if (stale()) return;
+    vsBpp[kind] = blob.size / (full.w * full.h);
+    const used = res.opt; used.bytes = blob.size;
+    vsShowOptions(d, kind, opts, used);
+    const stepped = res.steps.length > 0;
+    window.__vsFile = file; window.__vsMeta = { kind, w: full.w, h: full.h, name, big: res.big, opt: used.key, asked: w.key, bytes: blob.size, steps: res.steps.map((o) => o.key) };
+    if (stepped) d.querySelectorAll('input[name="vs-size"]').forEach((r) => { r.checked = r.value === used.key; });   // shows the size that was really used; the remembered choice stays as the user set it
+    const oldUrl = img.dataset.url; img.dataset.url = URL.createObjectURL(tb || blob); img.src = img.dataset.url; if (oldUrl) URL.revokeObjectURL(oldUrl);
+    const lim = res.limited && !stepped ? "This browser limits the drawing size, so " + res.limited.label + " is made at " + used.W + " x " + used.H + " px. " : "";
+    note.textContent = lim + (stepped ? (res.big ? "Could not make " + asked.label + " (" + asked.W + " x " + asked.H + " px), used " + used.label + " instead. " : "Could not make a large image, saved at normal size. ") : "")
+      + "Saves at " + full.w + " x " + full.h + " px. File about " + vsBytes(blob.size) + ": " + name;
+    save.disabled = false;
+    let can = false; try { can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { /* no file sharing */ }
+    shr.hidden = !can;
+  }
   async function vsPress(kind) {
     if (kind === "exp") { const ti = document.getElementById("expand-title"); kind = ti && /3D/i.test(ti.textContent) ? "3d" : "2d"; }
-    if (window.__vsBusy) return; window.__vsBusy = true;
-    const d = vsDialog(), note = d.querySelector("#vs-note"), save = d.querySelector("#vs-save"), shr = d.querySelector("#vs-share");
-    try {
-      const host = document.getElementById(kind === "3d" ? "scene-host" : "map-host");
-      note.textContent = "Rendering..."; save.disabled = true; shr.hidden = true; window.__vsFile = null;
-      await new Promise((r) => setTimeout(r, 40)); if (!d.open) d.showModal();
-      await new Promise((r) => setTimeout(r, 60));   // let "Rendering..." paint before the heavy work
-      let res = null, err = "";
-      try { res = kind === "3d" ? await vsCapture3d() : await vsCapture2d(); } catch (e) { err = e && e.message ? e.message : "The image could not be made."; }
-      if (!res || !res.cv) { note.textContent = err || "There is no picture to save yet. Wait for the view to finish drawing."; d.querySelector("#vs-img").removeAttribute("src"); return; }
-      const cv = res.cv, gl = vsGlyphs(); vsCaption(cv, "NMS Derelict Atlas" + (gl ? " " + gl : "") + " " + kind.toUpperCase() + " view");
-      const blob = await new Promise((r) => { try { cv.toBlob(r, "image/png"); } catch (_) { r(null); } });
-      if (!blob) { note.textContent = "The image could not be made."; return; }
-      const name = "derelict-" + (gl || "view").toLowerCase() + "-" + kind + ".png", file = new File([blob], name, { type: "image/png" });
-      const full = { w: cv.width, h: cv.height };
-      const t = document.createElement("canvas"), ts = Math.min(1, 1200 / Math.max(full.w, full.h)); t.width = Math.max(1, Math.round(full.w * ts)); t.height = Math.max(1, Math.round(full.h * ts));
-      t.getContext("2d").drawImage(cv, 0, 0, t.width, t.height); cv.width = cv.height = 0;   // free the big canvas
-      const tb = await new Promise((r) => t.toBlob(r, "image/png"));
-      window.__vsFile = file; window.__vsMeta = { kind, w: full.w, h: full.h, name, big: res.big };
-      const img = d.querySelector("#vs-img"); if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
-      img.dataset.url = URL.createObjectURL(tb || blob); img.src = img.dataset.url;
-      note.textContent = (res.big ? "" : "Could not make a large image, saved at normal size. ") + "Saves at " + full.w + " x " + full.h + " px. File: " + name;
-      save.disabled = false;
-      let can = false; try { can = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (_) { /* no file sharing */ }
-      shr.hidden = !can;
-    } finally { window.__vsBusy = false; }
+    const d = vsDialog(); window.__vsMeta = null;
+    vsAsk(kind, vsChoice());
+    await new Promise((r) => setTimeout(r, 40)); if (!d.open) d.showModal();
   }
   document.addEventListener("click", (e) => { const b = e.target instanceof Element && e.target.closest(".vs-save"); if (b) { e.preventDefault(); vsPress(b.dataset.vsKind); } });
   function watch() {

@@ -850,6 +850,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
     dlg.addEventListener("close", onClose);
     dlg.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target instanceof HTMLInputElement && e.target.type !== "checkbox") { e.preventDefault(); const f = e.target.closest("[data-enter]"); if (f) { const b = $(f.dataset.enter); if (b) b.click(); } else if (e.target.id === "nr-pos" || e.target.closest(".nr-view")) { if (!run) $("nr-find").click(); } } });
     paintTrip(); paintResults(); syncState();
+    try { if (globalThis.dvTour) dvTour.attach(dlg); } catch (_) {}   // v166: the Tour button in the header (site-dtour.js)
   }
   function fill() {
     $("nr-pos").value = S.pos || ""; syncPad($("nr-pos"));
@@ -1124,7 +1125,7 @@ ${field("nr-tall", "Tall lockers, at least", '<input id="nr-tall" type="number" 
     const modsT = mods == null ? "unknown" : mods + (row.frigate_modules_ambiguous ? "?" : "");
     const rew = showRew ? `<span class="nr-reward">End reward (predicted): ${esc((row.reward_class ? "Class " + row.reward_class + " " : "") + (row.reward_name || "none listed"))}</span>` : `<button type="button" class="nr-link" data-nr-reward="${r.address}">Show end reward</button>`;
     return `<li class="nr-res" data-address="${r.address}"><div class="nr-res-row"><i class="nr-dot" aria-hidden="true"></i><div class="nr-res-t"><b class="nr-name">${esc(name || "System " + hex(r.sys, 3))}</b>${name ? ' <span class="nr-guess" title="Generated name, a best guess">best guess</span>' : ""}<div class="nr-res-sub"><span class="nr-mod">${esc(modsT === "unknown" ? "modules unknown" : modsT + " modules")}</span> · <b class="nr-dist">${r.d === 0 ? "Same region" : num(r.d) + " ly"}</b><span class="nr-src">${r.src === "atlas" ? "In the atlas" : "Scanned here"}</span></div>${showRew ? rew : `<button type="button" class="nr-link" data-nr-reward="${r.address}">Show end reward</button>`}</div></div>
-<div class="nr-res-acts"><a class="nr-btn" href="#/d/${r.address}" data-nr-open="${r.address}">View derelict</a><button type="button" class="nr-btn nr-go" data-nr-start="${r.address}">Navigate <span aria-hidden="true">→</span></button></div>
+<div class="nr-res-acts"><a class="nr-btn" href="#/d/${r.address}" data-nr-open="${r.address}">View derelict</a><button type="button" class="nr-btn nr-go" data-nr-start="${r.address}">Navigate <span aria-hidden="true">→</span></button>${globalThis.dvTour ? dvTour.rowBtn(r.address) : ""}</div>
 ${ddHtml("row:" + r.address, "Details", `<div class="nr-line"><code class="nr-glyphs">${glyphsOf(r.address)}</code><button type="button" class="nr-mini" data-nr-copy="${glyphsOf(r.address)}">Copy</button> <span class="nr-guess">${name ? "(generated name, a best guess)" : ""}</span> <span class="nr-gal">${esc(gname(r.gal))}</span>${isPurple(r.sys) ? ' <span class="nr-tag">Purple star: needs the purple-star unlock</span>' : ""}</div>
 <div class="nr-line nr-facts">Predicted modules: <b>${esc(modsT)}</b> · crates ${row.salvage_crates ?? "?"} · rooms ${row.rooms ?? "?"}</div>
 <div class="nr-line nr-facts">${r.d === 0 ? "" : "About " + jumps + " jump" + (jumps === 1 ? "" : "s") + " (estimate, at " + num(range) + " ly drive range)"}</div>`, "nr-rd")}</li>`;
@@ -1414,5 +1415,9 @@ ${rp.arrived || rp.same || !globalThis.dvNearRoute ? "" : dvNearRoute.bigHtml(rp
     state: () => ({ S, results, run: run ? { workers: run.workers.length, scanned: run.scanned, matches: run.matches, regions: run.regions, reach: run.reach, stop: run.stop, judged: run.judged } : null, nameRun: !!nameRun, msPer, lastRun, lastEst, atlasInfo, storeOk, workerCount, speed: speedKey() }),
     scanNow: () => startScan(), mapState: () => mapState, view: () => ({ tripOpen }), title: NEAR_TITLE,
     open: openDlg, close: closeDlg, navigateTo, playerGap, addResult, paintNow: paintAnchored,
+    // v166: what the Derelict tour (site-dtour.js) reads from Near me; nothing here changes Near me
+    tourApi: () => ({ S: () => S, curPos, rowsNow, core, filterOf, results: () => results, hist, galNow, setGalaxy, sysName,
+      scanned: () => { const o = []; for (const [a, arr] of rowsMap()) if (arr.length) o.push([a, viewerRow(a, rowFromArr(arr))]); return o; },
+      setDrive: (v) => { S.drive = v; save(); paintResults(); paintTrip(); } }),
     which: () => ({ skip: which.skip.slice(), fast: fastOn(), factor: factor() }) };
 })();

@@ -66,7 +66,7 @@ ${card(I.check, "Your uploads", "The scanner page shows how many of your scans a
   // everything about privacy lives here (user 2026-11-06); checked against the code and relay.py, keep it that way
   function privacyHtml() {
     const items = [
-      ["In your browser", "No accounts or cookies. Scans, scout name, upload log, settings and Near me position stay in this browser until you clear its data."],
+      ["In your browser", "No accounts or cookies. Scans, scout name, upload log, settings, Near me position and Derelict tours stay in this browser until you clear its data."],
       ["Uploads", "Contribute and Near me upload every system they scan; the viewer only top-100 systems; the embed widget nothing. Uploads hold system numbers, loot values, scan times, speed setting and device type, never your Near me position or check-ins."],
       ["Public on GitHub", "Uploads, your optional scout name and reports, including your note, are published on GitHub. Keep personal details out."],
       ["The relay", "Uploads and reports pass through a relay run by the atlas. It uses your IP address only for rate limits, never stores it and keeps no request logs."],
@@ -171,14 +171,14 @@ ${scanText}</section>`;
 
   let dialog = null, legacy = null;
   // the Privacy tab never scrolls (user 2026-11-06): two columns where there is room, then slightly smaller text.
-  // Scrolling comes back only where even that cannot fit, so no text is ever cut off.
+  // v170: the Scan marks item (relayScanned on) made it 7 items, so one more step (.73) and tighter spacing. Scrolling comes back only where even that cannot fit, so no text is ever cut off.
   function fitPrivacy() {
     const pan = dialog && dialog.querySelector(".si-panels"), box = dialog && dialog.querySelector("#si-privacy");
     if (!pan || !box) return;
     pan.classList.remove("si-noscroll");
     if (box.closest(".si-panel").hidden || !pan.clientHeight) return;
     const set = (cols, scale) => { box.classList.toggle("two", cols === 2); box.style.setProperty("--si-pv", scale); };
-    for (const scale of [1, .95, .9, .85, .8]) for (const cols of box.clientWidth >= 520 ? [1, 2] : [1]) {
+    for (const scale of [1, .95, .9, .85, .8, .76, .73]) for (const cols of box.clientWidth >= 520 ? [1, 2] : [1]) {
       set(cols, scale);
       if (pan.scrollHeight <= pan.clientHeight) { pan.classList.add("si-noscroll"); return; }
     }
